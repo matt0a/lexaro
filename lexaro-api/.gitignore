@@ -1,0 +1,42 @@
+# build
+/target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS / IntelliJ / NetBeans / VS Code
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+.idea/
+*.iws
+*.iml
+*.ipr
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+.vscode/
+
+# logs & temp
+*.log
+logs/
+
+# local env / secrets
+/src/main/resources/application.properties
+infra/*.env
+.env
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# (intentionally keep the Maven wrapper JAR tracked)
+# .mvn/wrapper/maven-wrapper.jar  <-- DO NOT ignore this
