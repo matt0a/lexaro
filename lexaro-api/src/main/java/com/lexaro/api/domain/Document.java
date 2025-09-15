@@ -36,4 +36,9 @@ public class Document {
     @Enumerated(EnumType.STRING)
     @Column(name="plan_at_upload", nullable=false)
     private Plan planAtUpload;
+
+    @Column(name = "object_key")
+    private String objectKey;
+
+
 }
