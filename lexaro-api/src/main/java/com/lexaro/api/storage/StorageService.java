@@ -12,4 +12,6 @@ public interface StorageService {
     long size(String objectKey);
 
     void delete(String objectKey);
+
+    PresignedDownload presignGet(String objectKey, int expiresSeconds);
 }

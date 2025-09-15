@@ -19,6 +19,9 @@ public class DocumentController {
     @Value("${app.upload.presignTtlSeconds:900}")
     private int presignTtlSeconds;
 
+    @Value("${app.download.presignTtlSeconds:300}")
+    private int defaultDownloadTtl;
+
 
     private Long userId() {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -46,4 +49,15 @@ public class DocumentController {
     public DocumentResponse complete(@PathVariable Long id, @RequestBody(required = false) CompleteUploadRequest r) {
         return docs.completeUpload(userId(), id, r);
     }
+
+    @GetMapping("/{id}/download")
+    public PresignDownloadResponse download(
+            @PathVariable Long id,
+            @RequestParam(value = "ttlSeconds", required = false) Integer ttl) {
+        // clamp so a client can’t request a huge/too-small TTL
+        int ttlSeconds = (ttl == null) ? defaultDownloadTtl : Math.max(30, Math.min(ttl, 3600));
+        return docs.presignDownload(userId(), id, ttlSeconds);
+
+    }
+
 }

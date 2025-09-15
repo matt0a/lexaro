@@ -31,6 +31,7 @@ logs/
 
 # local env / secrets
 /src/main/resources/application.properties
+infra/minio-data
 infra/*.env
 .env
 

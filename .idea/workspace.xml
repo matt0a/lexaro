@@ -5,36 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0fecd0c7-204c-4e58-9652-7c642d5bf848" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/.bloomcycle.bin/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/.usage-cache.bin.bkp/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/.usage-cache.bin/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/.usage.json/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/lexaro/.metadata.bin/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/lexaro/.usage-cache.bin.bkp/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/buckets/lexaro/.usage-cache.bin/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/config/config.json/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/config/iam/format.json/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/config/iam/sts/ZRZ35SWZWH96IWXU4A84/identity.json/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/format.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/pool.bin/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/.minio.sys/tmp/83261d5f-80f7-46b3-aa2b-bf50e392fd1c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/infra/minio-data/lexaro/u/1/848d6877-b94a-4c18-96bb-cd1da40f18a0/premium-test.pdf/xl.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/NoopStorageService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/S3StorageService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/StorageConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/StorageService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/CompleteUploadRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/PresignUploadRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/PresignUploadResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V7__documents_object_key.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/sqldialects.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/infra/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/infra/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/repo/DocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/repo/DocumentRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/NoopStorageService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/NoopStorageService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/S3StorageService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/S3StorageService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/StorageService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/storage/StorageService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentController.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -126,7 +101,7 @@
       <option name="presentableId" value="Default" />
       <updated>1757865943754</updated>
       <workItem from="1757865945588" duration="234000" />
-      <workItem from="1757866340963" duration="24967000" />
+      <workItem from="1757866340963" duration="28784000" />
     </task>
     <servers />
   </component>

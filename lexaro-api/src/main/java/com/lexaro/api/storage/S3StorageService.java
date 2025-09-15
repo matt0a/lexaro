@@ -4,16 +4,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.net.URI;
@@ -37,9 +39,7 @@ public class S3StorageService implements StorageService {
             @Value("${app.storage.region:us-east-1}") String region
     ) {
         var creds = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
-        var s3cfg = S3Configuration.builder()
-                .pathStyleAccessEnabled(true)   // ✅ force path style (bucket in path)
-                .build();
+        var s3cfg = S3Configuration.builder().pathStyleAccessEnabled(true).build(); // MinIO-friendly
 
         this.s3 = S3Client.builder()
                 .region(Region.of(region))
@@ -51,8 +51,8 @@ public class S3StorageService implements StorageService {
         this.presigner = S3Presigner.builder()
                 .region(Region.of(region))
                 .credentialsProvider(creds)
-                .serviceConfiguration(s3cfg)     // ✅ add this line
                 .endpointOverride(URI.create(endpoint))
+                .serviceConfiguration(s3cfg)
                 .build();
 
         this.bucket = bucket;
@@ -74,7 +74,6 @@ public class S3StorageService implements StorageService {
 
         PresignedPutObjectRequest preq = presigner.presignPutObject(presign);
 
-        // Flatten signed headers and ensure Content-Type is present for the client PUT call.
         Map<String, String> headers = preq.signedHeaders().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -82,9 +81,28 @@ public class S3StorageService implements StorageService {
                         (a, b) -> b,
                         LinkedHashMap::new
                 ));
-        headers.putIfAbsent("Content-Type", contentType);
 
         return new PresignedUpload(preq.url().toString(), headers, expiresSeconds);
+    }
+
+    @Override
+    public PresignedDownload presignGet(String objectKey, int expiresSeconds) {
+        var getReq = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(objectKey)
+                // optional: hint a filename and type for the response
+                .responseContentDisposition("attachment; filename=\"" + objectKey.substring(objectKey.lastIndexOf('/')+1) + "\"")
+                .responseContentType("application/pdf")
+                .build();
+
+        var presign = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofSeconds(expiresSeconds))
+                .getObjectRequest(getReq)
+                .build();
+
+        var preq = presigner.presignGetObject(presign);
+        return new PresignedDownload(preq.url().toString(), Map.of(), expiresSeconds);
+
     }
 
     @Override
@@ -94,11 +112,6 @@ public class S3StorageService implements StorageService {
             return true;
         } catch (NoSuchKeyException e) {
             return false;
-        } catch (S3Exception e) {
-            if (e.statusCode() == 404) return false;
-            throw e;
-        } catch (SdkClientException e) { // connectivity, etc.
-            throw e;
         }
     }
 
@@ -110,6 +123,6 @@ public class S3StorageService implements StorageService {
 
     @Override
     public void delete(String objectKey) {
-        s3.deleteObject(b -> b.bucket(bucket).key(objectKey));
+        s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
     }
 }

@@ -6,11 +6,7 @@ import com.lexaro.api.domain.User;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.storage.StorageService;
-import com.lexaro.api.web.dto.CompleteUploadRequest;
-import com.lexaro.api.web.dto.CreateMetadataRequest;
-import com.lexaro.api.web.dto.DocumentResponse;
-import com.lexaro.api.web.dto.PresignUploadRequest;
-import com.lexaro.api.web.dto.PresignUploadResponse;
+import com.lexaro.api.web.dto.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -171,4 +167,19 @@ public class DocumentService {
                 d.getPlanAtUpload().name()
         );
     }
+
+    @Transactional(readOnly = true)
+    public PresignDownloadResponse presignDownload(Long userId, Long docId, int presignTtlSeconds) {
+        var doc = docs.findByIdAndUserId(docId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        if (doc.getStatus() != DocStatus.READY)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document is not ready");
+        if (doc.getObjectKey() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No stored object");
+
+        var p = storage.presignGet(doc.getObjectKey(), presignTtlSeconds);
+        return new PresignDownloadResponse(doc.getId(), doc.getObjectKey(), p.url(), p.headers(), p.expiresInSeconds());
+    }
+
 }
