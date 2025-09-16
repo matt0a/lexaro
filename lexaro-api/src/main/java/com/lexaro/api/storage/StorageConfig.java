@@ -6,18 +6,21 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class StorageConfig {
-    @Value("${app.storage.provider:noop}")
-    private String provider;
 
-    private final S3StorageService s3;
-    private final NoopStorageService noop;
-
-    public StorageConfig(S3StorageService s3, NoopStorageService noop) {
-        this.s3 = s3; this.noop = noop;
-    }
-
-    @Bean
-    public StorageService storageService() {
-        return "s3".equalsIgnoreCase(provider) ? s3 : noop;
+    @Bean(name = "storageService")
+    public StorageService storageService(
+            @Value("${app.storage.provider:noop}") String provider,
+            @Value("${app.storage.bucket:}") String bucket,
+            @Value("${app.storage.endpoint:}") String endpoint,
+            @Value("${app.storage.accessKey:}") String accessKey,
+            @Value("${app.storage.secretKey:}") String secretKey,
+            @Value("${app.storage.region:us-east-1}") String region
+    ) {
+        if ("s3".equalsIgnoreCase(provider)) {
+            // builds the concrete S3 impl here (no separate bean registered)
+            return new S3StorageService(bucket, endpoint, accessKey, secretKey, region);
+        }
+        // default fallback
+        return new NoopStorageService();
     }
 }

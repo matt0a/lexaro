@@ -57,7 +57,12 @@ public class DocumentController {
         // clamp so a client can’t request a huge/too-small TTL
         int ttlSeconds = (ttl == null) ? defaultDownloadTtl : Math.max(30, Math.min(ttl, 3600));
         return docs.presignDownload(userId(), id, ttlSeconds);
+    }
 
+    @DeleteMapping("/{id}")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        docs.delete(userId(), id);
     }
 
 }

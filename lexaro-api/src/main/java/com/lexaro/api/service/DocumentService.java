@@ -81,6 +81,9 @@ public class DocumentService {
         if (!plans.isUnlimited(user)) {
             enforcePlanLimits(user, r.sizeBytes(), r.pages());
         }
+        // clamp TTL so a client can’t request a huge/too-small TTL
+        int ttl = Math.max(60, Math.min(presignTtlSeconds, 3600));
+
 
         String objectKey = "u/%d/%s/%s".formatted(userId, UUID.randomUUID(), sanitize(r.filename()));
 
@@ -169,17 +172,35 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public PresignDownloadResponse presignDownload(Long userId, Long docId, int presignTtlSeconds) {
-        var doc = docs.findByIdAndUserId(docId, userId)
+    public PresignDownloadResponse presignDownload(Long userId, Long id, int ttlSeconds) {
+        // clamp TTL to 60..3600
+        int ttl = Math.max(60, Math.min(ttlSeconds, 3600));
+
+        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
-
-        if (doc.getStatus() != DocStatus.READY)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document is not ready");
         if (doc.getObjectKey() == null)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No stored object");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored object for this document");
+        if (doc.getStatus() != DocStatus.READY)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document not ready");
 
-        var p = storage.presignGet(doc.getObjectKey(), presignTtlSeconds);
+        var p = storage.presignGet(doc.getObjectKey(), ttl);
+        // Use the original filename in Content-Disposition on the client side if needed.
         return new PresignDownloadResponse(doc.getId(), doc.getObjectKey(), p.url(), p.headers(), p.expiresInSeconds());
     }
+
+    @Transactional
+    public void delete(Long userId, Long id) {
+        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        // best-effort physical delete
+        if (doc.getObjectKey() != null) {
+            try { storage.delete(doc.getObjectKey()); } catch (Exception ignored) {}
+        }
+        doc.setDeletedAt(Instant.now());
+        doc.setStatus(DocStatus.EXPIRED);
+        docs.save(doc);
+    }
+
 
 }

@@ -8,5 +8,6 @@
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V5__documents_sha256_to_varchar.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V6__documents_status_enum_to_varchar.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V7__documents_object_key.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V8__documents_indexes.sql" dialect="PostgreSQL" />
   </component>
 </project>

@@ -1,10 +1,8 @@
 package com.lexaro.api.storage;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
 
-@Component
+//@Component
 public class NoopStorageService implements StorageService {
 
     @Override
