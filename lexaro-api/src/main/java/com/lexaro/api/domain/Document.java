@@ -40,5 +40,23 @@ public class Document {
     @Column(name = "object_key")
     private String objectKey;
 
+    // 🔽 TTS fields
+    @Enumerated(EnumType.STRING)
+    @Column(name="audio_status", nullable=false)
+    @Builder.Default
+    private AudioStatus audioStatus = AudioStatus.NONE;
+
+    @Column(name="audio_object_key")
+    private String audioObjectKey;
+
+    @Column(name="audio_format")
+    private String audioFormat;           // e.g. "mp3"
+
+    @Column(name="audio_voice")
+    private String audioVoice;            // e.g. "Joanna"
+
+    @Column(name="audio_duration_sec")
+    private Integer audioDurationSec;
+
 
 }

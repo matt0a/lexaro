@@ -1,5 +1,6 @@
 package com.lexaro.api.service;
 
+import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.DocStatus;
 import com.lexaro.api.domain.Document;
 import com.lexaro.api.domain.User;
@@ -27,7 +28,6 @@ public class DocumentService {
     private final PlanService plans;
     private final StorageService storage;
 
-    // Explicit constructor so the Qualifier is applied (Lombok wouldn't copy @Qualifier).
     public DocumentService(
             DocumentRepository docs,
             UserRepository users,
@@ -40,7 +40,8 @@ public class DocumentService {
         this.storage = storage;
     }
 
-    // -------- FREE path (metadata only) ----------
+    // -------- FREE path ----------
+
     @Transactional
     public DocumentResponse createMetadata(Long userId, CreateMetadataRequest r) {
         var user = users.findById(userId).orElseThrow();
@@ -71,7 +72,7 @@ public class DocumentService {
         return docs.findByUserIdAndDeletedAtIsNull(userId, pageable).map(this::toDto);
     }
 
-    // -------- PREMIUM path (real upload) ----------
+    // -------- PREMIUM path ----------
 
     @Transactional
     public PresignUploadResponse presignUpload(Long userId, PresignUploadRequest r, int presignTtlSeconds) {
@@ -81,9 +82,8 @@ public class DocumentService {
         if (!plans.isUnlimited(user)) {
             enforcePlanLimits(user, r.sizeBytes(), r.pages());
         }
-        // clamp TTL so a client can’t request a huge/too-small TTL
-        int ttl = Math.max(60, Math.min(presignTtlSeconds, 3600));
 
+        int ttl = Math.max(60, Math.min(presignTtlSeconds, 3600));
 
         String objectKey = "u/%d/%s/%s".formatted(userId, UUID.randomUUID(), sanitize(r.filename()));
 
@@ -94,7 +94,7 @@ public class DocumentService {
                 .mime(r.mime())
                 .sizeBytes(r.sizeBytes())
                 .pages(r.pages())
-                .status(DocStatus.UPLOADED) // becomes READY on /complete
+                .status(DocStatus.UPLOADED)
                 .uploadedAt(now)
                 .planAtUpload(plans.effectivePlan(user))
                 .objectKey(objectKey)
@@ -102,7 +102,7 @@ public class DocumentService {
 
         doc = docs.save(doc);
 
-        var p = storage.presignPut(objectKey, r.mime(), r.sizeBytes(), presignTtlSeconds);
+        var p = storage.presignPut(objectKey, r.mime(), r.sizeBytes(), ttl);
         return new PresignUploadResponse(doc.getId(), objectKey, p.url(), p.headers(), p.expiresInSeconds());
     }
 
@@ -137,7 +137,71 @@ public class DocumentService {
         return toDto(docs.save(doc));
     }
 
-    // -------- helpers ----------
+    // -------- Download helpers ----------
+
+    @Transactional(readOnly = true)
+    public PresignDownloadResponse presignDownload(Long userId, Long id, int ttlSeconds) {
+        int ttl = Math.max(60, Math.min(ttlSeconds, 3600));
+
+        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+        if (doc.getObjectKey() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored object for this document");
+        if (doc.getStatus() != DocStatus.READY)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document not ready");
+
+        // PDF download; we can add a Content-Disposition override here later if you want
+        var p = storage.presignGet(doc.getObjectKey(), ttl);
+        return new PresignDownloadResponse(doc.getId(), doc.getObjectKey(), p.url(), p.headers(), ttl);
+    }
+
+    @Transactional(readOnly = true)
+    public PresignDownloadResponse presignAudioDownload(Long userId, Long docId, int ttlSeconds) {
+        int ttl = Math.max(60, Math.min(ttlSeconds, 3600));
+
+        var doc = docs.findByIdAndUserId(docId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        if (doc.getAudioStatus() != AudioStatus.READY || doc.getAudioObjectKey() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Audio not ready");
+        }
+
+        var base = doc.getFilename() == null ? "audio" : doc.getFilename().replaceAll("\\.pdf$", "");
+        var ext  = doc.getAudioFormat() == null ? "mp3" : doc.getAudioFormat().toLowerCase();
+        var nice = base + "." + ext;
+
+        var contentType = switch (ext) {
+            case "wav" -> "audio/wav";
+            case "m4a" -> "audio/mp4";
+            case "aac" -> "audio/aac";
+            default    -> "audio/mpeg"; // mp3
+        };
+
+        // IMPORTANT: embed overrides in the signature (no appending later)
+        var p = storage.presignGet(
+                doc.getAudioObjectKey(),
+                ttl,
+                contentType,
+                "attachment; filename=\"" + nice + "\""
+        );
+
+        return new PresignDownloadResponse(doc.getId(), doc.getAudioObjectKey(), p.url(), p.headers(), ttl);
+    }
+
+    @Transactional
+    public void delete(Long userId, Long id) {
+        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        if (doc.getObjectKey() != null) {
+            try { storage.delete(doc.getObjectKey()); } catch (Exception ignored) {}
+        }
+        doc.setDeletedAt(Instant.now());
+        doc.setStatus(DocStatus.EXPIRED);
+        docs.save(doc);
+    }
+
+    // -------- internals ----------
 
     private void validateBasics(String filename, String mime, long sizeBytes, Integer pages) {
         if (sizeBytes <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sizeBytes must be > 0");
@@ -170,37 +234,4 @@ public class DocumentService {
                 d.getPlanAtUpload().name()
         );
     }
-
-    @Transactional(readOnly = true)
-    public PresignDownloadResponse presignDownload(Long userId, Long id, int ttlSeconds) {
-        // clamp TTL to 60..3600
-        int ttl = Math.max(60, Math.min(ttlSeconds, 3600));
-
-        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
-        if (doc.getObjectKey() == null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored object for this document");
-        if (doc.getStatus() != DocStatus.READY)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Document not ready");
-
-        var p = storage.presignGet(doc.getObjectKey(), ttl);
-        // Use the original filename in Content-Disposition on the client side if needed.
-        return new PresignDownloadResponse(doc.getId(), doc.getObjectKey(), p.url(), p.headers(), p.expiresInSeconds());
-    }
-
-    @Transactional
-    public void delete(Long userId, Long id) {
-        var doc = docs.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
-
-        // best-effort physical delete
-        if (doc.getObjectKey() != null) {
-            try { storage.delete(doc.getObjectKey()); } catch (Exception ignored) {}
-        }
-        doc.setDeletedAt(Instant.now());
-        doc.setStatus(DocStatus.EXPIRED);
-        docs.save(doc);
-    }
-
-
 }

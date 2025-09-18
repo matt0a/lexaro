@@ -116,6 +116,25 @@
             <artifactId>s3</artifactId>
             <version>2.25.61</version>
         </dependency>
+        <!-- PDF text extraction -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.30</version>
+        </dependency>
+
+        <!-- Amazon Polly (only used when app.tts.provider=polly) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>polly</artifactId>
+            <version>2.25.68</version>
+        </dependency>
+        <!-- DOCX text extraction -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
 
     </dependencies>
 

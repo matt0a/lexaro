@@ -3,6 +3,8 @@ package com.lexaro.api.storage;
 import org.springframework.beans.factory.annotation.Value;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -18,7 +20,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-//@Component
 public class S3StorageService implements StorageService {
 
     private final S3Client s3;
@@ -84,9 +85,6 @@ public class S3StorageService implements StorageService {
         var getReq = GetObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)
-                // optional: hint a filename and type for the response
-                .responseContentDisposition("attachment; filename=\"" + objectKey.substring(objectKey.lastIndexOf('/')+1) + "\"")
-                .responseContentType("application/pdf")
                 .build();
 
         var presign = GetObjectPresignRequest.builder()
@@ -95,8 +93,32 @@ public class S3StorageService implements StorageService {
                 .build();
 
         var preq = presigner.presignGetObject(presign);
-        return new PresignedDownload(preq.url().toString(), Map.of(), expiresSeconds);
+        return new PresignedDownload(preq.url().toString(), Map.of());
+    }
 
+    @Override
+    public PresignedDownload presignGet(String objectKey,
+                                        int expiresSeconds,
+                                        String responseContentType,
+                                        String responseContentDisposition) {
+        var getReqBuilder = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(objectKey);
+
+        if (responseContentType != null && !responseContentType.isBlank()) {
+            getReqBuilder.responseContentType(responseContentType);
+        }
+        if (responseContentDisposition != null && !responseContentDisposition.isBlank()) {
+            getReqBuilder.responseContentDisposition(responseContentDisposition);
+        }
+
+        var presign = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofSeconds(expiresSeconds))
+                .getObjectRequest(getReqBuilder.build())
+                .build();
+
+        var preq = presigner.presignGetObject(presign);
+        return new PresignedDownload(preq.url().toString(), Map.of());
     }
 
     @Override
@@ -106,6 +128,9 @@ public class S3StorageService implements StorageService {
             return true;
         } catch (NoSuchKeyException e) {
             return false;
+        } catch (S3Exception e) {
+            if (e.statusCode() == 404) return false;
+            throw e;
         }
     }
 
@@ -118,5 +143,19 @@ public class S3StorageService implements StorageService {
     @Override
     public void delete(String objectKey) {
         s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
+    }
+
+    @Override
+    public byte[] getBytes(String objectKey) {
+        var resp = s3.getObjectAsBytes(b -> b.bucket(bucket).key(objectKey));
+        return resp.asByteArray();
+    }
+
+    @Override
+    public void put(String objectKey, byte[] bytes, String contentType) {
+        s3.putObject(
+                b -> b.bucket(bucket).key(objectKey).contentType(contentType),
+                RequestBody.fromBytes(bytes)
+        );
     }
 }

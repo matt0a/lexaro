@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/lexaro-api/lexaro-api.iml" filepath="$PROJECT_DIR$/lexaro-api/lexaro-api.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/lexaro-app.iml" filepath="$PROJECT_DIR$/.idea/lexaro-app.iml" />
     </modules>
   </component>

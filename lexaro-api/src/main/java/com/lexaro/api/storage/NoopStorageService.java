@@ -2,7 +2,7 @@ package com.lexaro.api.storage;
 
 import java.util.Map;
 
-//@Component
+/** Disabled storage used when provider = noop. */
 public class NoopStorageService implements StorageService {
 
     @Override
@@ -12,11 +12,28 @@ public class NoopStorageService implements StorageService {
 
     @Override
     public PresignedDownload presignGet(String objectKey, int expiresSeconds) {
-        // Never used in NOOP; just return a harmless stub or throw.
-        return new PresignedDownload("https://example.invalid/noop", Map.of(), expiresSeconds);
+        return new PresignedDownload("https://example.invalid/noop", Map.of());
+    }
+
+    @Override
+    public PresignedDownload presignGet(String objectKey,
+                                        int expiresSeconds,
+                                        String responseContentType,
+                                        String responseContentDisposition) {
+        return new PresignedDownload("https://example.invalid/noop", Map.of());
     }
 
     @Override public boolean exists(String objectKey) { return false; }
     @Override public long size(String objectKey) { return 0L; }
     @Override public void delete(String objectKey) { /* no-op */ }
+
+    @Override
+    public byte[] getBytes(String objectKey) {
+        throw new IllegalStateException("NOOP storage: getBytes() not supported");
+    }
+
+    @Override
+    public void put(String objectKey, byte[] bytes, String contentType) {
+        throw new IllegalStateException("NOOP storage: put() not supported");
+    }
 }

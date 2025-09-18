@@ -6,6 +6,6 @@ public record PresignDownloadResponse(
         Long id,
         String objectKey,
         String url,
-        Map<String,String> headers,
-        int   expiresInSeconds
+        Map<String, String> headers,
+        int expiresInSeconds
 ) {}
