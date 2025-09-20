@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class TtsConfig {
@@ -14,6 +15,7 @@ public class TtsConfig {
         return new DevTtsService();
     }
 
+    @Primary
     @Bean("pollyTtsService")
     @ConditionalOnProperty(name = "app.tts.provider", havingValue = "polly")
     public TtsService pollyTtsService(
