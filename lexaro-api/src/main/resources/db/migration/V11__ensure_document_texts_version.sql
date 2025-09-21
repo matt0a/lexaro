@@ -1,0 +1,2 @@
+ALTER TABLE public.document_texts
+    ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
