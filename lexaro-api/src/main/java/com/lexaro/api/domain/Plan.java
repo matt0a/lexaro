@@ -1,5 +1,8 @@
 package com.lexaro.api.domain;
 
 public enum Plan {
-    FREE, PREMIUM
+    FREE,
+    PREMIUM,
+    BUSINESS,
+    BUSINESS_PLUS
 }

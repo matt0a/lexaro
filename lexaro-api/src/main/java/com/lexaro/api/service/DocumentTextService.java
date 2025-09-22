@@ -52,12 +52,12 @@ public class DocumentTextService {
         if (text.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
 
-        int cap = plans.ttsMaxCharsFor(doc.getUser());
+        // Apply per-document cap by planAtUpload (no lazy load of User)
+        int cap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
         if (text.length() > cap) text = text.substring(0, cap);
 
-        // ⬇️ do NOT set docId; @MapsId will carry doc.id on INSERT
         var created = DocumentText.builder()
-                .document(doc)
+                .document(doc)               // @MapsId will carry doc.id on INSERT
                 .mime(doc.getMime())
                 .text(text)
                 .charCount(text.length())
@@ -66,6 +66,7 @@ public class DocumentTextService {
 
         return texts.save(created); // not saveAndFlush()
     }
+
 
     private Document mustOwn(Long userId, Long docId) {
         return docs.findByIdAndUserIdAndDeletedAtIsNull(docId, userId)

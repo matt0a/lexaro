@@ -58,5 +58,8 @@ public class Document {
     @Column(name="audio_duration_sec")
     private Integer audioDurationSec;
 
+    @Column(name="audio_error")
+    private String audioError;
+
 
 }
