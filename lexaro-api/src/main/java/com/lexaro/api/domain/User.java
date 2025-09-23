@@ -28,4 +28,9 @@ public class User {
 
     @Column(name="created_at", nullable=false)
     private Instant createdAt;
+
+    @Column(nullable = false) private boolean verified = false;
+    private String verificationToken;
+    private Instant verificationSentAt;
+    private Instant verifiedAt;
 }

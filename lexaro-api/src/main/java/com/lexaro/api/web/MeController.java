@@ -22,7 +22,13 @@ public class MeController {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
-    public record UsageDto(String plan, boolean unlimited, long monthlyCap, long used, long remaining) {}
+    public record UsageDto(
+            String plan,
+            boolean unlimited,
+            boolean verified,
+            long monthlyCap, long monthlyUsed, long monthlyRemaining,
+            long dailyCap,   long dailyUsed,   long dailyRemaining
+    ) {}
 
     @GetMapping("/usage")
     public UsageDto usage() {
@@ -30,9 +36,16 @@ public class MeController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         var plan = plans.effectivePlan(u);
         boolean unlimited = plans.isUnlimited(u);
-        long cap = unlimited ? Long.MAX_VALUE : plans.monthlyCapForPlan(plan);
-        long used = unlimited ? 0L : quota.currentUsage(u.getId());
-        long remaining = unlimited ? Long.MAX_VALUE : Math.max(0, cap - used);
-        return new UsageDto(plan.name(), unlimited, cap, used, remaining);
+        boolean verified  = u.isVerified();
+
+        long mCap  = unlimited ? Long.MAX_VALUE : plans.monthlyCapForPlan(plan);
+        long mUsed = unlimited ? 0L : quota.currentMonthly(u.getId());
+        long mRem  = unlimited ? Long.MAX_VALUE : Math.max(0, mCap - mUsed);
+
+        long dCap  = unlimited ? Long.MAX_VALUE : plans.dailyCapForPlan(plan);
+        long dUsed = unlimited ? 0L : quota.currentDaily(u.getId());
+        long dRem  = unlimited ? Long.MAX_VALUE : Math.max(0, dCap - dUsed);
+
+        return new UsageDto(plan.name(), unlimited, verified, mCap, mUsed, mRem, dCap, dUsed, dRem);
     }
 }

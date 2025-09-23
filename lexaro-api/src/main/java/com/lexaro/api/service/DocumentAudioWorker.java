@@ -2,11 +2,11 @@ package com.lexaro.api.service;
 
 import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.Document;
+import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
 import com.lexaro.api.tts.TextChunker;
 import com.lexaro.api.tts.TtsService;
-import com.lexaro.api.extract.TextExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -29,12 +29,11 @@ public class DocumentAudioWorker {
     private final TtsService tts;
     private final PlanService plans;
     private final TextExtractor extractor;
-    private final TtsQuotaService quota;   // record usage after success
+    private final TtsQuotaService quota;
 
     @Async("ttsExecutor")
     public void process(Long userId, Long docId, String voice, String engine, String format, boolean unlimited) {
-        log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}",
-                docId, userId, voice, engine, format);
+        log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}", docId, userId, voice, engine, format);
 
         Document doc = docs.findByIdAndUserId(docId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
@@ -51,9 +50,15 @@ public class DocumentAudioWorker {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
 
-            // Per-document hard cap (based on plan at upload)
+            // Per-document cap by plan
             int perDocCap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
             if (text.length() > perDocCap) text = text.substring(0, perDocCap);
+
+            // DAILY cap check **now** that we know exact length
+            long planned = text.length();
+            if (!unlimited) {
+                quota.ensureWithinDailyCap(userId, doc.getPlanAtUpload(), planned);
+            }
 
             int safeChunk = plans.ttsSafeChunkChars();
             List<String> chunks = TextChunker.splitBySentences(text, safeChunk);
@@ -66,8 +71,7 @@ public class DocumentAudioWorker {
             ByteArrayOutputStream mix = new ByteArrayOutputStream();
             for (String c : chunks) {
                 if (c == null || c.isBlank()) continue;
-                byte[] part = tts.synthesize(c, v, e, f);
-                mix.write(part);
+                mix.write(tts.synthesize(c, v, e, f));
             }
             byte[] merged = mix.toByteArray();
 
@@ -85,9 +89,10 @@ public class DocumentAudioWorker {
             String key = "aud/u/%d/%d/%s.%s".formatted(userId, doc.getId(), UUID.randomUUID(), ext);
             storage.put(key, merged, contentType);
 
-            // Record usage (actual synthesized chars)
+            // Record actual usage (monthly + daily)
             if (!unlimited) {
-                quota.addUsage(userId, text.length());
+                quota.addMonthlyUsage(userId, planned);
+                quota.addDailyUsage(userId, planned);
             }
 
             doc.setAudioObjectKey(key);

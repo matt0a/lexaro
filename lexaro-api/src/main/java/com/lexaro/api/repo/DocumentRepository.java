@@ -1,5 +1,6 @@
 package com.lexaro.api.repo;
 
+import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findTop100ByExpiresAtIsNotNullAndExpiresAtBeforeAndDeletedAtIsNull(Instant cutoff);
     @EntityGraph(attributePaths = "user")
     Optional<Document> findByIdAndUserId(Long id, Long userId);
-
+    long countByUserIdAndAudioStatus(Long userId, AudioStatus status);
 
 }

@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 
@@ -17,22 +18,41 @@ public class TtsQuotaService {
     private final JdbcTemplate jdbc;
     private final PlanService plans;
 
-    private String period() {
-        // e.g. "2025-09" in UTC
+    /* ---------- keys ---------- */
+
+    /** e.g. "2025-09" in UTC */
+    private String monthKey() {
         return YearMonth.now(ZoneOffset.UTC).toString();
     }
 
-    public long currentUsage(long userId) {
-        var sql = "select chars_used from tts_usage where user_id=? and period_ym=?";
+    /** e.g. 2025-09-23 in UTC */
+    private LocalDate dayKey() {
+        return LocalDate.now(ZoneOffset.UTC);
+    }
+
+    /* ---------- current usage ---------- */
+
+    public long currentMonthly(long userId) {
+        final String sql = "select chars_used from tts_usage where user_id=? and period_ym=?";
         Long v = null;
-        try { v = jdbc.queryForObject(sql, Long.class, userId, period()); } catch (Exception ignored) {}
+        try { v = jdbc.queryForObject(sql, Long.class, userId, monthKey()); } catch (Exception ignored) {}
         return v == null ? 0L : v;
     }
 
-    /** Throws 402 if (used + planned) > cap. */
+    public long currentDaily(long userId) {
+        final String sql = "select chars_used from tts_usage_day where user_id=? and period_ymd=?";
+        Long v = null;
+        try { v = jdbc.queryForObject(sql, Long.class, userId, dayKey()); } catch (Exception ignored) {}
+        return v == null ? 0L : v;
+    }
+
+    /* ---------- guards ---------- */
+
+    /** 402 if (used + planned) > monthly cap. */
     public void ensureWithinMonthlyCap(long userId, Plan plan, long plannedChars) {
         long cap  = plans.monthlyCapForPlan(plan);
-        long used = currentUsage(userId);
+        if (cap <= 0 || cap == Long.MAX_VALUE) return; // disabled
+        long used = currentMonthly(userId);
         if (used + plannedChars > cap) {
             long remaining = Math.max(0, cap - used);
             throw new ResponseStatusException(
@@ -42,9 +62,25 @@ public class TtsQuotaService {
         }
     }
 
-    /** Atomically add to usage and return new total. Call AFTER successful synthesis. */
-    public long addUsage(long userId, long delta) {
-        var sql = """
+    /** 429 if (used + planned) > daily cap. */
+    public void ensureWithinDailyCap(long userId, Plan plan, long plannedChars) {
+        long cap = plans.dailyCapForPlan(plan);
+        if (cap <= 0 || cap == Long.MAX_VALUE) return; // disabled for paid tiers
+        long used = currentDaily(userId);
+        if (used + plannedChars > cap) {
+            long remaining = Math.max(0, cap - used);
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Daily TTS limit reached. Remaining=" + remaining + " chars, requested=" + plannedChars
+            );
+        }
+    }
+
+    /* ---------- upserts ---------- */
+
+    /** Atomically add to monthly usage and return new total. */
+    public long addMonthlyUsage(long userId, long delta) {
+        final String sql = """
             insert into tts_usage (user_id, period_ym, chars_used, updated_at)
             values (?, ?, ?, now())
             on conflict (user_id, period_ym)
@@ -52,6 +88,19 @@ public class TtsQuotaService {
                           updated_at = now()
             returning chars_used
             """;
-        return jdbc.queryForObject(sql, Long.class, userId, period(), delta);
+        return jdbc.queryForObject(sql, Long.class, userId, monthKey(), delta);
+    }
+
+    /** Atomically add to daily usage and return new total. */
+    public long addDailyUsage(long userId, long delta) {
+        final String sql = """
+            insert into tts_usage_day (user_id, period_ymd, chars_used, updated_at)
+            values (?, ?, ?, now())
+            on conflict (user_id, period_ymd)
+            do update set chars_used = tts_usage_day.chars_used + EXCLUDED.chars_used,
+                          updated_at = now()
+            returning chars_used
+            """;
+        return jdbc.queryForObject(sql, Long.class, userId, dayKey(), delta);
     }
 }

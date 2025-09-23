@@ -6,6 +6,8 @@
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b/console_3.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V10__document_texts.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V16__tts_usage.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
+    <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V17__email_verification_and_tts_daily.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
+    <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V18__tts_daily_usage.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V4__fix_documents_plan_to_text.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
     <file url="file://$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V9__document_audio.sql" value="4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b" />
   </component>

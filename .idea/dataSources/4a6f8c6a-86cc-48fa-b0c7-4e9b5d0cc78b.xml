@@ -4250,14 +4250,28 @@ PREMIUM</Labels>
       <AccessMethodId>2</AccessMethodId>
       <OwnerName>postgres</OwnerName>
     </table>
-    <table id="279" parent="264" name="users">
+    <table id="279" parent="264" name="tts_usage_daily">
       <DetailsLevel>2</DetailsLevel>
-      <ObjectId>16416</ObjectId>
-      <StateNumber>747</StateNumber>
+      <ObjectId>16585</ObjectId>
+      <StateNumber>901</StateNumber>
       <AccessMethodId>2</AccessMethodId>
       <OwnerName>postgres</OwnerName>
     </table>
-    <column id="280" parent="272" name="id">
+    <table id="280" parent="264" name="tts_usage_day">
+      <DetailsLevel>2</DetailsLevel>
+      <ObjectId>16595</ObjectId>
+      <StateNumber>914</StateNumber>
+      <AccessMethodId>2</AccessMethodId>
+      <OwnerName>postgres</OwnerName>
+    </table>
+    <table id="281" parent="264" name="users">
+      <DetailsLevel>2</DetailsLevel>
+      <ObjectId>16416</ObjectId>
+      <StateNumber>907</StateNumber>
+      <AccessMethodId>2</AccessMethodId>
+      <OwnerName>postgres</OwnerName>
+    </table>
+    <column id="282" parent="272" name="id">
       <DefaultExpression>nextval(&apos;audio_assets_id_seq&apos;::regclass)</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>1</Position>
@@ -4266,34 +4280,34 @@ PREMIUM</Labels>
       <SequenceId>16458</SequenceId>
       <TypeId>20</TypeId>
     </column>
-    <column id="281" parent="272" name="document_id">
+    <column id="283" parent="272" name="document_id">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="282" parent="272" name="part_index">
+    <column id="284" parent="272" name="part_index">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>744</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="283" parent="272" name="s3_key">
+    <column id="285" parent="272" name="s3_key">
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="284" parent="272" name="duration_sec">
+    <column id="286" parent="272" name="duration_sec">
       <Position>5</Position>
       <StateNumber>744</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="285" parent="272" name="created_at">
+    <column id="287" parent="272" name="created_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>6</Position>
@@ -4301,7 +4315,7 @@ PREMIUM</Labels>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <foreign-key id="286" parent="272" name="audio_assets_document_id_fkey">
+    <foreign-key id="288" parent="272" name="audio_assets_document_id_fkey">
       <ColNames>document_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16470</ObjectId>
@@ -4310,7 +4324,7 @@ PREMIUM</Labels>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16444</RefTableId>
     </foreign-key>
-    <index id="287" parent="272" name="audio_assets_pkey">
+    <index id="289" parent="272" name="audio_assets_pkey">
       <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16466</ObjectId>
@@ -4319,7 +4333,7 @@ PREMIUM</Labels>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="288" parent="272" name="audio_assets_document_id_part_index_key">
+    <index id="290" parent="272" name="audio_assets_document_id_part_index_key">
       <ColNames>document_id
 part_index</ColNames>
       <NameSurrogate>1</NameSurrogate>
@@ -4328,26 +4342,26 @@ part_index</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="289" parent="272" name="idx_audio_assets_doc">
+    <index id="291" parent="272" name="idx_audio_assets_doc">
       <ColNames>document_id</ColNames>
       <ObjectId>16496</ObjectId>
       <StateNumber>744</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="290" parent="272" name="audio_assets_pkey">
+    <key id="292" parent="272" name="audio_assets_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16467</ObjectId>
       <Primary>1</Primary>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16466</UnderlyingIndexId>
     </key>
-    <key id="291" parent="272" name="audio_assets_document_id_part_index_key">
+    <key id="293" parent="272" name="audio_assets_document_id_part_index_key">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16469</ObjectId>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16468</UnderlyingIndexId>
     </key>
-    <column id="292" parent="273" name="id">
+    <column id="294" parent="273" name="id">
       <DefaultExpression>nextval(&apos;bookmarks_id_seq&apos;::regclass)</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>1</Position>
@@ -4356,34 +4370,34 @@ part_index</ColNames>
       <SequenceId>16475</SequenceId>
       <TypeId>20</TypeId>
     </column>
-    <column id="293" parent="273" name="document_id">
+    <column id="295" parent="273" name="document_id">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="294" parent="273" name="user_id">
+    <column id="296" parent="273" name="user_id">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="295" parent="273" name="position_sec">
+    <column id="297" parent="273" name="position_sec">
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StateNumber>744</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="296" parent="273" name="label">
+    <column id="298" parent="273" name="label">
       <Position>5</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="297" parent="273" name="created_at">
+    <column id="299" parent="273" name="created_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>6</Position>
@@ -4391,7 +4405,7 @@ part_index</ColNames>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <foreign-key id="298" parent="273" name="bookmarks_document_id_fkey">
+    <foreign-key id="300" parent="273" name="bookmarks_document_id_fkey">
       <ColNames>document_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16485</ObjectId>
@@ -4400,7 +4414,7 @@ part_index</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16444</RefTableId>
     </foreign-key>
-    <foreign-key id="299" parent="273" name="bookmarks_user_id_fkey">
+    <foreign-key id="301" parent="273" name="bookmarks_user_id_fkey">
       <ColNames>user_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16490</ObjectId>
@@ -4409,7 +4423,7 @@ part_index</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16416</RefTableId>
     </foreign-key>
-    <index id="300" parent="273" name="bookmarks_pkey">
+    <index id="302" parent="273" name="bookmarks_pkey">
       <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16483</ObjectId>
@@ -4418,49 +4432,49 @@ part_index</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="301" parent="273" name="idx_bookmarks_doc_user">
+    <index id="303" parent="273" name="idx_bookmarks_doc_user">
       <ColNames>document_id
 user_id</ColNames>
       <ObjectId>16497</ObjectId>
       <StateNumber>744</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="302" parent="273" name="bookmarks_pkey">
+    <key id="304" parent="273" name="bookmarks_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16484</ObjectId>
       <Primary>1</Primary>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16483</UnderlyingIndexId>
     </key>
-    <column id="303" parent="274" name="doc_id">
+    <column id="305" parent="274" name="doc_id">
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StateNumber>799</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="304" parent="274" name="mime">
+    <column id="306" parent="274" name="mime">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>822</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="305" parent="274" name="text">
+    <column id="307" parent="274" name="text">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>822</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="306" parent="274" name="char_count">
+    <column id="308" parent="274" name="char_count">
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StateNumber>799</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="307" parent="274" name="extracted_at">
+    <column id="309" parent="274" name="extracted_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>5</Position>
@@ -4468,7 +4482,7 @@ user_id</ColNames>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="308" parent="274" name="version">
+    <column id="310" parent="274" name="version">
       <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>6</Position>
@@ -4476,7 +4490,7 @@ user_id</ColNames>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <foreign-key id="309" parent="274" name="document_texts_doc_id_fkey">
+    <foreign-key id="311" parent="274" name="document_texts_doc_id_fkey">
       <ColNames>doc_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16542</ObjectId>
@@ -4485,7 +4499,7 @@ user_id</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16444</RefTableId>
     </foreign-key>
-    <foreign-key id="310" parent="274" name="fk_document_texts_doc">
+    <foreign-key id="312" parent="274" name="fk_document_texts_doc">
       <ColNames>doc_id</ColNames>
       <ObjectId>16549</ObjectId>
       <OnDelete>cascade</OnDelete>
@@ -4493,7 +4507,7 @@ user_id</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16444</RefTableId>
     </foreign-key>
-    <index id="311" parent="274" name="document_texts_pkey">
+    <index id="313" parent="274" name="document_texts_pkey">
       <ColNames>doc_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16540</ObjectId>
@@ -4502,32 +4516,32 @@ user_id</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="312" parent="274" name="idx_document_texts_extracted_at">
+    <index id="314" parent="274" name="idx_document_texts_extracted_at">
       <ColNames>extracted_at</ColNames>
       <ObjectId>16547</ObjectId>
       <StateNumber>825</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="313" parent="274" name="document_texts_pkey">
+    <key id="315" parent="274" name="document_texts_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16541</ObjectId>
       <Primary>1</Primary>
       <StateNumber>799</StateNumber>
       <UnderlyingIndexId>16540</UnderlyingIndexId>
     </key>
-    <check id="314" parent="275" name="documents_audio_status_check">
+    <check id="316" parent="275" name="documents_audio_status_check">
       <ColNames>audio_status</ColNames>
       <ObjectId>16533</ObjectId>
       <Predicate>audio_status = ANY (ARRAY[&apos;NONE&apos;::text, &apos;PROCESSING&apos;::text, &apos;READY&apos;::text, &apos;FAILED&apos;::text])</Predicate>
       <StateNumber>777</StateNumber>
     </check>
-    <check id="315" parent="275" name="documents_plan_at_upload_chk">
+    <check id="317" parent="275" name="documents_plan_at_upload_chk">
       <ColNames>plan_at_upload</ColNames>
       <ObjectId>16514</ObjectId>
       <Predicate>plan_at_upload = ANY (ARRAY[&apos;FREE&apos;::text, &apos;PREMIUM&apos;::text])</Predicate>
       <StateNumber>751</StateNumber>
     </check>
-    <column id="316" parent="275" name="id">
+    <column id="318" parent="275" name="id">
       <DefaultExpression>nextval(&apos;documents_id_seq&apos;::regclass)</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>1</Position>
@@ -4536,54 +4550,54 @@ user_id</ColNames>
       <SequenceId>16443</SequenceId>
       <TypeId>20</TypeId>
     </column>
-    <column id="317" parent="275" name="user_id">
+    <column id="319" parent="275" name="user_id">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="318" parent="275" name="filename">
+    <column id="320" parent="275" name="filename">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="319" parent="275" name="mime">
+    <column id="321" parent="275" name="mime">
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="320" parent="275" name="size_bytes">
+    <column id="322" parent="275" name="size_bytes">
       <NotNull>1</NotNull>
       <Position>5</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="321" parent="275" name="sha256">
+    <column id="323" parent="275" name="sha256">
       <Position>6</Position>
       <StateNumber>753</StateNumber>
       <StoredType>varchar(64)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="322" parent="275" name="pages">
+    <column id="324" parent="275" name="pages">
       <Position>7</Position>
       <StateNumber>744</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="323" parent="275" name="status">
+    <column id="325" parent="275" name="status">
       <NotNull>1</NotNull>
       <Position>8</Position>
       <StateNumber>756</StateNumber>
       <StoredType>varchar(20)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="324" parent="275" name="uploaded_at">
+    <column id="326" parent="275" name="uploaded_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>9</Position>
@@ -4591,32 +4605,32 @@ user_id</ColNames>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="325" parent="275" name="expires_at">
+    <column id="327" parent="275" name="expires_at">
       <Position>10</Position>
       <StateNumber>744</StateNumber>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="326" parent="275" name="deleted_at">
+    <column id="328" parent="275" name="deleted_at">
       <Position>11</Position>
       <StateNumber>744</StateNumber>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="327" parent="275" name="plan_at_upload">
+    <column id="329" parent="275" name="plan_at_upload">
       <NotNull>1</NotNull>
       <Position>12</Position>
       <StateNumber>751</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="328" parent="275" name="object_key">
+    <column id="330" parent="275" name="object_key">
       <Position>13</Position>
       <StateNumber>762</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="329" parent="275" name="audio_status">
+    <column id="331" parent="275" name="audio_status">
       <DefaultExpression>&apos;NONE&apos;::text</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>14</Position>
@@ -4624,43 +4638,43 @@ user_id</ColNames>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="330" parent="275" name="audio_object_key">
+    <column id="332" parent="275" name="audio_object_key">
       <Position>15</Position>
       <StateNumber>777</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="331" parent="275" name="audio_format">
+    <column id="333" parent="275" name="audio_format">
       <Position>16</Position>
       <StateNumber>777</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="332" parent="275" name="audio_voice">
+    <column id="334" parent="275" name="audio_voice">
       <Position>17</Position>
       <StateNumber>777</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="333" parent="275" name="audio_duration_sec">
+    <column id="335" parent="275" name="audio_duration_sec">
       <Position>18</Position>
       <StateNumber>777</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="334" parent="275" name="audio_engine">
+    <column id="336" parent="275" name="audio_engine">
       <Position>19</Position>
       <StateNumber>848</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="335" parent="275" name="audio_error">
+    <column id="337" parent="275" name="audio_error">
       <Position>20</Position>
       <StateNumber>887</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <foreign-key id="336" parent="275" name="documents_user_id_fkey">
+    <foreign-key id="338" parent="275" name="documents_user_id_fkey">
       <ColNames>user_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16453</ObjectId>
@@ -4669,7 +4683,7 @@ user_id</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16416</RefTableId>
     </foreign-key>
-    <index id="337" parent="275" name="documents_pkey">
+    <index id="339" parent="275" name="documents_pkey">
       <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16451</ObjectId>
@@ -4678,7 +4692,7 @@ user_id</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="338" parent="275" name="idx_documents_user_uploaded">
+    <index id="340" parent="275" name="idx_documents_user_uploaded">
       <ColNames>user_id
 uploaded_at</ColNames>
       <Condition>(deleted_at IS NULL)</Condition>
@@ -4687,73 +4701,86 @@ uploaded_at</ColNames>
       <StateNumber>769</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="339" parent="275" name="idx_documents_user">
+    <index id="341" parent="275" name="idx_documents_user_audio_status">
+      <ColNames>user_id
+audio_status</ColNames>
+      <ObjectId>16593</ObjectId>
+      <StateNumber>901</StateNumber>
+      <AccessMethodId>403</AccessMethodId>
+      <CollationIds>
+100</CollationIds>
+      <CollationParentNames>
+pg_catalog</CollationParentNames>
+      <CollationNames>
+default</CollationNames>
+    </index>
+    <index id="342" parent="275" name="idx_documents_user">
       <ColNames>user_id</ColNames>
       <ObjectId>16495</ObjectId>
       <StateNumber>756</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="340" parent="275" name="idx_documents_expires_at">
+    <index id="343" parent="275" name="idx_documents_expires_at">
       <ColNames>expires_at</ColNames>
       <ObjectId>16530</ObjectId>
       <StateNumber>762</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="341" parent="275" name="documents_pkey">
+    <key id="344" parent="275" name="documents_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16452</ObjectId>
       <Primary>1</Primary>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16451</UnderlyingIndexId>
     </key>
-    <column id="342" parent="276" name="installed_rank">
+    <column id="345" parent="276" name="installed_rank">
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StateNumber>743</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="343" parent="276" name="version">
+    <column id="346" parent="276" name="version">
       <Position>2</Position>
       <StateNumber>743</StateNumber>
       <StoredType>varchar(50)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="344" parent="276" name="description">
+    <column id="347" parent="276" name="description">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>743</StateNumber>
       <StoredType>varchar(200)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="345" parent="276" name="type">
+    <column id="348" parent="276" name="type">
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StateNumber>743</StateNumber>
       <StoredType>varchar(20)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="346" parent="276" name="script">
+    <column id="349" parent="276" name="script">
       <NotNull>1</NotNull>
       <Position>5</Position>
       <StateNumber>743</StateNumber>
       <StoredType>varchar(1000)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="347" parent="276" name="checksum">
+    <column id="350" parent="276" name="checksum">
       <Position>6</Position>
       <StateNumber>743</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="348" parent="276" name="installed_by">
+    <column id="351" parent="276" name="installed_by">
       <NotNull>1</NotNull>
       <Position>7</Position>
       <StateNumber>743</StateNumber>
       <StoredType>varchar(100)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="349" parent="276" name="installed_on">
+    <column id="352" parent="276" name="installed_on">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>8</Position>
@@ -4761,21 +4788,21 @@ uploaded_at</ColNames>
       <StoredType>timestamp|0s</StoredType>
       <TypeId>1114</TypeId>
     </column>
-    <column id="350" parent="276" name="execution_time">
+    <column id="353" parent="276" name="execution_time">
       <NotNull>1</NotNull>
       <Position>9</Position>
       <StateNumber>743</StateNumber>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="351" parent="276" name="success">
+    <column id="354" parent="276" name="success">
       <NotNull>1</NotNull>
       <Position>10</Position>
       <StateNumber>743</StateNumber>
       <StoredType>boolean|0s</StoredType>
       <TypeId>16</TypeId>
     </column>
-    <index id="352" parent="276" name="flyway_schema_history_pk">
+    <index id="355" parent="276" name="flyway_schema_history_pk">
       <ColNames>installed_rank</ColNames>
       <ObjectId>16395</ObjectId>
       <Primary>1</Primary>
@@ -4783,19 +4810,19 @@ uploaded_at</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="353" parent="276" name="flyway_schema_history_s_idx">
+    <index id="356" parent="276" name="flyway_schema_history_s_idx">
       <ColNames>success</ColNames>
       <ObjectId>16397</ObjectId>
       <StateNumber>743</StateNumber>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="354" parent="276" name="flyway_schema_history_pk">
+    <key id="357" parent="276" name="flyway_schema_history_pk">
       <ObjectId>16396</ObjectId>
       <Primary>1</Primary>
       <StateNumber>743</StateNumber>
       <UnderlyingIndexId>16395</UnderlyingIndexId>
     </key>
-    <column id="355" parent="277" name="id">
+    <column id="358" parent="277" name="id">
       <DefaultExpression>nextval(&apos;subscriptions_id_seq&apos;::regclass)</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>1</Position>
@@ -4804,38 +4831,38 @@ uploaded_at</ColNames>
       <SequenceId>16429</SequenceId>
       <TypeId>20</TypeId>
     </column>
-    <column id="356" parent="277" name="user_id">
+    <column id="359" parent="277" name="user_id">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>744</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="357" parent="277" name="stripe_customer_id">
+    <column id="360" parent="277" name="stripe_customer_id">
       <Position>3</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="358" parent="277" name="stripe_subscription_id">
+    <column id="361" parent="277" name="stripe_subscription_id">
       <Position>4</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="359" parent="277" name="status">
+    <column id="362" parent="277" name="status">
       <Position>5</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="360" parent="277" name="current_period_end">
+    <column id="363" parent="277" name="current_period_end">
       <Position>6</Position>
       <StateNumber>744</StateNumber>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <foreign-key id="361" parent="277" name="subscriptions_user_id_fkey">
+    <foreign-key id="364" parent="277" name="subscriptions_user_id_fkey">
       <ColNames>user_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16438</ObjectId>
@@ -4844,7 +4871,7 @@ uploaded_at</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16416</RefTableId>
     </foreign-key>
-    <index id="362" parent="277" name="subscriptions_pkey">
+    <index id="365" parent="277" name="subscriptions_pkey">
       <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16436</ObjectId>
@@ -4853,28 +4880,28 @@ uploaded_at</ColNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="363" parent="277" name="subscriptions_pkey">
+    <key id="366" parent="277" name="subscriptions_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16437</ObjectId>
       <Primary>1</Primary>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16436</UnderlyingIndexId>
     </key>
-    <column id="364" parent="278" name="user_id">
+    <column id="367" parent="278" name="user_id">
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StateNumber>890</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="365" parent="278" name="period_ym">
+    <column id="368" parent="278" name="period_ym">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>890</StateNumber>
       <StoredType>char(7)|0s</StoredType>
       <TypeId>1042</TypeId>
     </column>
-    <column id="366" parent="278" name="chars_used">
+    <column id="369" parent="278" name="chars_used">
       <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>3</Position>
@@ -4882,7 +4909,7 @@ uploaded_at</ColNames>
       <StoredType>bigint|0s</StoredType>
       <TypeId>20</TypeId>
     </column>
-    <column id="367" parent="278" name="updated_at">
+    <column id="370" parent="278" name="updated_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>4</Position>
@@ -4890,7 +4917,7 @@ uploaded_at</ColNames>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <foreign-key id="368" parent="278" name="tts_usage_user_id_fkey">
+    <foreign-key id="371" parent="278" name="tts_usage_user_id_fkey">
       <ColNames>user_id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16576</ObjectId>
@@ -4899,7 +4926,7 @@ uploaded_at</ColNames>
       <RefKeyColPositions>1</RefKeyColPositions>
       <RefTableId>16416</RefTableId>
     </foreign-key>
-    <index id="369" parent="278" name="tts_usage_pkey">
+    <index id="372" parent="278" name="tts_usage_pkey">
       <ColNames>user_id
 period_ym</ColNames>
       <NameSurrogate>1</NameSurrogate>
@@ -4915,7 +4942,7 @@ pg_catalog</CollationParentNames>
       <CollationNames>
 default</CollationNames>
     </index>
-    <index id="370" parent="278" name="idx_tts_usage_user_period">
+    <index id="373" parent="278" name="idx_tts_usage_user_period">
       <ColNames>user_id
 period_ym</ColNames>
       <ObjectId>16581</ObjectId>
@@ -4928,20 +4955,119 @@ pg_catalog</CollationParentNames>
       <CollationNames>
 default</CollationNames>
     </index>
-    <key id="371" parent="278" name="tts_usage_pkey">
+    <key id="374" parent="278" name="tts_usage_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16575</ObjectId>
       <Primary>1</Primary>
       <StateNumber>890</StateNumber>
       <UnderlyingIndexId>16574</UnderlyingIndexId>
     </key>
-    <check id="372" parent="279" name="users_plan_check">
+    <column id="375" parent="279" name="user_id">
+      <NotNull>1</NotNull>
+      <Position>1</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>bigint|0s</StoredType>
+      <TypeId>20</TypeId>
+    </column>
+    <column id="376" parent="279" name="day_ymd">
+      <NotNull>1</NotNull>
+      <Position>2</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>text|0s</StoredType>
+      <TypeId>25</TypeId>
+    </column>
+    <column id="377" parent="279" name="chars_used">
+      <NotNull>1</NotNull>
+      <Position>3</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>bigint|0s</StoredType>
+      <TypeId>20</TypeId>
+    </column>
+    <column id="378" parent="279" name="updated_at">
+      <DefaultExpression>now()</DefaultExpression>
+      <NotNull>1</NotNull>
+      <Position>4</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>timestamp with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <index id="379" parent="279" name="tts_usage_daily_pkey">
+      <ColNames>user_id
+day_ymd</ColNames>
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16591</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>901</StateNumber>
+      <Unique>1</Unique>
+      <AccessMethodId>403</AccessMethodId>
+      <CollationIds>
+100</CollationIds>
+      <CollationParentNames>
+pg_catalog</CollationParentNames>
+      <CollationNames>
+default</CollationNames>
+    </index>
+    <key id="380" parent="279" name="tts_usage_daily_pkey">
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16592</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>901</StateNumber>
+      <UnderlyingIndexId>16591</UnderlyingIndexId>
+    </key>
+    <column id="381" parent="280" name="user_id">
+      <NotNull>1</NotNull>
+      <Position>1</Position>
+      <StateNumber>914</StateNumber>
+      <StoredType>bigint|0s</StoredType>
+      <TypeId>20</TypeId>
+    </column>
+    <column id="382" parent="280" name="period_ymd">
+      <NotNull>1</NotNull>
+      <Position>2</Position>
+      <StateNumber>914</StateNumber>
+      <StoredType>date|0s</StoredType>
+      <TypeId>1082</TypeId>
+    </column>
+    <column id="383" parent="280" name="chars_used">
+      <DefaultExpression>0</DefaultExpression>
+      <NotNull>1</NotNull>
+      <Position>3</Position>
+      <StateNumber>914</StateNumber>
+      <StoredType>bigint|0s</StoredType>
+      <TypeId>20</TypeId>
+    </column>
+    <column id="384" parent="280" name="updated_at">
+      <DefaultExpression>now()</DefaultExpression>
+      <NotNull>1</NotNull>
+      <Position>4</Position>
+      <StateNumber>914</StateNumber>
+      <StoredType>timestamp with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <index id="385" parent="280" name="tts_usage_day_pkey">
+      <ColNames>user_id
+period_ymd</ColNames>
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16600</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>914</StateNumber>
+      <Unique>1</Unique>
+      <AccessMethodId>403</AccessMethodId>
+    </index>
+    <key id="386" parent="280" name="tts_usage_day_pkey">
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16601</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>914</StateNumber>
+      <UnderlyingIndexId>16600</UnderlyingIndexId>
+    </key>
+    <check id="387" parent="281" name="users_plan_check">
       <ColNames>plan</ColNames>
       <ObjectId>16506</ObjectId>
       <Predicate>plan = ANY (ARRAY[&apos;FREE&apos;::text, &apos;PREMIUM&apos;::text])</Predicate>
       <StateNumber>747</StateNumber>
     </check>
-    <column id="373" parent="279" name="id">
+    <column id="388" parent="281" name="id">
       <DefaultExpression>nextval(&apos;users_id_seq&apos;::regclass)</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>1</Position>
@@ -4950,21 +5076,21 @@ default</CollationNames>
       <SequenceId>16415</SequenceId>
       <TypeId>20</TypeId>
     </column>
-    <column id="374" parent="279" name="email">
+    <column id="389" parent="281" name="email">
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="375" parent="279" name="password_hash">
+    <column id="390" parent="281" name="password_hash">
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StateNumber>744</StateNumber>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="376" parent="279" name="plan">
+    <column id="391" parent="281" name="plan">
       <DefaultExpression>&apos;FREE&apos;::plan</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>4</Position>
@@ -4972,7 +5098,7 @@ default</CollationNames>
       <StoredType>text|0s</StoredType>
       <TypeId>25</TypeId>
     </column>
-    <column id="377" parent="279" name="retention_days">
+    <column id="392" parent="281" name="retention_days">
       <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>5</Position>
@@ -4980,7 +5106,7 @@ default</CollationNames>
       <StoredType>integer|0s</StoredType>
       <TypeId>23</TypeId>
     </column>
-    <column id="378" parent="279" name="created_at">
+    <column id="393" parent="281" name="created_at">
       <DefaultExpression>now()</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>6</Position>
@@ -4988,7 +5114,41 @@ default</CollationNames>
       <StoredType>timestamp with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <index id="379" parent="279" name="users_pkey">
+    <column id="394" parent="281" name="verified">
+      <DefaultExpression>false</DefaultExpression>
+      <NotNull>1</NotNull>
+      <Position>7</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="395" parent="281" name="verification_token">
+      <Position>8</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>text|0s</StoredType>
+      <TypeId>25</TypeId>
+    </column>
+    <column id="396" parent="281" name="verification_sent_at">
+      <Position>9</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>timestamp with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="397" parent="281" name="verified_at">
+      <Position>10</Position>
+      <StateNumber>901</StateNumber>
+      <StoredType>timestamp with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="398" parent="281" name="email_verified">
+      <DefaultExpression>false</DefaultExpression>
+      <NotNull>1</NotNull>
+      <Position>11</Position>
+      <StateNumber>907</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <index id="399" parent="281" name="users_pkey">
       <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16425</ObjectId>
@@ -4997,7 +5157,7 @@ default</CollationNames>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <index id="380" parent="279" name="users_email_key">
+    <index id="400" parent="281" name="users_email_key">
       <ColNames>email</ColNames>
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16427</ObjectId>
@@ -5008,14 +5168,20 @@ default</CollationNames>
       <CollationIds>100</CollationIds>
       <CollationParentNames>pg_catalog</CollationParentNames>
     </index>
-    <key id="381" parent="279" name="users_pkey">
+    <index id="401" parent="281" name="idx_users_verified">
+      <ColNames>verified</ColNames>
+      <ObjectId>16584</ObjectId>
+      <StateNumber>901</StateNumber>
+      <AccessMethodId>403</AccessMethodId>
+    </index>
+    <key id="402" parent="281" name="users_pkey">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16426</ObjectId>
       <Primary>1</Primary>
       <StateNumber>744</StateNumber>
       <UnderlyingIndexId>16425</UnderlyingIndexId>
     </key>
-    <key id="382" parent="279" name="users_email_key">
+    <key id="403" parent="281" name="users_email_key">
       <NameSurrogate>1</NameSurrogate>
       <ObjectId>16428</ObjectId>
       <StateNumber>744</StateNumber>
