@@ -5,13 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0fecd0c7-204c-4e58-9652-7c642d5bf848" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b/storage_v2/_src_/database/lexaro.368Svg/schema/public.abK9xQ.meta" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/4a6f8c6a-86cc-48fa-b0c7-4e9b5d0cc78b/storage_v2/_src_/database/lexaro.368Svg/schema/public.abK9xQ.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/data_source_mapping.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/data_source_mapping.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/sqldialects.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Plan.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Plan.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentTextService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentTextService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/PlanService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/PlanService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -109,7 +110,7 @@
       <updated>1757865943754</updated>
       <workItem from="1757865945588" duration="234000" />
       <workItem from="1757866340963" duration="60688000" />
-      <workItem from="1758167020043" duration="42566000" />
+      <workItem from="1758167020043" duration="48122000" />
     </task>
     <servers />
   </component>

@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -30,9 +29,10 @@ public class DocumentAudioWorker {
     private final TtsService tts;
     private final PlanService plans;
     private final TextExtractor extractor;
+    private final TtsQuotaService quota;   // record usage after success
 
     @Async("ttsExecutor")
-    public void process(Long userId, Long docId, String voice, String engine, String format) {
+    public void process(Long userId, Long docId, String voice, String engine, String format, boolean unlimited) {
         log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}",
                 docId, userId, voice, engine, format);
 
@@ -40,12 +40,8 @@ public class DocumentAudioWorker {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
 
         try {
-            if (doc.getObjectKey() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored file for this document");
-            }
-
-            // 1) Extract & normalize text
             byte[] bytes = storage.getBytes(doc.getObjectKey());
+
             String text = extractor.extract(doc.getMime(), bytes, 0);
             if (text == null) text = "";
             text = text.replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", " ")
@@ -55,25 +51,18 @@ public class DocumentAudioWorker {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
 
-            // 2) Enforce per-document TTS cap for the plan at upload
+            // Per-document hard cap (based on plan at upload)
             int perDocCap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
-            if (text.length() > perDocCap) {
-                text = text.substring(0, perDocCap);
-            }
+            if (text.length() > perDocCap) text = text.substring(0, perDocCap);
 
-            // 3) Chunk safely for the provider
-            int safeChunk = plans.ttsSafeChunkChars();           // e.g., 3000
+            int safeChunk = plans.ttsSafeChunkChars();
             List<String> chunks = TextChunker.splitBySentences(text, safeChunk);
             log.debug("TTS chunk count for docId={}: {}", docId, chunks.size());
 
-            // 4) Resolve defaults
-            String v = (voice == null || voice.isBlank()) ? "Joanna" : voice;
-            String e = (engine == null || engine.isBlank())
-                    ? plans.defaultTtsEngine()                   // "standard" by default
-                    : engine.toLowerCase(Locale.ROOT);
+            String v = (voice == null || voice.isBlank()) ? plans.defaultTtsVoice()   : voice;
+            String e = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine() : engine.toLowerCase(Locale.ROOT);
             String f = (format == null || format.isBlank()) ? "mp3" : format.toLowerCase(Locale.ROOT);
 
-            // 5) Synthesize & concatenate
             ByteArrayOutputStream mix = new ByteArrayOutputStream();
             for (String c : chunks) {
                 if (c == null || c.isBlank()) continue;
@@ -82,7 +71,6 @@ public class DocumentAudioWorker {
             }
             byte[] merged = mix.toByteArray();
 
-            // 6) Persist audio blob
             String ext = switch (f) {
                 case "ogg_vorbis" -> "ogg";
                 case "pcm"        -> "pcm";
@@ -93,34 +81,29 @@ public class DocumentAudioWorker {
                 case "pcm" -> "audio/wave";
                 default    -> "audio/mpeg";
             };
+
             String key = "aud/u/%d/%d/%s.%s".formatted(userId, doc.getId(), UUID.randomUUID(), ext);
             storage.put(key, merged, contentType);
 
-            // 7) Update document state
+            // Record usage (actual synthesized chars)
+            if (!unlimited) {
+                quota.addUsage(userId, text.length());
+            }
+
             doc.setAudioObjectKey(key);
             doc.setAudioFormat(ext);
             doc.setAudioVoice(v);
             doc.setAudioStatus(AudioStatus.READY);
-            doc.setAudioError(null); // clear any previous error
             docs.save(doc);
 
             log.info("TTS success docId={}, bytesOut={}, key={}", docId, merged.length, key);
 
         } catch (Exception ex) {
-            // Don’t leak giant stack traces into DB; keep a short reason
-            String reason = ex.getMessage();
-            if (reason == null || reason.isBlank()) reason = ex.toString();
-            if (reason != null && reason.length() > 500) {
-                reason = reason.substring(0, 500);
-            }
-
-            log.error("TTS failed docId={}, userId={}, reason={}", docId, userId, reason, ex);
-
+            log.error("TTS failed docId={}, userId={}, reason={}", docId, userId, ex.toString(), ex);
             doc.setAudioStatus(AudioStatus.FAILED);
             doc.setAudioObjectKey(null);
             doc.setAudioFormat(null);
             doc.setAudioVoice(null);
-            doc.setAudioError(reason);
             docs.save(doc);
         }
     }

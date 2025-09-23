@@ -14,7 +14,8 @@ public class DocumentAudioService {
 
     private final DocumentRepository docs;
     private final DocumentAudioWorker worker; // async worker bean (@Async on its process method)
-
+    private final PlanService plans;
+    private final TtsQuotaService quota;
     /**
      * Marks the document as PROCESSING and dispatches background TTS work.
      * Returns immediately; poll GET /documents/{id}/audio until READY/FAILED.
@@ -33,6 +34,13 @@ public class DocumentAudioService {
             return;
         }
 
+        // Pre-check against monthly cap using worst-case (per-doc cap)
+        boolean unlimited = plans.isUnlimited(doc.getUser());
+        if (!unlimited) {
+            int perDocMax = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
+            quota.ensureWithinMonthlyCap(userId, doc.getPlanAtUpload(), perDocMax);
+        }
+
         // Mark as processing and clear any previous audio fields
         doc.setAudioStatus(AudioStatus.PROCESSING);
         doc.setAudioObjectKey(null);
@@ -41,6 +49,7 @@ public class DocumentAudioService {
         docs.save(doc);
 
         // Fire-and-forget background job (DocumentAudioWorker has the full pipeline)
-        worker.process(userId, docId, voice, engine, format);
+        worker.process(userId, docId, voice, engine, format, unlimited);
+
     }
 }
