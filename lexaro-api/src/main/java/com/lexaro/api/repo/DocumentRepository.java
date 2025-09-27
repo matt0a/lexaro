@@ -18,5 +18,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     @EntityGraph(attributePaths = "user")
     Optional<Document> findByIdAndUserId(Long id, Long userId);
     long countByUserIdAndAudioStatus(Long userId, AudioStatus status);
-
+    @Override
+    void flush();
 }

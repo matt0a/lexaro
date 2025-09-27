@@ -2,9 +2,12 @@ package com.lexaro.api.service;
 
 import com.lexaro.api.domain.Plan;
 import com.lexaro.api.domain.User;
+import com.lexaro.api.mail.MailService;
 import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.security.JwtService;
-import com.lexaro.api.web.dto.*;
+import com.lexaro.api.web.dto.AuthResponse;
+import com.lexaro.api.web.dto.LoginRequest;
+import com.lexaro.api.web.dto.RegisterRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,11 +26,13 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
     private final UserRepository users;
     private final PasswordEncoder encoder;
     private final JwtService jwt;
+    private final MailService mail; // <-- send real emails
 
-    // ----- Config flags -----
+    // --- Config ---
     @Value("${app.auth.requireEmailVerification:true}")
     private boolean requireVerification;
 
@@ -37,9 +42,13 @@ public class AuthService {
     @Value("${app.auth.verification.ttlHours:48}")
     private long verificationTtlHours;
 
-    // dev override: emails that always get “premium/unlimited” in your env
+    @Value("${app.auth.verification.resendCooldownSeconds:60}")
+    private long resendCooldownSeconds;
+
     @Value("${app.dev.adminEmails:}")
     private String adminEmailsCsv;
+
+    // --- Helpers ---
 
     private boolean isAdminEmail(String email) {
         if (adminEmailsCsv == null || adminEmailsCsv.isBlank()) return false;
@@ -57,22 +66,64 @@ public class AuthService {
         return changed;
     }
 
+    private void sendVerificationEmail(User u, String link) {
+        String subject = "Verify your email for Lexaro";
+        String text = """
+                Hi,
+                
+                Please verify your email by clicking the link below:
+                %s
+                
+                This link expires in %d hours.
+                
+                If you didn't request this, you can ignore it.
+                """.formatted(link, verificationTtlHours);
+
+        String html = """
+                <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
+                  <h2>Verify your email</h2>
+                  <p>Click the button below to verify your Lexaro account.</p>
+                  <p><a href="%s" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#111;color:#fff;text-decoration:none">Verify email</a></p>
+                  <p style="color:#666;font-size:12px">This link expires in %d hours.</p>
+                </div>
+                """.formatted(link, verificationTtlHours);
+
+        try {
+            mail.send(u.getEmail(), subject, text, html);
+        } catch (Exception ex) {
+            // Don't block signup on mail flakiness — just log
+            log.error("Failed to send verification email to {}: {}", u.getEmail(), ex.toString(), ex);
+        }
+        log.info("📧 Verification link (debug) for {}: {}", u.getEmail(), link);
+    }
+
     private void generateAndSendVerification(User u) {
         u.setVerificationToken(UUID.randomUUID().toString());
         u.setVerificationSentAt(Instant.now());
         users.save(u);
-
         String link = verificationBaseUrl + "?token=" + u.getVerificationToken();
-        // No mailer wired yet, so log the link for now:
-        log.info("📧 Verification link for {}: {}", u.getEmail(), link);
+        sendVerificationEmail(u, link);
     }
 
     private boolean tokenExpired(User u) {
         if (u.getVerificationSentAt() == null) return true;
-        return Instant.now().isAfter(u.getVerificationSentAt().plus(Duration.ofHours(verificationTtlHours)));
+        return Instant.now().isAfter(u.getVerificationSentAt()
+                .plus(Duration.ofHours(verificationTtlHours)));
     }
 
-    // ---------------- API ----------------
+    private void ensureNotInResendCooldown(User u) {
+        if (u.getVerificationSentAt() == null) return;
+        long seconds = Duration.between(u.getVerificationSentAt(), Instant.now()).getSeconds();
+        long remaining = resendCooldownSeconds - seconds;
+        if (remaining > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Please wait " + remaining + "s before requesting another verification email."
+            );
+        }
+    }
+
+    // --- API ---
 
     @Transactional
     public AuthResponse register(RegisterRequest r) {
@@ -91,21 +142,19 @@ public class AuthService {
 
         // Admin/dev convenience
         if (applyAdminOverrides(user)) {
-            // You can auto-verify admins to simplify your local dev:
             user.setVerified(true);
             user.setVerifiedAt(Instant.now());
         }
 
         user = users.save(user);
 
-        // Require verification for non-admins (or when flag is on)
+        // Require verification for non-admins
         if (requireVerification && !user.isVerified()) {
             generateAndSendVerification(user);
-            // Do NOT issue a JWT yet
             return new AuthResponse(user.getId(), user.getEmail(), null, user.getPlan().name());
         }
 
-        // Otherwise log them straight in
+        // Otherwise log straight in
         var token = jwt.generate(user.getId(), user.getEmail());
         return new AuthResponse(user.getId(), user.getEmail(), token, user.getPlan().name());
     }
@@ -114,16 +163,20 @@ public class AuthService {
     public AuthResponse login(LoginRequest r) {
         var user = users.findByEmail(r.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
-        if (!encoder.matches(r.password(), user.getPasswordHash()))
+
+        if (!encoder.matches(r.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
 
         if (applyAdminOverrides(user)) {
             users.save(user);
         }
 
         if (requireVerification && !user.isVerified()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Email not verified. Check your inbox for the verification link.");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Email not verified. Check your inbox for the verification link."
+            );
         }
 
         var token = jwt.generate(user.getId(), user.getEmail());
@@ -136,7 +189,6 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification token"));
 
         if (u.isVerified()) {
-            // already verified — just sign a token
             var t = jwt.generate(u.getId(), u.getEmail());
             return new AuthResponse(u.getId(), u.getEmail(), t, u.getPlan().name());
         }
@@ -160,12 +212,13 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account for that email"));
         if (u.isVerified()) return;
 
+        ensureNotInResendCooldown(u);
+
         if (u.getVerificationToken() == null || tokenExpired(u)) {
             generateAndSendVerification(u);
         } else {
-            // still valid: just re-log the same link to avoid token spam
             String link = verificationBaseUrl + "?token=" + u.getVerificationToken();
-            log.info("📧 (Resend) Verification link for {}: {}", u.getEmail(), link);
+            sendVerificationEmail(u, link); // reuse existing token while valid
             u.setVerificationSentAt(Instant.now());
             users.save(u);
         }
