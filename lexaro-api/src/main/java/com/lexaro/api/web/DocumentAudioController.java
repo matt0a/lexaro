@@ -1,10 +1,10 @@
 package com.lexaro.api.web;
 
 import com.lexaro.api.domain.AudioStatus;
+import com.lexaro.api.domain.DocStatus;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.service.DocumentAudioService;
 import com.lexaro.api.service.DocumentService;
-import com.lexaro.api.storage.StorageService;
 import com.lexaro.api.web.dto.PresignDownloadResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,7 +21,6 @@ public class DocumentAudioController {
     private final DocumentRepository docs;
     private final DocumentService docService;
     private final DocumentAudioService audio;
-    private final StorageService storage;
 
     private Long userId() {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -32,9 +31,9 @@ public class DocumentAudioController {
 
     @PostMapping("/start")
     public String start(@PathVariable Long id, @RequestBody(required = false) StartBody b) {
-        String voice  = (b == null || b.voice()  == null || b.voice().isBlank())  ? "Joanna"  : b.voice();
-        String engine = (b == null || b.engine() == null || b.engine().isBlank()) ? "standard": b.engine(); // default standard
-        String format = (b == null || b.format() == null || b.format().isBlank()) ? "mp3"     : b.format();
+        String voice  = (b == null || b.voice()  == null || b.voice().isBlank())  ? "Joanna"   : b.voice();
+        String engine = (b == null || b.engine() == null || b.engine().isBlank()) ? "standard" : b.engine();
+        String format = (b == null || b.format() == null || b.format().isBlank()) ? "mp3"      : b.format();
 
         audio.start(userId(), id, voice, engine, format);
         return "started";
@@ -45,6 +44,10 @@ public class DocumentAudioController {
                                                       @RequestParam(defaultValue = "300") int ttlSeconds) {
         var doc = docs.findByIdAndUserId(id, userId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        if (doc.getStatus() == DocStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Document has expired.");
+        }
 
         String url = null;
         if (doc.getAudioStatus() == AudioStatus.READY && doc.getAudioObjectKey() != null) {
@@ -66,10 +69,14 @@ public class DocumentAudioController {
         return ResponseEntity.ok(body);
     }
 
-
     @GetMapping("/download")
     public PresignDownloadResponse presignAudio(@PathVariable Long id,
                                                 @RequestParam(defaultValue = "300") int ttlSeconds) {
+        var doc = docs.findByIdAndUserId(id, userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+        if (doc.getStatus() == DocStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Document has expired.");
+        }
         return docService.presignAudioDownload(userId(), id, ttlSeconds);
     }
 }

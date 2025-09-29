@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 @Service
 public class PlanService {
@@ -28,13 +29,13 @@ public class PlanService {
     @Value("${app.plans.businessPlus.maxPages:4000}")     private int businessPlusMaxPages;
     @Value("${app.plans.businessPlus.maxSizeMb:1000}")    private int businessPlusMaxMb;
 
-    // Legacy monthly caps (compat)
+    // --- Legacy (compat) monthly caps you already had ---
     @Value("${app.tts.maxChars.free:50000}")      private int freeMaxChars;
     @Value("${app.tts.maxChars.premium:1000000}") private int premiumMaxChars;
 
     // --- Per-document hard caps ---
-    @Value("${app.tts.caps.free.perDocChars:300000}")           private int freePerDocChars;
-    @Value("${app.tts.caps.premium.perDocChars:1500000}")       private int premiumPerDocChars;
+    @Value("${app.tts.caps.free.perDocChars:120000}")           private int freePerDocChars;
+    @Value("${app.tts.caps.premium.perDocChars:1200000}")       private int premiumPerDocChars;
     @Value("${app.tts.caps.business.perDocChars:5000000}")      private int businessPerDocChars;
     @Value("${app.tts.caps.businessPlus.perDocChars:15000000}") private int businessPlusPerDocChars;
 
@@ -44,35 +45,38 @@ public class PlanService {
     @Value("${app.tts.monthly.business:5000000}")       private long monthBusiness;
     @Value("${app.tts.monthly.businessPlus:15000000}")  private long monthBusinessPlus;
 
-    // --- Daily caps (only Free by default; others unlimited daily) ---
-    @Value("${app.tts.daily.free:10000}") private long dailyFree;
-    @Value("${app.tts.daily.premium:0}")                private long dailyPremium;      // 0 = unlimited daily
-    @Value("${app.tts.daily.business:0}")               private long dailyBusiness;     // 0 = unlimited daily
-    @Value("${app.tts.daily.businessPlus:0}")           private long dailyBusinessPlus; // 0 = unlimited daily
+    // --- Daily caps (0/<=0 means unlimited daily) ---
+    @Value("${app.tts.daily.free:10000}")       private long dailyFree;
+    @Value("${app.tts.daily.premium:0}")        private long dailyPremium;
+    @Value("${app.tts.daily.business:0}")       private long dailyBusiness;
+    @Value("${app.tts.daily.businessPlus:0}")   private long dailyBusinessPlus;
 
-    // --- Defaults & rules ---
-    @Value("${app.tts.defaultEngine:standard}")         private String defaultEngine;
-    @Value("${app.tts.defaultVoice:Joanna}")            private String defaultVoice;
-    @Value("${app.tts.safeChunkChars:3000}")            private int safeChunkChars;
+    // --- Defaults & guardrails ---
+    @Value("${app.tts.defaultEngine:standard}") private String defaultEngine;   // "standard" by default
+    @Value("${app.tts.defaultVoice:Joanna}")    private String defaultVoice;    // "Joanna" by default
+    @Value("${app.tts.safeChunkChars:3000}")    private int safeChunkChars;
 
-    @Value("${app.tts.requireVerifiedEmail:false}")     private boolean requireVerifiedEmail;
-    @Value("${app.tts.concurrent.maxPerUser:2}")        private int concurrentMaxPerUser;
+    // --- Feature gates ---
+    @Value("${app.tts.requireVerifiedEmail:false}") private boolean requireVerifiedEmail;
+    @Value("${app.tts.concurrent.maxPerUser:2}")    private int concurrentMaxPerUser;
 
-    // Comma list: premium,business,businessPlus
+    // comma list of plan tokens allowed for neural: premium,business,businessPlus
     @Value("${app.tts.neural.allowedPlans:premium,business,businessPlus}")
     private String neuralAllowedCsv;
 
-    // allowlists
+    // --- allowlists ---
     @Value("${app.dev.adminEmails:}")    private String adminEmailsCsv;
     @Value("${app.unlimited-emails:}")   private String unlimitedEmailsCsv;
     @Value("${app.unlimited.user-ids:}") private String unlimitedUserIdsCsv;
 
     /* ---------- helpers ---------- */
+
     private static boolean csvHasIgnoreCase(String csv, String value) {
         if (csv == null || csv.isBlank() || value == null || value.isBlank()) return false;
         for (String s : csv.split(",")) if (value.equalsIgnoreCase(s.trim())) return true;
         return false;
     }
+
     private static boolean csvHasId(String csv, Long id) {
         if (csv == null || csv.isBlank() || id == null) return false;
         for (String s : csv.split(",")) {
@@ -81,11 +85,12 @@ public class PlanService {
         }
         return false;
     }
+
     private static String planToken(Plan p) {
         return switch (p) {
-            case FREE -> "free";
-            case PREMIUM -> "premium";
-            case BUSINESS -> "business";
+            case FREE          -> "free";
+            case PREMIUM       -> "premium";
+            case BUSINESS      -> "business";
             case BUSINESS_PLUS -> "businessPlus";
         };
     }
@@ -102,16 +107,16 @@ public class PlanService {
     }
 
     public Plan effectivePlan(User user) {
-        if (isUnlimited(user)) return Plan.BUSINESS_PLUS;
+        if (isUnlimited(user)) return Plan.BUSINESS_PLUS; // treat unlimited as top tier
         return user != null && user.getPlan() != null ? user.getPlan() : Plan.FREE;
     }
 
     public int retentionDaysFor(User user) {
-        if (isUnlimited(user)) return 36500;
+        if (isUnlimited(user)) return 36500; // ~100 years
         return switch (effectivePlan(user)) {
-            case FREE -> freeRetentionDays;
-            case PREMIUM -> premiumRetentionDays;
-            case BUSINESS -> businessRetentionDays;
+            case FREE          -> freeRetentionDays;
+            case PREMIUM       -> premiumRetentionDays;
+            case BUSINESS      -> businessRetentionDays;
             case BUSINESS_PLUS -> businessPlusRetentionDays;
         };
     }
@@ -119,9 +124,9 @@ public class PlanService {
     public int maxPagesFor(User user) {
         if (isUnlimited(user)) return Integer.MAX_VALUE;
         return switch (effectivePlan(user)) {
-            case FREE -> freeMaxPages;
-            case PREMIUM -> premiumMaxPages;
-            case BUSINESS -> businessMaxPages;
+            case FREE          -> freeMaxPages;
+            case PREMIUM       -> premiumMaxPages;
+            case BUSINESS      -> businessMaxPages;
             case BUSINESS_PLUS -> businessPlusMaxPages;
         };
     }
@@ -129,73 +134,87 @@ public class PlanService {
     public long maxBytesFor(User user) {
         if (isUnlimited(user)) return Long.MAX_VALUE;
         int mb = switch (effectivePlan(user)) {
-            case FREE -> freeMaxMb;
-            case PREMIUM -> premiumMaxMb;
-            case BUSINESS -> businessMaxMb;
+            case FREE          -> freeMaxMb;
+            case PREMIUM       -> premiumMaxMb;
+            case BUSINESS      -> businessMaxMb;
             case BUSINESS_PLUS -> businessPlusMaxMb;
         };
         return (long) mb * 1024L * 1024L;
     }
 
-    // Compat monthly
+    // --- legacy compat (can deprecate later if unused) ---
     public int ttsMaxCharsFor(User user) {
         if (isUnlimited(user)) return Integer.MAX_VALUE;
         return effectivePlan(user) == Plan.FREE ? freeMaxChars : premiumMaxChars;
     }
 
-    // Per-doc cap
+    // --- per-document cap ---
     public int ttsMaxCharsForPlan(Plan plan) {
         if (plan == null) return freePerDocChars;
         return switch (plan) {
-            case FREE -> freePerDocChars;
-            case PREMIUM -> premiumPerDocChars;
-            case BUSINESS -> businessPerDocChars;
+            case FREE          -> freePerDocChars;
+            case PREMIUM       -> premiumPerDocChars;
+            case BUSINESS      -> businessPerDocChars;
             case BUSINESS_PLUS -> businessPlusPerDocChars;
         };
     }
 
-    // Monthly cap
+    // --- monthly cap ---
     public long monthlyCapForPlan(Plan plan) {
         if (plan == null) return monthFree;
         return switch (plan) {
-            case FREE -> monthFree;
-            case PREMIUM -> monthPremium;
-            case BUSINESS -> monthBusiness;
+            case FREE          -> monthFree;
+            case PREMIUM       -> monthPremium;
+            case BUSINESS      -> monthBusiness;
             case BUSINESS_PLUS -> monthBusinessPlus;
         };
     }
 
-    // Daily cap (0 or <=0 means unlimited daily)
+    // --- daily cap (0/<=0 => unlimited daily) ---
     public long dailyCapForPlan(Plan plan) {
         if (plan == null) return dailyFree;
         long v = switch (plan) {
-            case FREE -> dailyFree;
-            case PREMIUM -> dailyPremium;
-            case BUSINESS -> dailyBusiness;
+            case FREE          -> dailyFree;
+            case PREMIUM       -> dailyPremium;
+            case BUSINESS      -> dailyBusiness;
             case BUSINESS_PLUS -> dailyBusinessPlus;
         };
         return (v <= 0) ? Long.MAX_VALUE : v;
     }
 
+    // --- defaults / guardrails ---
     public int    ttsSafeChunkChars() { return safeChunkChars <= 0 ? 3000 : safeChunkChars; }
-    public String defaultTtsEngine()  { return (defaultEngine == null || defaultEngine.isBlank()) ? "standard" : defaultEngine.toLowerCase(); }
-    public String defaultTtsVoice()   { return (defaultVoice == null || defaultVoice.isBlank()) ? "Joanna"   : defaultVoice; }
+    public String defaultTtsEngine()  {
+        return (defaultEngine == null || defaultEngine.isBlank())
+                ? "standard"
+                : defaultEngine.toLowerCase(Locale.ROOT);
+    }
+    public String defaultTtsVoice()   {
+        return (defaultVoice == null || defaultVoice.isBlank())
+                ? "Joanna"
+                : defaultVoice;
+    }
 
+    // --- feature gates / policy helpers ---
     public boolean requireVerifiedEmail() { return requireVerifiedEmail; }
-    public int concurrentMaxPerUser() { return concurrentMaxPerUser; }
+    public int concurrentMaxPerUser()     { return Math.max(1, concurrentMaxPerUser); }
+
     public boolean planAllowsNeural(Plan plan) {
-        if (neuralAllowedCsv == null || neuralAllowedCsv.isBlank()) return false;
+        if (plan == null || neuralAllowedCsv == null || neuralAllowedCsv.isBlank()) return false;
         String token = planToken(plan);
         return Arrays.stream(neuralAllowedCsv.split(","))
-                .map(String::trim).anyMatch(s -> s.equalsIgnoreCase(token));
+                .map(String::trim)
+                .anyMatch(s -> s.equalsIgnoreCase(token));
     }
 
-    /** If user asks for neural but plan disallows, fall back to standard. */
+    /** Normalize engine; if neural is disallowed (or unknown), fall back to standard/default. */
     public String sanitizeEngineForPlan(String requested, Plan plan) {
-        String req = (requested == null || requested.isBlank()) ? defaultTtsEngine() : requested.toLowerCase();
+        String req = (requested == null || requested.isBlank())
+                ? defaultTtsEngine()
+                : requested.toLowerCase(Locale.ROOT);
+
         if ("neural".equals(req) && !planAllowsNeural(plan)) return "standard";
+        if (!"neural".equals(req) && !"standard".equals(req)) return defaultTtsEngine();
         return req;
     }
-
-
 }
