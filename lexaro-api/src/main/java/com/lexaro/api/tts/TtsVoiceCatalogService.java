@@ -130,4 +130,22 @@ public class TtsVoiceCatalogService {
             return Map.of();
         }
     }
+
+    /** True if the voice exists (case-insensitive). */
+    public boolean isValidVoice(String name) {
+        return findByName(name).isPresent();
+    }
+
+    /** True if the given voice supports the given engine ("standard" or "neural"). */
+    public boolean voiceSupportsEngine(String voiceName, String engine) {
+        if (engine == null || engine.isBlank()) return false;
+        return findByName(voiceName)
+                .map(v -> v.enginesSupported().contains(engine.toLowerCase(Locale.ROOT)))
+                .orElse(false);
+    }
+
+    /** Convenience list of just the voice names (unsorted). */
+    public List<String> voiceNames() {
+        return listVoices().stream().map(VoiceInfo::name).toList();
+    }
 }

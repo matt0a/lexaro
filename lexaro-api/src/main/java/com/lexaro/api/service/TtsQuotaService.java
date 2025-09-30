@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -76,10 +77,12 @@ public class TtsQuotaService {
         }
     }
 
-    /* ---------- upserts ---------- */
+    /* ---------- upserts (atomic per row) ---------- */
 
     /** Atomically add to monthly usage and return new total. */
     public long addMonthlyUsage(long userId, long delta) {
+        delta = clampNonNegative(delta);
+        if (delta == 0) return currentMonthly(userId);
         final String sql = """
             insert into tts_usage (user_id, period_ym, chars_used, updated_at)
             values (?, ?, ?, now())
@@ -93,6 +96,8 @@ public class TtsQuotaService {
 
     /** Atomically add to daily usage and return new total. */
     public long addDailyUsage(long userId, long delta) {
+        delta = clampNonNegative(delta);
+        if (delta == 0) return currentDaily(userId);
         final String sql = """
             insert into tts_usage_day (user_id, period_ymd, chars_used, updated_at)
             values (?, ?, ?, now())
@@ -102,5 +107,35 @@ public class TtsQuotaService {
             returning chars_used
             """;
         return jdbc.queryForObject(sql, Long.class, userId, dayKey(), delta);
+    }
+
+    /* ---------- friendly wrappers used by the worker ---------- */
+
+    /** Alias for addMonthlyUsage (keeps call sites readable). */
+    public long addUsage(long userId, long delta) {
+        return addMonthlyUsage(userId, delta);
+    }
+
+    /** Alias for addDailyUsage (keeps call sites readable). */
+    public long addDaily(long userId, long delta) {
+        return addDailyUsage(userId, delta);
+    }
+
+    /**
+     * Optional helper: record both monthly and daily in one call.
+     * Wrapped in a small transaction so they succeed/fail together.
+     */
+    @Transactional
+    public void recordUsage(long userId, long delta) {
+        delta = clampNonNegative(delta);
+        if (delta == 0) return;
+        addMonthlyUsage(userId, delta);
+        addDailyUsage(userId, delta);
+    }
+
+    /* ---------- utils ---------- */
+
+    private static long clampNonNegative(long v) {
+        return v < 0 ? 0 : v;
     }
 }

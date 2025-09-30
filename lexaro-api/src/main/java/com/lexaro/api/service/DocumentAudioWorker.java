@@ -1,14 +1,15 @@
 package com.lexaro.api.service;
 
 import com.lexaro.api.domain.AudioStatus;
-import com.lexaro.api.domain.Document;
-import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
+import com.lexaro.api.translate.TranslateService;
 import com.lexaro.api.tts.TextChunker;
 import com.lexaro.api.tts.TtsService;
+import com.lexaro.api.extract.TextExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -30,12 +31,14 @@ public class DocumentAudioWorker {
     private final PlanService plans;
     private final TextExtractor extractor;
     private final TtsQuotaService quota;
+    private final @Autowired(required = false) TranslateService translate;
 
     @Async("ttsExecutor")
-    public void process(Long userId, Long docId, String voice, String engine, String format, boolean unlimited) {
-        log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}", docId, userId, voice, engine, format);
+    public void process(Long userId, Long docId, String voice, String engine, String format, boolean unlimited, String targetLang) {
+        log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}, targetLang={}",
+                docId, userId, voice, engine, format, targetLang);
 
-        Document doc = docs.findByIdAndUserId(docId, userId)
+        var doc = docs.findByIdAndUserId(docId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
 
         try {
@@ -43,26 +46,32 @@ public class DocumentAudioWorker {
 
             String text = extractor.extract(doc.getMime(), bytes, 0);
             if (text == null) text = "";
-            text = text.replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", " ")
+            text = text.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", " ")
                     .replaceAll("\\s+", " ")
                     .trim();
             if (text.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
 
-            // Per-document cap by plan
+            // Per-doc cap BEFORE translation to bound costs
             int perDocCap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
             if (text.length() > perDocCap) text = text.substring(0, perDocCap);
 
-            // DAILY cap check **now** that we know exact length
-            long planned = text.length();
-            if (!unlimited) {
-                quota.ensureWithinDailyCap(userId, doc.getPlanAtUpload(), planned);
+            // Optional translation
+            boolean doTranslate = translate != null
+                    && targetLang != null
+                    && !targetLang.isBlank()
+                    && !"auto".equalsIgnoreCase(targetLang)
+                    && !"same".equalsIgnoreCase(targetLang);
+
+            if (doTranslate) {
+                text = translate.translate(text, "auto", targetLang);
+                if (text.length() > perDocCap) text = text.substring(0, perDocCap);
             }
 
             int safeChunk = plans.ttsSafeChunkChars();
             List<String> chunks = TextChunker.splitBySentences(text, safeChunk);
-            log.debug("TTS chunk count for docId={}: {}", docId, chunks.size());
+            log.debug("TTS chunks docId={}, count={}", docId, chunks.size());
 
             String v = (voice == null || voice.isBlank()) ? plans.defaultTtsVoice()   : voice;
             String e = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine() : engine.toLowerCase(Locale.ROOT);
@@ -89,10 +98,10 @@ public class DocumentAudioWorker {
             String key = "aud/u/%d/%d/%s.%s".formatted(userId, doc.getId(), UUID.randomUUID(), ext);
             storage.put(key, merged, contentType);
 
-            // Record actual usage (monthly + daily)
             if (!unlimited) {
-                quota.addMonthlyUsage(userId, planned);
-                quota.addDailyUsage(userId, planned);
+                // Record REAL synthesized chars (post-translation)
+                quota.addMonthlyUsage(userId, text.length());
+                quota.addDailyUsage(userId, text.length());
             }
 
             doc.setAudioObjectKey(key);
@@ -109,6 +118,8 @@ public class DocumentAudioWorker {
             doc.setAudioObjectKey(null);
             doc.setAudioFormat(null);
             doc.setAudioVoice(null);
+            // If you added a 'audioError' field on Document, set a trimmed message here.
+            // doc.setAudioError(ex.getMessage() == null ? "TTS failed" : ex.getMessage().substring(0, Math.min(250, ex.getMessage().length())));
             docs.save(doc);
         }
     }

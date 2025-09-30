@@ -26,7 +26,7 @@ public class DocumentAudioController {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
-    public record StartBody(String voice, String engine, String format) {}
+    public record StartBody(String voice, String engine, String format, String targetLang) {}
     public record AudioStatusResponse(String status, String voice, String format, String downloadUrl) {}
 
     @PostMapping("/start")
@@ -34,8 +34,9 @@ public class DocumentAudioController {
         String voice  = (b == null || b.voice()  == null || b.voice().isBlank())  ? "Joanna"   : b.voice();
         String engine = (b == null || b.engine() == null || b.engine().isBlank()) ? "standard" : b.engine();
         String format = (b == null || b.format() == null || b.format().isBlank()) ? "mp3"      : b.format();
+        String target = (b == null) ? null : b.targetLang(); // "fr", "es", etc. (or null/"auto")
 
-        audio.start(userId(), id, voice, engine, format);
+        audio.start(userId(), id, voice, engine, format, target);
         return "started";
     }
 
