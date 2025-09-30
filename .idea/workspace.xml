@@ -6,11 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="0fecd0c7-204c-4e58-9652-7c642d5bf848" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/AudioStatusResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/AudioStatusResponse.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +77,12 @@
       <recent name="C:\Users\tioar\Downloads\lexaro-app\lexaro-api\src\main\resources" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Spring Boot.LexaroApiApplication">
+    <configuration name="V20__documents_indexes.sql" type="DatabaseScript" editBeforeRun="true" temporary="true" nameIsGenerated="true">
+      <script-file value="$PROJECT_DIR$/lexaro-api/src/main/resources/db/migration/V20__documents_indexes.sql" />
+      <script-mode>FILE</script-mode>
+      <method v="2" />
+    </configuration>
     <configuration name="LexaroApiApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="lexaro-api" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="com.lexaro.api.LexaroApiApplication" />
@@ -90,6 +90,11 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Database Script.V20__documents_indexes.sql" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -112,7 +117,7 @@
       <workItem from="1758671833093" duration="304000" />
       <workItem from="1758846369270" duration="634000" />
       <workItem from="1758862818055" duration="23850000" />
-      <workItem from="1759180785027" duration="15444000" />
+      <workItem from="1759180785027" duration="18959000" />
     </task>
     <servers />
   </component>
