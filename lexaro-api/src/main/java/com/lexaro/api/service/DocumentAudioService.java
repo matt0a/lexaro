@@ -125,6 +125,7 @@ public class DocumentAudioService {
         doc.setAudioObjectKey(null);
         doc.setAudioFormat(null);
         doc.setAudioVoice(null);
+        doc.setAudioError(null);
         docs.save(doc);
 
         String fmt = (format == null || format.isBlank()) ? "mp3" : format.toLowerCase();

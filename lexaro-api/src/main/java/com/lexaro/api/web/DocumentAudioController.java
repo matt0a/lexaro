@@ -27,8 +27,13 @@ public class DocumentAudioController {
     }
 
     public record StartBody(String voice, String engine, String format, String targetLang) {}
-    public record AudioStatusResponse(String status, String voice, String format, String downloadUrl) {}
-
+    public record AudioStatusResponse(
+            String status,
+            String voice,
+            String format,
+            String downloadUrl,
+            String error
+    ) {}
     @PostMapping("/start")
     public String start(@PathVariable Long id, @RequestBody(required = false) StartBody b) {
         String voice  = (b == null || b.voice()  == null || b.voice().isBlank())  ? "Joanna"   : b.voice();
@@ -59,7 +64,8 @@ public class DocumentAudioController {
                 doc.getAudioStatus().name(),
                 doc.getAudioVoice(),
                 doc.getAudioFormat(),
-                url
+                url,
+                doc.getAudioError()
         );
 
         if (doc.getAudioStatus() == AudioStatus.PROCESSING) {

@@ -108,6 +108,7 @@ public class DocumentAudioWorker {
             doc.setAudioFormat(ext);
             doc.setAudioVoice(v);
             doc.setAudioStatus(AudioStatus.READY);
+            doc.setAudioError(null);
             docs.save(doc);
 
             log.info("TTS success docId={}, bytesOut={}, key={}", docId, merged.length, key);
@@ -118,8 +119,7 @@ public class DocumentAudioWorker {
             doc.setAudioObjectKey(null);
             doc.setAudioFormat(null);
             doc.setAudioVoice(null);
-            // If you added a 'audioError' field on Document, set a trimmed message here.
-            // doc.setAudioError(ex.getMessage() == null ? "TTS failed" : ex.getMessage().substring(0, Math.min(250, ex.getMessage().length())));
+            doc.setAudioError(ex.getMessage() == null ? "TTS failed" : ex.getMessage().substring(0, Math.min(250, ex.getMessage().length())));
             docs.save(doc);
         }
     }

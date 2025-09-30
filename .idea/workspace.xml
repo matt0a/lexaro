@@ -6,12 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="0fecd0c7-204c-4e58-9652-7c642d5bf848" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/domain/Document.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/DocumentAudioWorker.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/TtsQuotaService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/service/TtsQuotaService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/tts/PollyTtsService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/tts/PollyTtsService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/tts/TtsVoiceCatalogService.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/tts/TtsVoiceCatalogService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/DocumentAudioController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/AudioStatusResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/web/dto/AudioStatusResponse.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -113,7 +112,7 @@
       <workItem from="1758671833093" duration="304000" />
       <workItem from="1758846369270" duration="634000" />
       <workItem from="1758862818055" duration="23850000" />
-      <workItem from="1759180785027" duration="10177000" />
+      <workItem from="1759180785027" duration="15444000" />
     </task>
     <servers />
   </component>
