@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="0fecd0c7-204c-4e58-9652-7c642d5bf848" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/lexaro-api/src/main/java/com/lexaro/api/config/SecurityConfig.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -117,7 +118,7 @@
       <workItem from="1758671833093" duration="304000" />
       <workItem from="1758846369270" duration="634000" />
       <workItem from="1758862818055" duration="23850000" />
-      <workItem from="1759180785027" duration="18959000" />
+      <workItem from="1759180785027" duration="20165000" />
     </task>
     <servers />
   </component>
