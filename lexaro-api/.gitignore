@@ -1,12 +1,16 @@
-# build
-/target/
-!**/src/main/**/target/
-!**/src/test/**/target/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+############################################
+# Build outputs
+############################################
+# Maven / Gradle
+**/target/
+**/build/
+!**/src/**/target/
+!**/src/**/build/
 
-### STS / IntelliJ / NetBeans / VS Code
+############################################
+# IDE / Tooling
+############################################
+# IntelliJ / STS / NetBeans / VS Code
 .apt_generated
 .classpath
 .factorypath
@@ -25,19 +29,68 @@ build/
 /.nb-gradle/
 .vscode/
 
-# logs & temp
+############################################
+# Logs / temp
+############################################
 *.log
 logs/
+hs_err_pid*
+replay_pid*
 
-# local env / secrets
-/src/main/resources/application.properties
-infra/minio-data
-infra/*.env
-.env
-
+############################################
 # OS junk
+############################################
 .DS_Store
 Thumbs.db
 
-# (intentionally keep the Maven wrapper JAR tracked)
-# .mvn/wrapper/maven-wrapper.jar  <-- DO NOT ignore this
+############################################
+# App configs / secrets (keep templates instead)
+############################################
+# Spring local props (commit a sample instead, e.g. application-local.sample.properties)
+/src/main/resources/application.properties
+
+# Generic env files
+.env
+*.env
+*.env.*
+*.local.*
+
+# CORS runtime config (commit cors.sample.json instead)
+cors.json
+
+############################################
+# Local data volumes (Docker)
+############################################
+infra/minio-data/
+infra/postgres-data/
+infra/*.env
+
+############################################
+# Misc tools
+############################################
+mc.exe
+
+############################################
+# Debug artifacts
+############################################
+ocr-debug/
+
+############################################
+# Python sidecar: keep SOURCE, ignore env/caches/artifacts
+############################################
+# Virtualenv & caches
+lexaro-api/neural-ocr/.venv/
+lexaro-api/neural-ocr/__pycache__/
+lexaro-api/neural-ocr/.pytest_cache/
+lexaro-api/neural-ocr/.ipynb_checkpoints/
+lexaro-api/neural-ocr/.cache/
+lexaro-api/neural-ocr/**/*.pyc
+
+# Local env / scratch
+lexaro-api/neural-ocr/.env
+lexaro-api/neural-ocr/hello.png
+
+# (If you ever download model files locally inside the repo)
+lexaro-api/neural-ocr/models/
+lexaro-api/neural-ocr/**/*.onnx
+lexaro-api/neural-ocr/**/*.pth

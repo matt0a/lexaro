@@ -3,7 +3,6 @@ package com.lexaro.api.storage;
 import org.springframework.beans.factory.annotation.Value;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -34,7 +33,9 @@ public class S3StorageService implements StorageService {
             @Value("${app.storage.region:us-east-1}") String region
     ) {
         var creds = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
-        var s3cfg = S3Configuration.builder().pathStyleAccessEnabled(true).build(); // MinIO-friendly
+        var s3cfg = S3Configuration.builder()
+                .pathStyleAccessEnabled(true) // MinIO-friendly
+                .build();
 
         this.s3 = S3Client.builder()
                 .region(Region.of(region))
@@ -47,28 +48,28 @@ public class S3StorageService implements StorageService {
                 .region(Region.of(region))
                 .credentialsProvider(creds)
                 .endpointOverride(URI.create(endpoint))
-                .serviceConfiguration(s3cfg)
+                .serviceConfiguration(s3cfg) // if your SDK complains, you can remove this line
                 .build();
 
         this.bucket = bucket;
     }
 
     @Override
-    public PresignedUpload presignPut(String objectKey, String contentType, long contentLength, int expiresSeconds) {
-        var put = PutObjectRequest.builder()
+    public PresignedUpload presignPut(String objectKey, String contentType, int expiresSeconds) {
+        var putReq = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)
-                .contentType(contentType)
-                .contentLength(contentLength)
+                .contentType(contentType)   // include content-type in signature; browsers will send it
                 .build();
 
-        var presign = PutObjectPresignRequest.builder()
+        var presignReq = PutObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofSeconds(expiresSeconds))
-                .putObjectRequest(put)
+                .putObjectRequest(putReq)
                 .build();
 
-        PresignedPutObjectRequest preq = presigner.presignPutObject(presign);
+        PresignedPutObjectRequest preq = presigner.presignPutObject(presignReq);
 
+        // Flatten headers (List<String> -> comma-joined String) to make life easy for the caller
         Map<String, String> headers = preq.signedHeaders().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -101,20 +102,16 @@ public class S3StorageService implements StorageService {
                                         int expiresSeconds,
                                         String responseContentType,
                                         String responseContentDisposition) {
-        var getReqBuilder = GetObjectRequest.builder()
+        var get = GetObjectRequest.builder()
                 .bucket(bucket)
-                .key(objectKey);
-
-        if (responseContentType != null && !responseContentType.isBlank()) {
-            getReqBuilder.responseContentType(responseContentType);
-        }
-        if (responseContentDisposition != null && !responseContentDisposition.isBlank()) {
-            getReqBuilder.responseContentDisposition(responseContentDisposition);
-        }
+                .key(objectKey)
+                .responseContentType((responseContentType == null || responseContentType.isBlank()) ? null : responseContentType)
+                .responseContentDisposition((responseContentDisposition == null || responseContentDisposition.isBlank()) ? null : responseContentDisposition)
+                .build();
 
         var presign = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofSeconds(expiresSeconds))
-                .getObjectRequest(getReqBuilder.build())
+                .getObjectRequest(get)
                 .build();
 
         var preq = presigner.presignGetObject(presign);
@@ -126,7 +123,7 @@ public class S3StorageService implements StorageService {
         try {
             s3.headObject(HeadObjectRequest.builder().bucket(bucket).key(objectKey).build());
             return true;
-        } catch (NoSuchKeyException e) {
+        } catch (NoSuchKeyException e) { // modeled exception (sometimes not thrown by head)
             return false;
         } catch (S3Exception e) {
             if (e.statusCode() == 404) return false;

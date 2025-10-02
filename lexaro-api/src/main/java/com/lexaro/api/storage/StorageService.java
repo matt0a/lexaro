@@ -7,15 +7,16 @@ public interface StorageService {
     // Upload presign
     record PresignedUpload(String url, Map<String, String> headers, int expiresInSeconds) {}
 
-    // Download presign (no TTL field here; your controller/service can pass back the TTL used)
+    // Download presign
     record PresignedDownload(String url, Map<String, String> headers) {}
 
-    PresignedUpload presignPut(String objectKey, String contentType, long contentLength, int expiresSeconds);
+    // PUT presign: note there is NO content-length here (MinIO dislikes that)
+    PresignedUpload presignPut(String objectKey, String contentType, int expiresSeconds);
 
-    // Simple GET presign (no overrides)
+    // Simple GET presign
     PresignedDownload presignGet(String objectKey, int expiresSeconds);
 
-    // GET presign with overrides INCLUDED IN THE SIGNATURE
+    // GET presign with response overrides (these are part of the signature)
     PresignedDownload presignGet(String objectKey,
                                  int expiresSeconds,
                                  String responseContentType,

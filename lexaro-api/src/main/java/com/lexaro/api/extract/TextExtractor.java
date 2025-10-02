@@ -1,10 +1,10 @@
 package com.lexaro.api.extract;
 
 /**
- * High-level text extraction entry point (router by MIME type).
+ * High-level text extraction entry point (routes by MIME type).
  *
- * Notes for PDF (PDFBox 3.x):
- *  - Paged formats honor {@code maxPages}. A value <= 0 means "all pages".
+ * Notes:
+ *  - Paged formats (PDF/DOCX) honor {@code maxPages}. A value <= 0 means "all pages".
  *  - Implementations should return an empty string when nothing can be read,
  *    and throw an Exception for truly unsupported/corrupt inputs.
  */

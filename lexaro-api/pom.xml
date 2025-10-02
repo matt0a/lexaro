@@ -157,8 +157,24 @@
         </dependency>
 
 
+        <!-- Tess4J (Tesseract JNI) -->
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.13.0</version>
+        </dependency>
 
-        <!-- (optional but recommended) manage AWS SDK versions with the BOM -->
+        <!-- Better ImageIO format support (TIFF, etc.) -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>3.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>3.10.1</version>
+        </dependency>
 
 
 

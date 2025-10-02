@@ -102,7 +102,9 @@ public class DocumentService {
 
         doc = docs.save(doc);
 
-        var p = storage.presignPut(objectKey, r.mime(), r.sizeBytes(), ttl);
+        // IMPORTANT: presign WITHOUT content-length
+        var p = storage.presignPut(objectKey, r.mime(), ttl);
+
         return new PresignUploadResponse(doc.getId(), objectKey, p.url(), p.headers(), p.expiresInSeconds());
     }
 
@@ -199,7 +201,6 @@ public class DocumentService {
 
         doc.setDeletedAt(Instant.now());
         doc.setStatus(DocStatus.EXPIRED);
-        // keep audio enum simple; if you don't have EXPIRED, don't touch it or set FAILED
         doc.setAudioStatus(AudioStatus.FAILED);
         docs.save(doc);
     }
@@ -212,15 +213,18 @@ public class DocumentService {
         if (filename == null || filename.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "filename required");
         if (mime == null || mime.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mime required");
     }
+
     private void enforcePlanLimits(User user, long sizeBytes, Integer pages) {
         if (sizeBytes > plans.maxBytesFor(user))
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too big for current plan");
         if (pages != null && pages > plans.maxPagesFor(user))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Too many pages for current plan");
     }
+
     private static String sanitize(String name) {
         return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
+
     private DocumentResponse toDto(Document d) {
         return new DocumentResponse(
                 d.getId(),

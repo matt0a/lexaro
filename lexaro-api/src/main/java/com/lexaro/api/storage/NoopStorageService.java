@@ -2,11 +2,10 @@ package com.lexaro.api.storage;
 
 import java.util.Map;
 
-/** Disabled storage used when provider = noop. */
 public class NoopStorageService implements StorageService {
 
     @Override
-    public PresignedUpload presignPut(String objectKey, String contentType, long contentLength, int expiresSeconds) {
+    public PresignedUpload presignPut(String objectKey, String contentType, int expiresSeconds) {
         throw new IllegalStateException("Storage provider is disabled (noop).");
     }
 
@@ -24,7 +23,9 @@ public class NoopStorageService implements StorageService {
     }
 
     @Override public boolean exists(String objectKey) { return false; }
+
     @Override public long size(String objectKey) { return 0L; }
+
     @Override public void delete(String objectKey) { /* no-op */ }
 
     @Override
