@@ -22,7 +22,6 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(c -> {})
-                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -30,7 +29,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/actuator/health",
-                                "/error"                  // <-- allow error renderer
+                                "/actuator/prometheus",
+                                "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
@@ -38,6 +38,4 @@ public class SecurityConfig {
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
-
-
 }

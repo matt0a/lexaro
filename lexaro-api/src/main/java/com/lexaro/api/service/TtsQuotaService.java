@@ -1,6 +1,7 @@
 package com.lexaro.api.service;
 
 import com.lexaro.api.domain.Plan;
+import com.lexaro.api.repo.TtsTopupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,14 +21,17 @@ public class TtsQuotaService {
     private final JdbcTemplate jdbc;
     private final PlanService plans;
 
+    /** Optional: present only if you wired the top-ups repo. */
+    private final Optional<TtsTopupRepository> topups;
+
     /* ---------- keys ---------- */
 
-    /** e.g. "2025-09" in UTC */
+    /** e.g. "2025-10" in UTC */
     private String monthKey() {
         return YearMonth.now(ZoneOffset.UTC).toString();
     }
 
-    /** e.g. 2025-09-23 in UTC */
+    /** e.g. 2025-10-03 in UTC */
     private LocalDate dayKey() {
         return LocalDate.now(ZoneOffset.UTC);
     }
@@ -47,15 +52,38 @@ public class TtsQuotaService {
         return v == null ? 0L : v;
     }
 
+    /* ---------- top-ups ---------- */
+
+    /** Sum of top-ups for current month (0 if repo not present). */
+    public long monthTopups(long userId) {
+        return topups.map(r -> r.sumForPeriod(userId, monthKey())).orElse(0L);
+    }
+
+    /* ---------- convenience ---------- */
+
+    /**
+     * Remaining monthly characters = base plan cap + top-ups - alreadyUsed.
+     * Returns Long.MAX_VALUE for unlimited plans.
+     */
+    public long monthlyRemaining(long userId, Plan plan, long alreadyUsed) {
+        long baseCap = plans.monthlyCapForPlan(plan);
+        if (baseCap == Long.MAX_VALUE) return Long.MAX_VALUE;
+        long extra = monthTopups(userId);
+        long remaining = baseCap + extra - alreadyUsed;
+        return Math.max(0L, remaining);
+    }
+
     /* ---------- guards ---------- */
 
-    /** 402 if (used + planned) > monthly cap. */
+    /** 402 if (used + planned) > (base cap + top-ups). */
     public void ensureWithinMonthlyCap(long userId, Plan plan, long plannedChars) {
-        long cap  = plans.monthlyCapForPlan(plan);
-        if (cap <= 0 || cap == Long.MAX_VALUE) return; // disabled
-        long used = currentMonthly(userId);
-        if (used + plannedChars > cap) {
-            long remaining = Math.max(0, cap - used);
+        long base = plans.monthlyCapForPlan(plan);
+        if (base == Long.MAX_VALUE) return; // unlimited
+        long extra = monthTopups(userId);
+        long used  = currentMonthly(userId);
+
+        if (used + plannedChars > base + extra) {
+            long remaining = Math.max(0L, base + extra - used);
             throw new ResponseStatusException(
                     HttpStatus.PAYMENT_REQUIRED,
                     "Monthly TTS limit reached. Remaining=" + remaining + " chars, requested=" + plannedChars
@@ -63,10 +91,10 @@ public class TtsQuotaService {
         }
     }
 
-    /** 429 if (used + planned) > daily cap. */
+    /** 429 if (used + planned) > daily cap. (Top-ups do NOT affect daily caps.) */
     public void ensureWithinDailyCap(long userId, Plan plan, long plannedChars) {
         long cap = plans.dailyCapForPlan(plan);
-        if (cap <= 0 || cap == Long.MAX_VALUE) return; // disabled for paid tiers
+        if (cap <= 0 || cap == Long.MAX_VALUE) return;
         long used = currentDaily(userId);
         if (used + plannedChars > cap) {
             long remaining = Math.max(0, cap - used);
@@ -79,7 +107,6 @@ public class TtsQuotaService {
 
     /* ---------- upserts (atomic per row) ---------- */
 
-    /** Atomically add to monthly usage and return new total. */
     public long addMonthlyUsage(long userId, long delta) {
         delta = clampNonNegative(delta);
         if (delta == 0) return currentMonthly(userId);
@@ -94,7 +121,6 @@ public class TtsQuotaService {
         return jdbc.queryForObject(sql, Long.class, userId, monthKey(), delta);
     }
 
-    /** Atomically add to daily usage and return new total. */
     public long addDailyUsage(long userId, long delta) {
         delta = clampNonNegative(delta);
         if (delta == 0) return currentDaily(userId);
@@ -109,22 +135,11 @@ public class TtsQuotaService {
         return jdbc.queryForObject(sql, Long.class, userId, dayKey(), delta);
     }
 
-    /* ---------- friendly wrappers used by the worker ---------- */
+    /* ---------- friendly wrappers ---------- */
 
-    /** Alias for addMonthlyUsage (keeps call sites readable). */
-    public long addUsage(long userId, long delta) {
-        return addMonthlyUsage(userId, delta);
-    }
+    public long addUsage(long userId, long delta) { return addMonthlyUsage(userId, delta); }
+    public long addDaily(long userId, long delta) { return addDailyUsage(userId, delta); }
 
-    /** Alias for addDailyUsage (keeps call sites readable). */
-    public long addDaily(long userId, long delta) {
-        return addDailyUsage(userId, delta);
-    }
-
-    /**
-     * Optional helper: record both monthly and daily in one call.
-     * Wrapped in a small transaction so they succeed/fail together.
-     */
     @Transactional
     public void recordUsage(long userId, long delta) {
         delta = clampNonNegative(delta);
@@ -135,7 +150,5 @@ public class TtsQuotaService {
 
     /* ---------- utils ---------- */
 
-    private static long clampNonNegative(long v) {
-        return v < 0 ? 0 : v;
-    }
+    private static long clampNonNegative(long v) { return v < 0 ? 0 : v; }
 }
