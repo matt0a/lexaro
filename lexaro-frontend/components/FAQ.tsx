@@ -76,7 +76,7 @@ export default function FAQ() {
                                                 <p className="text-white/80">{item.a}</p>
                                                 <div className="mt-4 flex justify-end">
                                                     <Link href="/get-started" className="btn-accent">
-                                                        Get Started
+                                                        Try for Free
                                                     </Link>
                                                 </div>
                                             </div>

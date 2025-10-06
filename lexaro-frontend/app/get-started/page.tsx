@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     // content
@@ -14,7 +14,7 @@ import {
     // times
     Briefcase, Car, Sparkles, Dumbbell, Moon,
     // misc
-    Check
+    Check, Play, Pause, User, UserRound
 } from 'lucide-react';
 
 type Choice = { id: string; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
@@ -74,7 +74,7 @@ function choicesFor(step: number): Choice[] {
         case 'goals':   return GOAL_CHOICES;
         case 'devices': return DEVICE_CHOICES;
         case 'times':   return TIME_CHOICES;
-        case 'voice':   return [];
+        case 'voice':   return []; // custom UI below
     }
 }
 
@@ -82,7 +82,7 @@ export default function GetStartedPage() {
     const router = useRouter();
 
     const [step, setStep] = useState(0);
-    const [shake, setShake] = useState(false);               // ← for the nudge animation
+    const [shake, setShake] = useState(false);
     const [selected, setSelected] = useState<Record<string, Set<string>>>({
         content: new Set(),
         goals:   new Set(),
@@ -90,6 +90,9 @@ export default function GetStartedPage() {
         times:   new Set(),
         voice:   new Set(),
     });
+
+    // simple "playing" simulation for the preview cards
+    const [playingId, setPlayingId] = useState<string | null>(null);
 
     const title  = stepTitle(step);
     const items  = useMemo(() => choicesFor(step), [step]);
@@ -102,20 +105,31 @@ export default function GetStartedPage() {
         setSelected((s) => ({ ...s, [key]: next }));
     };
 
-    const hasSelection = selected[key].size > 0;
+    // Voice step is optional → allow continuing without selection on step 5
+    const hasSelection = key === 'voice' ? true : selected[key].size > 0;
 
     const onContinue = () => {
         if (!hasSelection) {
-            // trigger a friendly shake if nothing chosen
             setShake(true);
             setTimeout(() => setShake(false), 420);
             return;
         }
-        if (isLast) router.push('/signup');
-        else setStep((s) => s + 1);
+        if (isLast) {
+            router.push('/trial-offer'); // go straight to the Premium yearly trial funnel
+        } else {
+            setStep((s) => s + 1);
+        }
     };
 
+    // QoL: Enter key continues
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter') onContinue(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onContinue, hasSelection, isLast]);
+
     const progress = ((step + 1) / TOTAL_STEPS) * 100;
+    const continueLabel = isLast ? 'Start trial' : 'Continue';
 
     return (
         <main className="min-h-screen bg-black text-white pb-28">
@@ -153,37 +167,32 @@ export default function GetStartedPage() {
                                         <motion.button
                                             key={id}
                                             onClick={() => toggle(id)}
-                                            whileTap={{ scale: 0.985 }}                 // click micro-interaction
+                                            whileTap={{ scale: 0.985 }}
                                             className={[
                                                 'group relative flex items-center justify-between gap-4',
                                                 'rounded-[1.25rem] border border-white/10 bg-[var(--card)]/95',
-                                                'px-5 py-5 min-h-[92px]',                  // bigger boxes
+                                                'px-5 py-5 min-h-[92px]',
                                                 'transition-colors hover:bg-white/[0.06] focus:outline-none',
                                                 active ? 'ring-1 ring-accent/50' : '',
                                             ].join(' ')}
                                         >
                                             <div className="flex items-center gap-4">
-                                                {/* minimal icon */}
-                                                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
                           <Icon className="h-5 w-5 text-white/80" strokeWidth={1.75} />
                         </span>
                                                 <span className="text-base text-white/90">{label}</span>
                                             </div>
 
-                                            {/* check badge */}
                                             <span
                                                 className={[
                                                     'inline-flex h-6 w-6 items-center justify-center rounded-md border transition',
-                                                    active
-                                                        ? 'border-accent bg-accent text-white'
-                                                        : 'border-white/25 text-white/40',
+                                                    active ? 'border-accent bg-accent text-white' : 'border-white/25 text-white/40',
                                                 ].join(' ')}
                                                 aria-hidden
                                             >
                         {active ? <Check className="h-4 w-4" /> : null}
                       </span>
 
-                                            {/* subtle hover glow */}
                                             <span className="pointer-events-none absolute inset-0 rounded-[1.25rem] opacity-0 transition-opacity group-hover:opacity-100 ring-1 ring-white/5" />
                                         </motion.button>
                                     );
@@ -198,11 +207,93 @@ export default function GetStartedPage() {
                                 transition={{ duration: 0.2 }}
                                 className="col-span-2"
                             >
-                                <div className="card p-6">
+                                {/* helper text */}
+                                <div className="card p-6 mb-6">
                                     <p className="text-white/80">
-                                        (Optional) Pick a voice on the next screen, or continue to create your
-                                        account. You can choose voices later in the app.
+                                        Preview a few voices (optional). <span className="text-white/90 font-medium">You can change your voices later in the app.</span>
                                     </p>
+                                </div>
+
+                                {/* Voice preview layout */}
+                                <div className="relative">
+                                    {/* Center circle with silhouettes */}
+                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                        <div className="relative h-40 w-40 rounded-full border border-white/10 bg-white/[0.03]">
+                                            <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80">
+                                                <User className="h-10 w-10 text-white/70" strokeWidth={1.6} />
+                                                <UserRound className="h-10 w-10 text-white/70" strokeWidth={1.6} />
+                                            </div>
+                                            <div className="absolute -inset-6 rounded-full bg-gradient-to-r from-blue-500/10 via-fuchsia-500/10 to-cyan-500/10 blur-2xl" />
+                                        </div>
+                                    </div>
+
+                                    {/* 2x2 grid of preview cards */}
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        {[
+                                            { id: 'v1', title: 'Warm Female' },
+                                            { id: 'v2', title: 'Bright Male' },
+                                            { id: 'v3', title: 'Calm Female' },
+                                            { id: 'v4', title: 'Deep Male' },
+                                        ].map((v, i) => {
+                                            const active = selected.voice.has(v.id);
+                                            const isPlaying = playingId === v.id;
+                                            return (
+                                                <motion.div
+                                                    key={v.id}
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ delay: i * 0.05, duration: 0.2 }}
+                                                    className={[
+                                                        'relative rounded-2xl border border-white/10 bg-[var(--card)]/95 p-5',
+                                                        active ? 'ring-1 ring-accent/50' : 'hover:bg-white/[0.06]',
+                                                    ].join(' ')}
+                                                >
+                                                    <div className="mb-3 flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
+                                {/* simple glyph */}
+                                  {i % 2 === 0 ? (
+                                      <User className="h-5 w-5 text-white/80" strokeWidth={1.6} />
+                                  ) : (
+                                      <UserRound className="h-5 w-5 text-white/80" strokeWidth={1.6} />
+                                  )}
+                              </span>
+                                                            <div className="text-white/90 font-medium">{v.title}</div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setSelected((s) => {
+                                                                const next = new Set(s.voice);
+                                                                next.has(v.id) ? next.delete(v.id) : next.add(v.id);
+                                                                return { ...s, voice: next };
+                                                            })}
+                                                            className={[
+                                                                'rounded-md border px-2 py-1 text-xs font-semibold',
+                                                                active ? 'border-accent bg-accent text-white' : 'border-white/20 text-white/70 hover:bg-white/5',
+                                                            ].join(' ')}
+                                                        >
+                                                            {active ? 'Selected' : 'Select'}
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="mt-3 flex items-center justify-center">
+                                                        <button
+                                                            onClick={() => setPlayingId((p) => (p === v.id ? null : v.id))}
+                                                            className={[
+                                                                'inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold',
+                                                                'bg-white/5 hover:bg-white/10 transition-colors',
+                                                            ].join(' ')}
+                                                        >
+                                                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                                            {isPlaying ? 'Pause' : 'Play'}
+                                                        </button>
+                                                    </div>
+
+                                                    {/* hover glow */}
+                                                    <span className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity hover:opacity-100 ring-1 ring-white/5" />
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </motion.div>
                         )}
@@ -210,7 +301,16 @@ export default function GetStartedPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="mt-8 flex items-center justify-center">
+                <div className="mt-8 flex items-center justify-center gap-3">
+                    {step > 0 && (
+                        <button
+                            onClick={() => setStep((s) => Math.max(0, s - 1))}
+                            className="rounded-xl border border-white/20 px-5 py-2 text-sm font-semibold hover:bg-white/5"
+                        >
+                            Back
+                        </button>
+                    )}
+
                     <motion.button
                         onClick={onContinue}
                         aria-disabled={!hasSelection}
@@ -218,10 +318,10 @@ export default function GetStartedPage() {
                             'btn-accent',
                             !hasSelection ? 'opacity-40 cursor-not-allowed hover:shadow-none active:scale-100' : '',
                         ].join(' ')}
-                        animate={shake ? { x: [-7, 7, -5, 5, -2, 0] } : { x: 0 }}   // ← shake when invalid
+                        animate={shake ? { x: [-7, 7, -5, 5, -2, 0] } : { x: 0 }}
                         transition={{ duration: 0.42 }}
                     >
-                        Continue
+                        {continueLabel}
                     </motion.button>
                 </div>
             </section>

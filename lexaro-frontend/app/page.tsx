@@ -109,7 +109,7 @@ export default function Page() {
                             whileTap={{ scale: 0.98 }}
                             className="btn-accent"
                         >
-                            Get Started
+                            Try For Free
                         </motion.a>
                         <motion.a
                             href="/login"

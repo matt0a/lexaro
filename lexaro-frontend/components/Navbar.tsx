@@ -1,58 +1,76 @@
-'use client';
+// components/Navbar.tsx
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import Link from "next/link";
+import Image from "next/image";
+import React, { useEffect, useRef, useState } from "react";
 
 export default function Navbar() {
-    const [scrolled, setScrolled] = useState(false);
+    const [open, setOpen] = useState(false);
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 4);
-        onScroll();
-        window.addEventListener('scroll', onScroll);
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+        function onDocClick(e: MouseEvent) {
+            if (!open) return;
+            const t = e.target as Node;
+            if (!btnRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
+        }
+        function onEsc(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+        document.addEventListener("mousedown", onDocClick);
+        document.addEventListener("keydown", onEsc);
+        return () => {
+            document.removeEventListener("mousedown", onDocClick);
+            document.removeEventListener("keydown", onEsc);
+        };
+    }, [open]);
 
     return (
-        <header
-            className={[
-                'fixed inset-x-0 top-0 z-50 transition-all duration-300',
-                // glassy black bar; deepen when scrolled
-                scrolled
-                    ? 'backdrop-blur-md bg-black/70 shadow-[0_2px_30px_rgba(0,0,0,.35)]'
-                    : 'backdrop-blur bg-black/50',
-                'border-b border-white/10',
-            ].join(' ')}
-        >
-            {/* blue tint overlay */}
-            <div
-                className="pointer-events-none absolute inset-0 opacity-100"
-                style={{
-                    background:
-                        'linear-gradient(180deg, rgba(34,140,219,.16), rgba(34,140,219,0) 85%)',
-                }}
-            />
-
-            <nav className="relative section h-14 flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-3 text-white">
-                    <Image
-                        src="/logo.png"
-                        alt="Lexaro logo"
-                        width={28}
-                        height={28}
-                        priority
-                        className="rounded-[8px] drop-shadow-[0_4px_12px_rgba(34,140,219,.35)]"
-                    />
-                    <span className="text-lg font-semibold tracking-tight">Lexaro</span>
+        <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/70 backdrop-blur-md">
+            <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+                {/* Left: brand */}
+                <Link href="/" className="flex items-center gap-2">
+                    <Image src="/logo.png" alt="Lexaro" width={22} height={22} className="h-5 w-5" />
+                    <span className="text-sm font-semibold text-white">Lexaro</span>
                 </Link>
 
+                {/* Center: About dropdown */}
+                <div className="relative">
+                    <button
+                        ref={btnRef}
+                        aria-expanded={open}
+                        aria-haspopup="menu"
+                        onClick={() => setOpen(v => !v)}
+                        onMouseEnter={() => setOpen(true)}
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-white/90 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    >
+                        About
+                        <svg aria-hidden className="ml-1 inline h-3 w-3 translate-y-px opacity-80" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z" />
+                        </svg>
+                    </button>
+
+                    <div
+                        ref={menuRef}
+                        onMouseLeave={() => setOpen(false)}
+                        className={`absolute left-1/2 -translate-x-1/2 pt-2 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+                    >
+                        <div
+                            role="menu"
+                            className={`min-w-[180px] overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] shadow-xl transition-all ${open ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"}`}
+                        >
+                            <Link href="/plans" onClick={() => setOpen(false)} role="menuitem" className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5">
+                                Pricing
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: actions */}
                 <div className="flex items-center gap-2">
-                    <Link href="/login" className="btn-ghost">
-                        Login
-                    </Link>
-                    <Link href="/get-started" className="btn btn-accent">
-                        Get Started
+                    <Link href="/login" className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 hover:bg-white/5">Login</Link>
+                    <Link href="/get-started" className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+                        Try for Free
                     </Link>
                 </div>
             </nav>
