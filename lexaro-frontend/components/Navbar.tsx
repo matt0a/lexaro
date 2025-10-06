@@ -51,7 +51,7 @@ export default function Navbar() {
                     <Link href="/login" className="btn-ghost">
                         Login
                     </Link>
-                    <Link href="/signup" className="btn btn-accent">
+                    <Link href="/get-started" className="btn btn-accent">
                         Get Started
                     </Link>
                 </div>

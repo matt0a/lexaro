@@ -104,7 +104,7 @@ export default function Page() {
 
                     <div className="mt-8 flex gap-3">
                         <motion.a
-                            href="/signup"
+                            href="/get-started"
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.98 }}
                             className="btn-accent"
