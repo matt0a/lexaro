@@ -14,11 +14,18 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
+// NEW: POI (docx + optional doc)
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.hwpf.HWPFDocument;            // optional
+import org.apache.poi.hwpf.extractor.WordExtractor; // optional
 
 @Slf4j
 @Primary
@@ -75,7 +82,37 @@ public class DefaultTextExtractor implements TextExtractor {
     public String extract(String mime, byte[] bytes, int maxPages) throws Exception {
         final String m = (mime == null) ? "" : mime.toLowerCase(Locale.ROOT);
 
-        // ---------- PDF ----------
+        /* ---------- TEXT/* (txt, md, csv, json as text) ---------- */
+        if (m.startsWith("text/") || m.equals("application/json")) {
+            String raw = new String(bytes, StandardCharsets.UTF_8);
+            String norm = normalize(raw);
+            log.debug("TEXT extractor: mime={} chars={}", m, norm.length());
+            return norm;
+        }
+
+        /* ---------- DOCX ---------- */
+        if (m.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
+            try (var in = new ByteArrayInputStream(bytes);
+                 var doc = new XWPFDocument(in);
+                 var extractor = new XWPFWordExtractor(doc)) {
+                String norm = normalize(extractor.getText());
+                log.debug("DOCX extractor: chars={}", norm.length());
+                return norm;
+            }
+        }
+
+        /* ---------- legacy DOC (optional if you include poi) ---------- */
+        if (m.equals("application/msword")) {
+            try (var in = new ByteArrayInputStream(bytes);
+                 var doc = new HWPFDocument(in);
+                 var extractor = new WordExtractor(doc)) {
+                String norm = normalize(extractor.getText());
+                log.debug("DOC extractor: chars={}", norm.length());
+                return norm;
+            }
+        }
+
+        /* ---------- PDF ---------- */
         if (m.startsWith("application/pdf")) {
             try (PDDocument doc = Loader.loadPDF(bytes)) {
                 int total = doc.getNumberOfPages();
@@ -105,7 +142,6 @@ public class DefaultTextExtractor implements TextExtractor {
                     page = guardAndDownscale(page);
                     dumpDebug(page, "pdf", i, "base");
 
-                    // Tess ladder + rotations (incl. 180°)
                     String tess = normalize(ocrWithRetries(page, ocrLangs, i));
                     int tessLen = tess.strip().length();
                     boolean weak = OcrHeuristics.looksWeak(tess, MIN_CHARS_PER_PAGE, MIN_ALPHA_SHARE);
@@ -144,7 +180,7 @@ public class DefaultTextExtractor implements TextExtractor {
             }
         }
 
-        // ---------- Image/* ----------
+        /* ---------- Image/* (OCR) ---------- */
         if (m.startsWith("image/")) {
             BufferedImage img = ImageIO.read(new ByteArrayInputStream(bytes));
             if (img == null) return "";
@@ -173,7 +209,8 @@ public class DefaultTextExtractor implements TextExtractor {
             return chosen;
         }
 
-        // Unknown
+        // Unknown → empty string signals "nothing to read"
+        log.debug("Extractor: unsupported mime '{}' -> returning empty string", m);
         return "";
     }
 
@@ -329,7 +366,6 @@ public class DefaultTextExtractor implements TextExtractor {
 
     /** Map Tesseract codes to EasyOCR codes for the sidecar. */
     private static String mapLangsForEasyOcr(String tessLangsCsv) {
-        // simple 1:1 map for common cases; extend as needed
         return tessLangsCsv
                 .replace("eng", "en")
                 .replace("spa", "es")
