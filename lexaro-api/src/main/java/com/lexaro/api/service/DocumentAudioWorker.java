@@ -1,12 +1,13 @@
 package com.lexaro.api.service;
 
 import com.lexaro.api.domain.AudioStatus;
+import com.lexaro.api.domain.Plan;
+import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
 import com.lexaro.api.translate.TranslateService;
 import com.lexaro.api.tts.TextChunker;
 import com.lexaro.api.tts.TtsService;
-import com.lexaro.api.extract.TextExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,14 @@ public class DocumentAudioWorker {
     private final @Autowired(required = false) TranslateService translate;
 
     @Async("ttsExecutor")
-    public void process(Long userId, Long docId, String voice, String engine, String format, boolean unlimited, String targetLang) {
+    public void process(Long userId,
+                        Long docId,
+                        String voice,
+                        String engine,
+                        String format,
+                        boolean unlimited,
+                        String targetLang) {
+
         log.info("TTS start docId={}, userId={}, voice={}, engine={}, format={}, targetLang={}",
                 docId, userId, voice, engine, format, targetLang);
 
@@ -57,7 +65,7 @@ public class DocumentAudioWorker {
             int perDocCap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
             if (text.length() > perDocCap) text = text.substring(0, perDocCap);
 
-            // Optional translation
+            // Optional translation (kept as-is)
             boolean doTranslate = translate != null
                     && targetLang != null
                     && !targetLang.isBlank()
@@ -73,14 +81,21 @@ public class DocumentAudioWorker {
             List<String> chunks = TextChunker.splitBySentences(text, safeChunk);
             log.debug("TTS chunks docId={}, count={}", docId, chunks.size());
 
+            // Defaults
             String v = (voice == null || voice.isBlank()) ? plans.defaultTtsVoice()   : voice;
             String e = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine() : engine.toLowerCase(Locale.ROOT);
             String f = (format == null || format.isBlank()) ? "mp3" : format.toLowerCase(Locale.ROOT);
 
+            // Modern Speechify API doesn’t require language; pass null so the client won’t add it.
+            String lang = doTranslate ? targetLang : null;
+
+            Plan plan = doc.getPlanAtUpload();
+
             ByteArrayOutputStream mix = new ByteArrayOutputStream();
             for (String c : chunks) {
                 if (c == null || c.isBlank()) continue;
-                mix.write(tts.synthesize(c, v, e, f));
+                // The Speechify client returns raw audio bytes. MP3 frames can be concatenated safely.
+                mix.write(tts.synthesize(plan, c, v, e, f, lang));
             }
             byte[] merged = mix.toByteArray();
 
@@ -99,7 +114,6 @@ public class DocumentAudioWorker {
             storage.put(key, merged, contentType);
 
             if (!unlimited) {
-                // Record REAL synthesized chars (post-translation)
                 quota.addMonthlyUsage(userId, text.length());
                 quota.addDailyUsage(userId, text.length());
             }
@@ -119,7 +133,8 @@ public class DocumentAudioWorker {
             doc.setAudioObjectKey(null);
             doc.setAudioFormat(null);
             doc.setAudioVoice(null);
-            doc.setAudioError(ex.getMessage() == null ? "TTS failed" : ex.getMessage().substring(0, Math.min(250, ex.getMessage().length())));
+            String msg = ex.getMessage() == null ? "TTS failed" : ex.getMessage();
+            doc.setAudioError(msg.substring(0, Math.min(250, msg.length())));
             docs.save(doc);
         }
     }

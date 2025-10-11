@@ -41,26 +41,32 @@ public class TtsVoiceCatalogService {
     @Getter
     private static class Cache {
         final Instant fetchedAt;
-        final Map<String, VoiceInfo> byName; // key: uppercase name
+        final Map<String, VoiceInfo> byNameUpper; // key: uppercase name
 
-        Cache(Instant fetchedAt, Map<String, VoiceInfo> byName) {
+        Cache(Instant fetchedAt, Map<String, VoiceInfo> byNameUpper) {
             this.fetchedAt = fetchedAt;
-            this.byName = byName;
+            this.byNameUpper = byNameUpper;
         }
     }
 
     public List<VoiceInfo> listVoices() {
         ensureFresh();
-        return new ArrayList<>(cacheRef.get().byName.values())
+        return new ArrayList<>(cacheRef.get().byNameUpper.values())
                 .stream()
                 .sorted(Comparator.comparing(VoiceInfo::name))
                 .collect(Collectors.toList());
     }
 
+    /** Case-insensitive find within the **Polly** catalog. */
     public Optional<VoiceInfo> findByName(String name) {
         if (name == null || name.isBlank()) return Optional.empty();
         ensureFresh();
-        return Optional.ofNullable(cacheRef.get().byName.get(name.trim().toUpperCase(Locale.ROOT)));
+        return Optional.ofNullable(cacheRef.get().byNameUpper.get(name.trim().toUpperCase(Locale.ROOT)));
+    }
+
+    /** True if the voice name is in the **Polly** catalog (case-insensitive). */
+    public boolean isKnownPollyVoice(String name) {
+        return findByName(name).isPresent();
     }
 
     private void ensureFresh() {
@@ -70,7 +76,6 @@ public class TtsVoiceCatalogService {
         synchronized (this) {
             c = cacheRef.get();
             if (c != null && c.fetchedAt.plusSeconds(cacheTtlMinutes * 60).isAfter(Instant.now())) return;
-
             cacheRef.set(new Cache(Instant.now(), fetchFromPolly()));
         }
     }
@@ -86,7 +91,7 @@ public class TtsVoiceCatalogService {
                 .credentialsProvider(creds)
                 .build()) {
 
-            // We query twice to learn engine support.
+            // Query twice to learn engine support.
             var standardVoices = client.describeVoices(DescribeVoicesRequest.builder()
                     .engine(Engine.STANDARD)
                     .build()).voices();
@@ -105,7 +110,7 @@ public class TtsVoiceCatalogService {
             }
 
             // Build final map (prefer attributes from standard list; fallback to neural list)
-            Map<String, VoiceInfo> byName = new HashMap<>();
+            Map<String, VoiceInfo> byNameUpper = new HashMap<>();
             Map<String, software.amazon.awssdk.services.polly.model.Voice> attr = new HashMap<>();
             standardVoices.forEach(v -> attr.put(v.name(), v));
             neuralVoices.forEach(v -> attr.putIfAbsent(v.name(), v));
@@ -116,27 +121,27 @@ public class TtsVoiceCatalogService {
                 String gender = v.gender() == Gender.MALE ? "MALE" : (v.gender() == Gender.FEMALE ? "FEMALE" : "UNKNOWN");
                 String lang = v.languageName() != null ? v.languageName() : v.languageCodeAsString();
                 var info = new VoiceInfo(name, gender, lang, Collections.unmodifiableSet(e.getValue()));
-                byName.put(name.toUpperCase(Locale.ROOT), info);
+                byNameUpper.put(name.toUpperCase(Locale.ROOT), info);
             }
 
-            log.info("Polly voices loaded: {} total", byName.size());
-            return byName;
+            log.info("Polly voices loaded: {} total", byNameUpper.size());
+            return byNameUpper;
 
         } catch (PollyException ex) {
             log.error("Failed to load voices from Polly: {}", ex.toString(), ex);
             // If Polly fails, keep prior cache (if any); otherwise fallback to minimal.
             Cache prev = cacheRef.get();
-            if (prev != null) return prev.byName;
+            if (prev != null) return prev.byNameUpper;
             return Map.of();
         }
     }
 
-    /** True if the voice exists (case-insensitive). */
-    public boolean isValidVoice(String name) {
-        return findByName(name).isPresent();
+    /** True if the voice exists in **Polly** (case-insensitive). */
+    public boolean isValidVoice(String name) { // kept for backward compatibility
+        return isKnownPollyVoice(name);
     }
 
-    /** True if the given voice supports the given engine ("standard" or "neural"). */
+    /** True if the given **Polly** voice supports the given engine ("standard" or "neural"). */
     public boolean voiceSupportsEngine(String voiceName, String engine) {
         if (engine == null || engine.isBlank()) return false;
         return findByName(voiceName)
@@ -144,7 +149,7 @@ public class TtsVoiceCatalogService {
                 .orElse(false);
     }
 
-    /** Convenience list of just the voice names (unsorted). */
+    /** Convenience list of just the **Polly** voice names (unsorted). */
     public List<String> voiceNames() {
         return listVoices().stream().map(VoiceInfo::name).toList();
     }

@@ -1,9 +1,10 @@
 package com.lexaro.api.tts;
 
+import com.lexaro.api.domain.Plan;
+
 public class DevTtsService implements TtsService {
     @Override
-    public byte[] synthesize(String text, String voice, String engine, String format) {
-        // tiny fake MP3/PCM bytes for local dev; replace with something simple
+    public byte[] synthesize(Plan plan, String text, String voice, String engine, String format, String language) {
         return ("DEV_TTS:" + text).getBytes();
     }
 }

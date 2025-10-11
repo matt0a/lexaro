@@ -2,7 +2,6 @@ package com.lexaro.api.service;
 
 import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.DocStatus;
-import com.lexaro.api.domain.Plan;
 import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
@@ -15,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.regex.Pattern;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,10 +27,24 @@ public class DocumentAudioService {
     private final TtsQuotaService quota;
     private final StorageService storage;
     private final TextExtractor extractor;
-    private final TtsVoiceCatalogService voices;
+    private final TtsVoiceCatalogService voices; // Polly catalog only
 
     @Value("${app.translate.conservativeMultiplier:1.3}")
     private double translateMultiplier;
+
+    private static final Pattern WS = Pattern.compile("\\s+");
+
+    private static String normalizeWhitespace(String s) {
+        if (s == null) return "";
+        String t = s.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", " ").trim();
+        return WS.matcher(t).replaceAll(" ");
+    }
+
+    private static int countWords(String s) {
+        String t = normalizeWhitespace(s);
+        if (t.isEmpty()) return 0;
+        return t.split(" ").length;
+    }
 
     @Transactional
     public void start(Long userId, Long docId, String voice, String engine, String format, String targetLang) {
@@ -60,54 +75,52 @@ public class DocumentAudioService {
         }
 
         // ---------------- Validate / normalize voice + engine ----------------
-        String reqVoice  = (voice  == null || voice.isBlank())  ? plans.defaultTtsVoice()   : voice;
-        String reqEngine = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine()  : engine.toLowerCase();
+        String reqVoice  = (voice  == null || voice.isBlank())  ? plans.defaultTtsVoice()  : voice;
+        String reqEngine = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine() : engine.toLowerCase();
 
-        // Plan gating for neural (fallback to standard if not allowed)
+        // Plan gating for engine (e.g., neural might be disallowed by plan). This applies to any provider.
         String gatedEngine = plans.sanitizeEngineForPlan(reqEngine, plan);
 
-        // Validate against voice catalog (400 if truly invalid)
-        if (!voices.isValidVoice(reqVoice)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Unknown voice '" + reqVoice + "'. Try one of: " + String.join(", ", voices.voiceNames())
-            );
-        }
-        if (!voices.voiceSupportsEngine(reqVoice, gatedEngine)) {
-            // If neural unsupported but standard is OK, fallback; otherwise 400.
-            if ("neural".equals(gatedEngine) && voices.voiceSupportsEngine(reqVoice, "standard")) {
-                gatedEngine = "standard";
-            } else {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Voice '" + reqVoice + "' does not support engine '" + gatedEngine + "'."
-                );
+        // IMPORTANT: Only validate against the **Polly** catalog if the requested voice is actually a Polly voice.
+        if (voices.isKnownPollyVoice(reqVoice)) {
+            if (!voices.voiceSupportsEngine(reqVoice, gatedEngine)) {
+                // If neural unsupported but standard is OK, fallback; otherwise 400.
+                if ("neural".equals(gatedEngine) && voices.voiceSupportsEngine(reqVoice, "standard")) {
+                    gatedEngine = "standard";
+                } else {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Voice '" + reqVoice + "' does not support engine '" + gatedEngine + "'."
+                    );
+                }
             }
+        } else {
+            // Not a Polly voice -> allow (Speechify or other provider will validate downstream).
+            log.debug("Skipping Polly validation for non-Polly voice '{}'", reqVoice);
         }
 
-        // ---------------- Peek planned chars (pre-translate) ----------------
-        int perDocCap = plans.ttsMaxCharsForPlan(plan);
-        int plannedChars;
+        // ---------------- Peek planned words (pre-translate) ----------------
+        // NOTE: we reuse the plan's "chars" methods but interpret their values as WORDS now.
+        int perDocCapWords = plans.ttsMaxCharsForPlan(plan);
+        int plannedWords;
         try {
             byte[] bytes = storage.getBytes(doc.getObjectKey());
             String raw = extractor.extract(doc.getMime(), bytes, 0);
-            String text = (raw == null ? "" : raw)
-                    .replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", " ")
-                    .replaceAll("\\s+", " ")
-                    .trim();
+            String text = normalizeWhitespace(raw);
+
             if (text.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
-            int base = Math.min(text.length(), perDocCap);
+            int baseWords = Math.min(countWords(text), perDocCapWords);
 
             boolean willTranslate = targetLang != null
                     && !targetLang.isBlank()
                     && !"auto".equalsIgnoreCase(targetLang)
                     && !"same".equalsIgnoreCase(targetLang);
 
-            plannedChars = willTranslate
-                    ? Math.min((int) Math.ceil(base * translateMultiplier), perDocCap)
-                    : base;
+            plannedWords = willTranslate
+                    ? Math.min((int) Math.ceil(baseWords * translateMultiplier), perDocCapWords)
+                    : baseWords;
 
         } catch (ResponseStatusException e) {
             throw e;
@@ -116,8 +129,8 @@ public class DocumentAudioService {
         }
 
         if (!unlimited) {
-            quota.ensureWithinDailyCap(userId, plan, plannedChars);
-            quota.ensureWithinMonthlyCap(userId, plan, plannedChars);
+            quota.ensureWithinDailyCap(userId, plan, plannedWords);   // interpret as words
+            quota.ensureWithinMonthlyCap(userId, plan, plannedWords); // interpret as words
         }
 
         // ---------------- Mark & dispatch ----------------

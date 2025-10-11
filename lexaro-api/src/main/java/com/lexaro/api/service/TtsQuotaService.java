@@ -36,7 +36,7 @@ public class TtsQuotaService {
         return LocalDate.now(ZoneOffset.UTC);
     }
 
-    /* ---------- current usage ---------- */
+    /* ---------- current usage (store words in columns named chars_used) ---------- */
 
     public long currentMonthly(long userId) {
         final String sql = "select chars_used from tts_usage where user_id=? and period_ym=?";
@@ -62,54 +62,54 @@ public class TtsQuotaService {
     /* ---------- convenience ---------- */
 
     /**
-     * Remaining monthly characters = base plan cap + top-ups - alreadyUsed.
+     * Remaining monthly words = base plan cap (words) + top-ups (words) - alreadyUsed (words).
      * Returns Long.MAX_VALUE for unlimited plans.
      */
     public long monthlyRemaining(long userId, Plan plan, long alreadyUsed) {
-        long baseCap = plans.monthlyCapForPlan(plan);
-        if (baseCap == Long.MAX_VALUE) return Long.MAX_VALUE;
-        long extra = monthTopups(userId);
-        long remaining = baseCap + extra - alreadyUsed;
+        long baseCapWords = plans.monthlyCapForPlan(plan); // interpret as words
+        if (baseCapWords == Long.MAX_VALUE) return Long.MAX_VALUE;
+        long extraWords = monthTopups(userId);
+        long remaining = baseCapWords + extraWords - alreadyUsed;
         return Math.max(0L, remaining);
     }
 
     /* ---------- guards ---------- */
 
-    /** 402 if (used + planned) > (base cap + top-ups). */
-    public void ensureWithinMonthlyCap(long userId, Plan plan, long plannedChars) {
-        long base = plans.monthlyCapForPlan(plan);
+    /** 402 if (used + planned) > (base cap + top-ups). Units = words. */
+    public void ensureWithinMonthlyCap(long userId, Plan plan, long plannedWords) {
+        long base = plans.monthlyCapForPlan(plan); // words
         if (base == Long.MAX_VALUE) return; // unlimited
-        long extra = monthTopups(userId);
-        long used  = currentMonthly(userId);
+        long extra = monthTopups(userId);   // words
+        long used  = currentMonthly(userId);// words
 
-        if (used + plannedChars > base + extra) {
+        if (used + plannedWords > base + extra) {
             long remaining = Math.max(0L, base + extra - used);
             throw new ResponseStatusException(
                     HttpStatus.PAYMENT_REQUIRED,
-                    "Monthly TTS limit reached. Remaining=" + remaining + " chars, requested=" + plannedChars
+                    "Monthly TTS limit reached. Remaining=" + remaining + " words, requested=" + plannedWords
             );
         }
     }
 
-    /** 429 if (used + planned) > daily cap. (Top-ups do NOT affect daily caps.) */
-    public void ensureWithinDailyCap(long userId, Plan plan, long plannedChars) {
-        long cap = plans.dailyCapForPlan(plan);
+    /** 429 if (used + planned) > daily cap. (Top-ups do NOT affect daily caps.) Units = words. */
+    public void ensureWithinDailyCap(long userId, Plan plan, long plannedWords) {
+        long cap = plans.dailyCapForPlan(plan); // words; 0 or MAX_VALUE means unlimited
         if (cap <= 0 || cap == Long.MAX_VALUE) return;
         long used = currentDaily(userId);
-        if (used + plannedChars > cap) {
+        if (used + plannedWords > cap) {
             long remaining = Math.max(0, cap - used);
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
-                    "Daily TTS limit reached. Remaining=" + remaining + " chars, requested=" + plannedChars
+                    "Daily TTS limit reached. Remaining=" + remaining + " words, requested=" + plannedWords
             );
         }
     }
 
-    /* ---------- upserts (atomic per row) ---------- */
+    /* ---------- upserts (atomic per row). Units = words. ---------- */
 
-    public long addMonthlyUsage(long userId, long delta) {
-        delta = clampNonNegative(delta);
-        if (delta == 0) return currentMonthly(userId);
+    public long addMonthlyUsage(long userId, long deltaWords) {
+        deltaWords = clampNonNegative(deltaWords);
+        if (deltaWords == 0) return currentMonthly(userId);
         final String sql = """
             insert into tts_usage (user_id, period_ym, chars_used, updated_at)
             values (?, ?, ?, now())
@@ -118,12 +118,12 @@ public class TtsQuotaService {
                           updated_at = now()
             returning chars_used
             """;
-        return jdbc.queryForObject(sql, Long.class, userId, monthKey(), delta);
+        return jdbc.queryForObject(sql, Long.class, userId, monthKey(), deltaWords);
     }
 
-    public long addDailyUsage(long userId, long delta) {
-        delta = clampNonNegative(delta);
-        if (delta == 0) return currentDaily(userId);
+    public long addDailyUsage(long userId, long deltaWords) {
+        deltaWords = clampNonNegative(deltaWords);
+        if (deltaWords == 0) return currentDaily(userId);
         final String sql = """
             insert into tts_usage_day (user_id, period_ymd, chars_used, updated_at)
             values (?, ?, ?, now())
@@ -132,20 +132,20 @@ public class TtsQuotaService {
                           updated_at = now()
             returning chars_used
             """;
-        return jdbc.queryForObject(sql, Long.class, userId, dayKey(), delta);
+        return jdbc.queryForObject(sql, Long.class, userId, dayKey(), deltaWords);
     }
 
     /* ---------- friendly wrappers ---------- */
 
-    public long addUsage(long userId, long delta) { return addMonthlyUsage(userId, delta); }
-    public long addDaily(long userId, long delta) { return addDailyUsage(userId, delta); }
+    public long addUsage(long userId, long deltaWords) { return addMonthlyUsage(userId, deltaWords); }
+    public long addDaily(long userId, long deltaWords) { return addDailyUsage(userId, deltaWords); }
 
     @Transactional
-    public void recordUsage(long userId, long delta) {
-        delta = clampNonNegative(delta);
-        if (delta == 0) return;
-        addMonthlyUsage(userId, delta);
-        addDailyUsage(userId, delta);
+    public void recordUsage(long userId, long deltaWords) {
+        deltaWords = clampNonNegative(deltaWords);
+        if (deltaWords == 0) return;
+        addMonthlyUsage(userId, deltaWords);
+        addDailyUsage(userId, deltaWords);
     }
 
     /* ---------- utils ---------- */

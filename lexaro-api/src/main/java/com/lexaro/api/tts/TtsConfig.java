@@ -1,23 +1,19 @@
 package com.lexaro.api.tts;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.time.Duration;
 
 @Configuration
 public class TtsConfig {
 
-    @Bean("devTtsService")
-    @ConditionalOnProperty(name = "app.tts.provider", havingValue = "dev", matchIfMissing = true)
-    public TtsService devTtsService() {
-        return new DevTtsService();
-    }
-
-    @Primary
+    /* ---------- POLLY ---------- */
     @Bean("pollyTtsService")
-    @ConditionalOnProperty(name = "app.tts.provider", havingValue = "polly")
     public TtsService pollyTtsService(
             @Value("${app.tts.polly.region}") String region,
             @Value("${app.tts.polly.accessKey:}") String accessKey,
@@ -25,5 +21,32 @@ public class TtsConfig {
     ) {
         return new PollyTtsService(region, accessKey, secretKey);
     }
-}
 
+    /* ---------- SPEECHIFY ---------- */
+    @Bean("speechifyTtsService")
+    public TtsService speechifyTtsService(
+            @Value("${app.tts.speechify.baseUrl:https://api.sws.speechify.com}") String baseUrl,
+            @Value("${app.tts.speechify.apiKey:}") String apiKey,
+            @Qualifier("speechifyWebClient") WebClient speechifyWebClient,  // <-- reuse bean from SpeechifyHttpConfig
+            @Value("${app.tts.speechify.timeoutMs:20000}") long timeoutMs,
+            @Value("${app.tts.speechify.defaultVoice:alloy}") String defaultVoice
+    ) {
+        return new SpeechifyTtsService(
+                baseUrl,
+                apiKey,
+                speechifyWebClient,
+                Duration.ofMillis(timeoutMs),
+                defaultVoice
+        );
+    }
+
+    /* ---------- ROUTER (Primary) ---------- */
+    @Primary
+    @Bean("routingTtsService")
+    public TtsService routingTtsService(
+            @Qualifier("pollyTtsService") TtsService polly,
+            @Qualifier("speechifyTtsService") TtsService speechify
+    ) {
+        return new DelegatingTtsService(polly, speechify);
+    }
+}

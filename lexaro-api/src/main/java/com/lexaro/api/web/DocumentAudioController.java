@@ -5,6 +5,8 @@ import com.lexaro.api.domain.DocStatus;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.service.DocumentAudioService;
 import com.lexaro.api.service.DocumentService;
+import com.lexaro.api.web.dto.AudioStartRequest;
+import com.lexaro.api.web.dto.AudioStatusResponse;
 import com.lexaro.api.web.dto.PresignDownloadResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,22 +28,17 @@ public class DocumentAudioController {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
-    public record StartBody(String voice, String engine, String format, String targetLang) {}
-    public record AudioStatusResponse(
-            String status,
-            String voice,
-            String format,
-            String downloadUrl,
-            String error
-    ) {}
     @PostMapping("/start")
-    public String start(@PathVariable Long id, @RequestBody(required = false) StartBody b) {
-        String voice  = (b == null || b.voice()  == null || b.voice().isBlank())  ? "Joanna"   : b.voice();
-        String engine = (b == null || b.engine() == null || b.engine().isBlank()) ? "standard" : b.engine();
-        String format = (b == null || b.format() == null || b.format().isBlank()) ? "mp3"      : b.format();
-        String target = (b == null) ? null : b.targetLang(); // "fr", "es", etc. (or null/"auto")
+    public String start(@PathVariable Long id, @RequestBody(required = false) AudioStartRequest req) {
+        // Allow either `voice` (Polly-style) or `voice_id` (Speechify-style)
+        String normalizedVoice = req == null ? null : firstNonBlank(req.voice(), req.voice_id());
 
-        audio.start(userId(), id, voice, engine, format, target);
+        // Pass-through: if blank, send null so worker/plan applies its own defaults
+        String engine    = req == null ? null : blankToNull(req.engine());
+        String format    = req == null ? null : blankToNull(req.format());
+        String targetLang= req == null ? null : blankToNull(req.targetLang());
+
+        audio.start(userId(), id, normalizedVoice, engine, format, targetLang);
         return "started";
     }
 
@@ -85,5 +82,17 @@ public class DocumentAudioController {
             throw new ResponseStatusException(HttpStatus.GONE, "Document has expired.");
         }
         return docService.presignAudioDownload(userId(), id, ttlSeconds);
+    }
+
+    /* -------- helpers -------- */
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.trim().isEmpty()) return a.trim();
+        if (b != null && !b.trim().isEmpty()) return b.trim();
+        return null;
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.trim().isEmpty()) ? null : s.trim();
     }
 }
