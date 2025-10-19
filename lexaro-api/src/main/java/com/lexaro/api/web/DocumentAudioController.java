@@ -30,15 +30,14 @@ public class DocumentAudioController {
 
     @PostMapping("/start")
     public String start(@PathVariable Long id, @RequestBody(required = false) AudioStartRequest req) {
-        // Allow either `voice` (Polly-style) or `voice_id` (Speechify-style)
         String normalizedVoice = req == null ? null : firstNonBlank(req.voice(), req.voice_id());
+        String engine          = req == null ? null : blankToNull(req.engine());
+        String format          = req == null ? null : blankToNull(req.format());
 
-        // Pass-through: if blank, send null so worker/plan applies its own defaults
-        String engine    = req == null ? null : blankToNull(req.engine());
-        String format    = req == null ? null : blankToNull(req.format());
-        String targetLang= req == null ? null : blankToNull(req.targetLang());
+        // Translation is disabled → ALWAYS ignore targetLang (even if client sends it)
+        String targetLangIgnored = null;
 
-        audio.start(userId(), id, normalizedVoice, engine, format, targetLang);
+        audio.start(userId(), id, normalizedVoice, engine, format, targetLangIgnored);
         return "started";
     }
 

@@ -14,8 +14,10 @@ import {
     // times
     Briefcase, Car, Sparkles, Dumbbell, Moon,
     // misc
-    Check, Play, Pause, User, UserRound
+    Check,
 } from 'lucide-react';
+
+import VoiceStep, { VoiceId } from '@/components/onboarding/VoiceStep'; // ⬅️ add this import
 
 type Choice = { id: string; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
 
@@ -74,7 +76,7 @@ function choicesFor(step: number): Choice[] {
         case 'goals':   return GOAL_CHOICES;
         case 'devices': return DEVICE_CHOICES;
         case 'times':   return TIME_CHOICES;
-        case 'voice':   return []; // custom UI below
+        case 'voice':   return []; // custom UI handled by <VoiceStep/>
     }
 }
 
@@ -88,11 +90,8 @@ export default function GetStartedPage() {
         goals:   new Set(),
         devices: new Set(),
         times:   new Set(),
-        voice:   new Set(),
+        voice:   new Set(), // will hold 'v1' | 'v2' | 'v3' | 'v4'
     });
-
-    // simple "playing" simulation for the preview cards
-    const [playingId, setPlayingId] = useState<string | null>(null);
 
     const title  = stepTitle(step);
     const items  = useMemo(() => choicesFor(step), [step]);
@@ -115,7 +114,7 @@ export default function GetStartedPage() {
             return;
         }
         if (isLast) {
-            router.push('/trial-offer'); // go straight to the Premium yearly trial funnel
+            router.push('/trial-offer');
         } else {
             setStep((s) => s + 1);
         }
@@ -199,103 +198,10 @@ export default function GetStartedPage() {
                                 })}
                             </motion.div>
                         ) : (
-                            <motion.div
-                                key={`voice-${step}`}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
-                                transition={{ duration: 0.2 }}
-                                className="col-span-2"
-                            >
-                                {/* helper text */}
-                                <div className="card p-6 mb-6">
-                                    <p className="text-white/80">
-                                        Preview a few voices (optional). <span className="text-white/90 font-medium">You can change your voices later in the app.</span>
-                                    </p>
-                                </div>
-
-                                {/* Voice preview layout */}
-                                <div className="relative">
-                                    {/* Center circle with silhouettes */}
-                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                        <div className="relative h-40 w-40 rounded-full border border-white/10 bg-white/[0.03]">
-                                            <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80">
-                                                <User className="h-10 w-10 text-white/70" strokeWidth={1.6} />
-                                                <UserRound className="h-10 w-10 text-white/70" strokeWidth={1.6} />
-                                            </div>
-                                            <div className="absolute -inset-6 rounded-full bg-gradient-to-r from-blue-500/10 via-fuchsia-500/10 to-cyan-500/10 blur-2xl" />
-                                        </div>
-                                    </div>
-
-                                    {/* 2x2 grid of preview cards */}
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        {[
-                                            { id: 'v1', title: 'Warm Female' },
-                                            { id: 'v2', title: 'Bright Male' },
-                                            { id: 'v3', title: 'Calm Female' },
-                                            { id: 'v4', title: 'Deep Male' },
-                                        ].map((v, i) => {
-                                            const active = selected.voice.has(v.id);
-                                            const isPlaying = playingId === v.id;
-                                            return (
-                                                <motion.div
-                                                    key={v.id}
-                                                    initial={{ opacity: 0, y: 8 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: i * 0.05, duration: 0.2 }}
-                                                    className={[
-                                                        'relative rounded-2xl border border-white/10 bg-[var(--card)]/95 p-5',
-                                                        active ? 'ring-1 ring-accent/50' : 'hover:bg-white/[0.06]',
-                                                    ].join(' ')}
-                                                >
-                                                    <div className="mb-3 flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
-                                {/* simple glyph */}
-                                  {i % 2 === 0 ? (
-                                      <User className="h-5 w-5 text-white/80" strokeWidth={1.6} />
-                                  ) : (
-                                      <UserRound className="h-5 w-5 text-white/80" strokeWidth={1.6} />
-                                  )}
-                              </span>
-                                                            <div className="text-white/90 font-medium">{v.title}</div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => setSelected((s) => {
-                                                                const next = new Set(s.voice);
-                                                                next.has(v.id) ? next.delete(v.id) : next.add(v.id);
-                                                                return { ...s, voice: next };
-                                                            })}
-                                                            className={[
-                                                                'rounded-md border px-2 py-1 text-xs font-semibold',
-                                                                active ? 'border-accent bg-accent text-white' : 'border-white/20 text-white/70 hover:bg-white/5',
-                                                            ].join(' ')}
-                                                        >
-                                                            {active ? 'Selected' : 'Select'}
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="mt-3 flex items-center justify-center">
-                                                        <button
-                                                            onClick={() => setPlayingId((p) => (p === v.id ? null : v.id))}
-                                                            className={[
-                                                                'inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold',
-                                                                'bg-white/5 hover:bg-white/10 transition-colors',
-                                                            ].join(' ')}
-                                                        >
-                                                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                                                            {isPlaying ? 'Pause' : 'Play'}
-                                                        </button>
-                                                    </div>
-
-                                                    {/* hover glow */}
-                                                    <span className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity hover:opacity-100 ring-1 ring-white/5" />
-                                                </motion.div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </motion.div>
+                            <VoiceStep
+                                selected={selected.voice as Set<VoiceId>}
+                                onChange={(next) => setSelected((s) => ({ ...s, voice: next }))}
+                            />
                         )}
                     </AnimatePresence>
                 </div>
@@ -338,7 +244,7 @@ export default function GetStartedPage() {
                         <motion.div
                             className="absolute inset-y-0 left-0 rounded-full bg-accent"
                             initial={{ width: '0%' }}
-                            animate={{ width: `${progress}%` }}
+                            animate={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
                             transition={{ type: 'spring', stiffness: 220, damping: 28, mass: 0.4 }}
                         />
                     </div>
