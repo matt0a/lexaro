@@ -46,6 +46,7 @@ public class TtsVoiceCatalogService {
 
     /* ---------------- Unified catalog with plan-based filtering ---------------- */
 
+    /** FREE: exactly [Joanna (F), Matthew (M)] from Polly. PAID: Speechify catalog (unchanged). */
     public List<VoiceDto> listUnifiedCatalog(String plan) {
         final String p = plan == null ? "FREE" : plan.trim().toUpperCase(Locale.ROOT);
         final boolean isPaid = switch (p) {
@@ -56,25 +57,44 @@ public class TtsVoiceCatalogService {
         List<VoiceDto> out = new ArrayList<>();
 
         if (isPaid) {
-            // Paid → Speechify only
+            // Paid → Speechify only (unchanged)
             try {
                 out.addAll(speechifyCatalogService.listVoicesBlocking());
             } catch (Exception ignore) { /* keep going with empty list */ }
         } else {
-            // Free → Polly only
-            for (var v : listVoices()) {
-                String regionCode = inferRegionCode(v.language());  // "US", "GB", ...
-                String display    = humanLanguage(v.language(), regionCode);
-                out.add(new VoiceDto(
-                        v.name(), v.name(), "polly",
-                        display, regionCode,
-                        normGender(v.gender()),
-                        null, null
-                ));
+            // Free → lock to exactly two Polly voices: Joanna (Female) + Matthew (Male)
+            List<VoiceInfo> polly = listVoices();
+
+            Optional<VoiceInfo> joanna = polly.stream()
+                    .filter(v -> "JOANNA".equalsIgnoreCase(v.name()))
+                    .findFirst();
+
+            Optional<VoiceInfo> matthew = polly.stream()
+                    .filter(v -> "MATTHEW".equalsIgnoreCase(v.name()))
+                    .findFirst();
+
+            // If Matthew is missing in the region, fall back to any English male
+            if (matthew.isEmpty()) {
+                matthew = polly.stream()
+                        .filter(v -> "MALE".equalsIgnoreCase(v.gender()))
+                        .filter(v -> v.language() != null && v.language().toLowerCase(Locale.ROOT).contains("english"))
+                        .findFirst();
             }
+
+            joanna.ifPresent(v -> out.add(new VoiceDto(
+                    v.name(), "Female (Joanna)", "polly",
+                    humanLanguage(v.language(), "US"), "US",
+                    "Female", null, null
+            )));
+
+            matthew.ifPresent(v -> out.add(new VoiceDto(
+                    v.name(), "Male (Matthew)", "polly",
+                    humanLanguage(v.language(), "US"), "US",
+                    "Male", null, null
+            )));
         }
 
-        // NULL-SAFE sort (prevents NPE from CASE_INSENSITIVE_ORDER)
+        // NULL-SAFE sort
         out.sort(Comparator
                 .comparing((VoiceDto v) -> Optional.ofNullable(v.language()).orElse(""), String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(v -> Optional.ofNullable(v.title()).orElse(""), String.CASE_INSENSITIVE_ORDER));

@@ -9,6 +9,9 @@ import VoicePickerModal, {
     type VoiceMeta,
 } from '@/components/voices/VoicePickerModal';
 
+// NEW: Free-plan picker (2 voices)
+import FreeVoicePickModal from '@/components/upload/FreeVoicePickModal';
+
 import api from '@/lib/api';
 
 type Props = {
@@ -30,22 +33,29 @@ type VoiceDto = {
     preview: string | null;
 };
 
+// local type for free picker
+type SimplePickedVoice = { voiceId: string; title: string };
+
 export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string>('');
 
-    // PAID voice pick
+    // shared doc id while waiting for a voice pick (free or paid)
     const [pendingDocId, setPendingDocId] = useState<number | null>(null);
-    const [showVoice, setShowVoice] = useState(false);
 
-    // Catalog for the picker
+    // PAID picker
+    const [showVoice, setShowVoice] = useState(false);
     const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
+
+    // FREE picker
+    const [showFreeVoice, setShowFreeVoice] = useState(false);
+    const [lastFreeVoice, setLastFreeVoice] = useState<SimplePickedVoice | null>(null);
 
     const upperPlan = plan?.toUpperCase?.() || 'FREE';
     const isFree = upperPlan === 'FREE';
-    const allowPolly = isFree; // hide Polly for premium tiers
+    const allowPolly = isFree; // your original logic retained
 
     const normalizeGender = (g?: string | null): VoiceMeta['gender'] => {
         const s = (g ?? '').trim().toLowerCase();
@@ -54,15 +64,13 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
         return 'Other';
     };
 
-    // 🔑 keep hooks ALWAYS before any early return
+    // Load catalog only when paid picker opens
     useEffect(() => {
         if (!showVoice) return;
+
         (async () => {
             try {
-                const { data } = await api.get<VoiceDto[]>('/tts/voices', {
-                    params: { plan: upperPlan },
-                });
-
+                const { data } = await api.get<VoiceDto[]>('/tts/voices', { params: { plan: upperPlan } });
                 const list = Array.isArray(data) ? data : [];
                 const mapped: VoiceMeta[] = list.map((v) => ({
                     id: v.id,
@@ -91,7 +99,12 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
         })();
     }, [showVoice, upperPlan]);
 
-    if (!open) return null; // after hooks are declared above
+    if (!open) return null;
+
+    const resetForm = () => {
+        setTitle('');
+        setText('');
+    };
 
     const handleSave = async () => {
         setError('');
@@ -109,15 +122,12 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
         try {
             const { id } = await uploadDocument(file);
 
+            // OPEN THE RIGHT PICKER
+            setPendingDocId(id);
             if (isFree) {
-                await startAudio(id, { voice: 'Joanna', engine: 'standard', format: 'mp3' });
-                onSaved(id);
-                onClose();
-                setTitle('');
-                setText('');
+                setShowFreeVoice(true); // show 2-voice popup
             } else {
-                setPendingDocId(id);
-                setShowVoice(true);
+                setShowVoice(true);     // show full paid picker
             }
         } catch (e: any) {
             setError(e?.message || 'Failed to save text. Please try again.');
@@ -177,7 +187,7 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                 </div>
             </div>
 
-            {/* Voice picker (paid) */}
+            {/* PAID voice picker */}
             <VoicePickerModal
                 open={showVoice}
                 voices={catalog}
@@ -193,12 +203,40 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                         await startAudio(pendingDocId, { voiceId: v.voiceId, engine: 'neural', format: 'mp3' });
                         onSaved(pendingDocId);
                         onClose();
-                        setTitle('');
-                        setText('');
+                        resetForm();
                     } catch (e: any) {
                         setError(e?.message || 'Failed to start audio.');
                     } finally {
                         setShowVoice(false);
+                        setPendingDocId(null);
+                    }
+                }}
+            />
+
+            {/* FREE voice picker (Joanna / Matthew) */}
+            <FreeVoicePickModal
+                open={showFreeVoice}
+                initialVoiceId={lastFreeVoice?.voiceId ?? null}
+                onClose={() => {
+                    setShowFreeVoice(false);
+                    setPendingDocId(null);
+                }}
+                onPick={async (picked: SimplePickedVoice) => {
+                    if (!pendingDocId) return;
+                    try {
+                        await startAudio(pendingDocId, {
+                            voice: picked.voiceId, // 'Joanna' | 'Matthew'
+                            engine: 'standard',
+                            format: 'mp3',
+                        });
+                        setLastFreeVoice(picked);
+                        onSaved(pendingDocId);
+                        onClose();
+                        resetForm();
+                    } catch (e: any) {
+                        setError(e?.message || 'Failed to start audio.');
+                    } finally {
+                        setShowFreeVoice(false);
                         setPendingDocId(null);
                     }
                 }}

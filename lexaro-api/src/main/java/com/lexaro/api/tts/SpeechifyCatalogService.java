@@ -29,7 +29,6 @@ public class SpeechifyCatalogService {
     ) {
         this.timeoutMs = timeoutMs;
 
-        // allow large payloads
         ExchangeStrategies strategies = ExchangeStrategies.builder()
                 .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
@@ -79,7 +78,6 @@ public class SpeechifyCatalogService {
         if (rows == null) rows = List.of();
 
         List<VoiceDto> out = rows.stream().map(row -> {
-            // Support both legacy flat schema and new nested schema.
             String id    = s(row.get("id"));
             String title = coalesce(
                     s(row.get("title")),
@@ -88,11 +86,9 @@ public class SpeechifyCatalogService {
                     id
             );
 
-            // --- Language & region extraction ---
             String language = null;
             String region = null;
 
-            // 1) New schema: models[].languages[].locale -> e.g., "en-US"
             var modelsObj = row.get("models");
             if (modelsObj instanceof List<?> models && !models.isEmpty()) {
                 for (Object mObj : models) {
@@ -101,36 +97,32 @@ public class SpeechifyCatalogService {
                     if (langsObj instanceof List<?> langs && !langs.isEmpty()) {
                         Object first = langs.get(0);
                         if (first instanceof Map<?, ?> lm) {
-                            String locale = s(lm.get("locale"));      // en-US
+                            String locale = s(lm.get("locale")); // en-US
                             if (locale != null && !locale.isBlank()) {
                                 String[] parts = locale.split("[-_]");
                                 String langPart = parts.length > 0 ? parts[0] : null;
                                 String regPart  = parts.length > 1 ? parts[1] : null;
-                                language = mapIsoToName(langPart);     // en -> English
+                                language = mapIsoToName(langPart);
                                 region   = regPart == null ? null : regPart.toUpperCase(Locale.ROOT);
                             }
                         }
                     }
-                    if (language != null) break; // got one
+                    if (language != null) break;
                 }
             }
 
-            // 2) Legacy flat fields as fallback
             if (language == null) language = s(row.get("language"));
             if (region == null)   region   = s(row.get("region"));
 
             String displayLang = humanLanguage(language, region);
 
-            // --- Gender & attitude (optional) ---
             String gender  = normGender(s(row.get("gender")));
             String mood    = s(row.get("attitude"));
 
-            // --- Preview URL (many possible keys/paths) ---
             String preview = coalesce(
                     s(row.get("previewUrl")),
                     s(row.get("preview_url")),
                     s(row.get("preview")),
-                    // new schema often has models[].samples[] or models[].preview_url
                     extractFirstPreviewFromModels(modelsObj),
                     s(row.get("sampleUrl")),
                     s(row.get("sample_url"))
@@ -142,7 +134,6 @@ public class SpeechifyCatalogService {
             );
         }).collect(Collectors.toCollection(ArrayList::new));
 
-        // NULL-SAFE sort to prevent NPEs if language/title missing
         out.sort(Comparator
                 .comparing((VoiceDto v) -> Optional.ofNullable(v.language()).orElse(""), String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(v -> Optional.ofNullable(v.title()).orElse(""), String.CASE_INSENSITIVE_ORDER));
@@ -157,7 +148,6 @@ public class SpeechifyCatalogService {
         if (!(modelsObj instanceof List<?> models)) return null;
         for (Object mObj : models) {
             if (!(mObj instanceof Map<?, ?> m)) continue;
-            // direct keys on model
             String p = coalesce(
                     s(m.get("previewUrl")),
                     s(m.get("preview_url")),
@@ -165,7 +155,6 @@ public class SpeechifyCatalogService {
                     s(m.get("sample_url"))
             );
             if (p != null) return p;
-            // samples array
             Object samplesObj = m.get("samples");
             if (samplesObj instanceof List<?> samples) {
                 for (Object sObj : samples) {

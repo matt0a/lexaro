@@ -7,9 +7,12 @@ import AddTextModal from '@/components/upload/AddTextModal';
 import { uploadDocument, startAudio } from '@/lib/documents';
 
 import VoicePickerModal, {
-    type PickedVoice,
+    type PickedVoice as PaidPickedVoice,
     type VoiceMeta,
 } from '@/components/voices/VoicePickerModal';
+
+// Free-plan modal (2 voices: Joanna / Matthew)
+import FreeVoicePickModal from '@/components/upload/FreeVoicePickModal';
 
 import api from '@/lib/api';
 
@@ -30,6 +33,9 @@ type VoiceDto = {
     preview: string | null;
 };
 
+// Local type to avoid coupling the two modals
+type SimplePickedVoice = { voiceId: string; title: string };
+
 export default function UploadSection({ plan }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,11 +46,17 @@ export default function UploadSection({ plan }: Props) {
     const [error, setError] = useState<string>('');
     const [showText, setShowText] = useState(false);
 
-    // Paid-only: pick voice before starting TTS
+    // Shared pending doc while waiting for voice selection (free or paid)
     const [pendingDocId, setPendingDocId] = useState<number | null>(null);
+
+    // Paid picker
     const [showVoice, setShowVoice] = useState(false);
 
-    // Voice catalog for picker
+    // Free picker
+    const [showFreeVoice, setShowFreeVoice] = useState(false);
+    const [lastFreeVoice, setLastFreeVoice] = useState<SimplePickedVoice | null>(null);
+
+    // Voice catalog for paid picker
     const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
 
     const upperPlan = plan?.toUpperCase?.() || 'FREE';
@@ -71,10 +83,7 @@ export default function UploadSection({ plan }: Props) {
         if (!isPaid) return;
 
         (async () => {
-            const { data } = await api.get<VoiceDto[]>('/tts/voices', {
-                params: { plan: upperPlan },
-            });
-
+            const { data } = await api.get<VoiceDto[]>('/tts/voices', { params: { plan: upperPlan } });
             const list = Array.isArray(data) ? data : [];
             const mapped: VoiceMeta[] = list.map((v) => ({
                 id: v.id,
@@ -90,6 +99,7 @@ export default function UploadSection({ plan }: Props) {
                 favorite: false,
             }));
 
+            // FIX: compare against b.language on the right-hand side
             mapped.sort((a, b) =>
                 (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id))
             );
@@ -117,11 +127,11 @@ export default function UploadSection({ plan }: Props) {
             try {
                 const { id } = await uploadDocument(file, (p) => setProgress(p));
 
+                // Route to the appropriate picker
+                setPendingDocId(id);
                 if (isFree) {
-                    await startAudio(id, { voice: 'Joanna', engine: 'standard', format: 'mp3' });
-                    setDocId(id);
+                    setShowFreeVoice(true);
                 } else {
-                    setPendingDocId(id);
                     setShowVoice(true);
                 }
             } catch (e: any) {
@@ -246,13 +256,39 @@ export default function UploadSection({ plan }: Props) {
                     setShowVoice(false);
                     setPendingDocId(null);
                 }}
-                onPick={async (v: PickedVoice) => {
+                onPick={async (v: PaidPickedVoice) => {
                     if (!pendingDocId) return;
                     try {
                         await startAudio(pendingDocId, { voiceId: v.voiceId, engine: 'neural', format: 'mp3' });
                         setDocId(pendingDocId);
                     } finally {
                         setShowVoice(false);
+                        setPendingDocId(null);
+                    }
+                }}
+            />
+
+            {/* Voice picker (free) — two choices only */}
+            <FreeVoicePickModal
+                open={showFreeVoice}
+                initialVoiceId={lastFreeVoice?.voiceId ?? null}
+                onClose={() => {
+                    setShowFreeVoice(false);
+                    setPendingDocId(null);
+                }}
+                onPick={async (picked: SimplePickedVoice) => {
+                    if (!pendingDocId) return;
+                    try {
+                        // Free plan → Polly STANDARD (mp3)
+                        await startAudio(pendingDocId, {
+                            voice: picked.voiceId, // 'Joanna' | 'Matthew'
+                            engine: 'standard',
+                            format: 'mp3',
+                        });
+                        setLastFreeVoice(picked);
+                        setDocId(pendingDocId);
+                    } finally {
+                        setShowFreeVoice(false);
                         setPendingDocId(null);
                     }
                 }}
