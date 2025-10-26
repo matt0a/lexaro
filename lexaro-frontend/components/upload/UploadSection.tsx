@@ -6,7 +6,6 @@ import AudioStatus from '@/components/dashboard/AudioStatus';
 import AddTextModal from '@/components/upload/AddTextModal';
 import { uploadDocument, startAudio } from '@/lib/documents';
 
-// ✅ import the picker + its types
 import VoicePickerModal, {
     type PickedVoice,
     type VoiceMeta,
@@ -19,12 +18,16 @@ type Props = { plan: string };
 const MAX_SIZE_MB = 50;
 const ACCEPTED_EXTS = ['pdf', 'doc', 'docx', 'txt', 'epub', 'rtf', 'html', 'htm'];
 
-/** Backend DTO from GET /tts/voices */
+/** Matches backend /tts/voices normalized response */
 type VoiceDto = {
-    name: string;
-    gender?: string | null;
-    language?: string | null;
-    enginesSupported?: string[] | null;
+    id: string;
+    title: string | null;
+    provider: 'speechify' | 'polly';
+    language: string | null;
+    region: string | null;
+    gender: string | null;
+    attitude: string | null;
+    preview: string | null;
 };
 
 export default function UploadSection({ plan }: Props) {
@@ -44,15 +47,15 @@ export default function UploadSection({ plan }: Props) {
     // Voice catalog for picker
     const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
 
-    const isFree = plan?.toUpperCase() === 'FREE';
-
-    // --- helpers --------------------------------------------------
+    const upperPlan = plan?.toUpperCase?.() || 'FREE';
+    const isFree = upperPlan === 'FREE';
+    const isPaid = !isFree;
 
     const normalizeGender = (g?: string | null): VoiceMeta['gender'] => {
         const s = (g ?? '').trim().toLowerCase();
-        if (s === 'male') return 'Male';
-        if (s === 'female') return 'Female';
-        return 'Other'; // or `undefined` if you prefer to hide gender when unknown
+        if (s.startsWith('f')) return 'Female';
+        if (s.startsWith('m')) return 'Male';
+        return 'Other';
     };
 
     const validate = (file: File): string | null => {
@@ -63,39 +66,39 @@ export default function UploadSection({ plan }: Props) {
         return null;
     };
 
-    // --- effects --------------------------------------------------
-
-    // Load voices once for paid users
+    // Load voices once for PAID users (no previews)
     useEffect(() => {
-        if (isFree) return;
+        if (!isPaid) return;
 
         (async () => {
-            const { data } = await api.get<VoiceDto[]>('/tts/voices');
-            const list = Array.isArray(data) ? data : [];
+            const { data } = await api.get<VoiceDto[]>('/tts/voices', {
+                params: { plan: upperPlan },
+            });
 
+            const list = Array.isArray(data) ? data : [];
             const mapped: VoiceMeta[] = list.map((v) => ({
-                id: v.name,                     // unique id (maps to provider voice id)
-                title: v.name,                  // required by VoiceMeta
-                language: v.language ?? 'Unknown',
-                region: '',                     // fill when backend exposes region/dialect
-                attitude: '',                   // fill (e.g., style/tone) if available
+                id: v.id,
+                title: (v.title ?? v.id) || v.id,
+                language: v.language ?? 'Other',
+                region: v.region ?? 'Other',
+                attitude: v.attitude ?? '',
                 gender: normalizeGender(v.gender),
-                preview: undefined,             // supply preview url if you have one
+                provider: v.provider,
+                preview: undefined,
                 avatar: undefined,
                 flagEmoji: undefined,
                 favorite: false,
             }));
 
-            // Optional: sort for nicer display (by language/title)
-            mapped.sort((a, b) => (a.language + a.title).localeCompare(b.language + b.title));
+            mapped.sort((a, b) =>
+                (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id))
+            );
 
             setCatalog(mapped);
         })().catch(() => {
-            // silent fail — picker will show but be empty; you might want to surface a toast
+            // swallow – the picker will simply show "No matches"
         });
-    }, [isFree]);
-
-    // --- handlers -------------------------------------------------
+    }, [isPaid, upperPlan]);
 
     const onFiles = useCallback(
         async (files: FileList | null) => {
@@ -112,15 +115,12 @@ export default function UploadSection({ plan }: Props) {
 
             setBusy(true);
             try {
-                // presign → upload → complete (with optional progress callback)
                 const { id } = await uploadDocument(file, (p) => setProgress(p));
 
                 if (isFree) {
-                    // FREE: Polly standard default
                     await startAudio(id, { voice: 'Joanna', engine: 'standard', format: 'mp3' });
                     setDocId(id);
                 } else {
-                    // PAID: force Speechify voice choice BEFORE starting
                     setPendingDocId(id);
                     setShowVoice(true);
                 }
@@ -133,8 +133,6 @@ export default function UploadSection({ plan }: Props) {
         },
         [isFree]
     );
-
-    // --- render ---------------------------------------------------
 
     return (
         <section>
@@ -209,7 +207,7 @@ export default function UploadSection({ plan }: Props) {
                 </div>
             </div>
 
-            {/* Full-width “Create Text” */}
+            {/* Create Text */}
             <div className="mt-6">
                 <button
                     onClick={() => setShowText(true)}
@@ -242,14 +240,15 @@ export default function UploadSection({ plan }: Props) {
             <VoicePickerModal
                 open={showVoice}
                 voices={catalog}
+                allowPolly={false}
+                initialLang={undefined}
                 onClose={() => {
-                    setShowVoice(false); // user can start later from library
+                    setShowVoice(false);
                     setPendingDocId(null);
                 }}
                 onPick={async (v: PickedVoice) => {
                     if (!pendingDocId) return;
                     try {
-                        // Paid: send Speechify voice id (no Polly)
                         await startAudio(pendingDocId, { voiceId: v.voiceId, engine: 'neural', format: 'mp3' });
                         setDocId(pendingDocId);
                     } finally {

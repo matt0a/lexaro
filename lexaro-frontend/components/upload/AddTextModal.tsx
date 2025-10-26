@@ -1,19 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { uploadDocument, startAudio } from '@/lib/documents';
 
-// ✅ use the new picker and import types correctly
 import VoicePickerModal, {
     type PickedVoice,
+    type VoiceMeta,
 } from '@/components/voices/VoicePickerModal';
+
+import api from '@/lib/api';
 
 type Props = {
     open: boolean;
     plan: string;
     onClose: () => void;
-    onSaved: (docId: number) => void; // return the new document id
+    onSaved: (docId: number) => void;
+};
+
+/** Matches /tts/voices */
+type VoiceDto = {
+    id: string;
+    title: string | null;
+    provider: 'speechify' | 'polly';
+    language: string | null;
+    region: string | null;
+    gender: string | null;
+    attitude: string | null;
+    preview: string | null;
 };
 
 export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
@@ -26,8 +40,58 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
     const [pendingDocId, setPendingDocId] = useState<number | null>(null);
     const [showVoice, setShowVoice] = useState(false);
 
-    if (!open) return null;
-    const isFree = plan?.toUpperCase() === 'FREE';
+    // Catalog for the picker
+    const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
+
+    const upperPlan = plan?.toUpperCase?.() || 'FREE';
+    const isFree = upperPlan === 'FREE';
+    const allowPolly = isFree; // hide Polly for premium tiers
+
+    const normalizeGender = (g?: string | null): VoiceMeta['gender'] => {
+        const s = (g ?? '').trim().toLowerCase();
+        if (s.startsWith('f')) return 'Female';
+        if (s.startsWith('m')) return 'Male';
+        return 'Other';
+    };
+
+    // 🔑 keep hooks ALWAYS before any early return
+    useEffect(() => {
+        if (!showVoice) return;
+        (async () => {
+            try {
+                const { data } = await api.get<VoiceDto[]>('/tts/voices', {
+                    params: { plan: upperPlan },
+                });
+
+                const list = Array.isArray(data) ? data : [];
+                const mapped: VoiceMeta[] = list.map((v) => ({
+                    id: v.id,
+                    title: (v.title ?? v.id) || v.id,
+                    language: v.language ?? 'Other',
+                    region: v.region ?? 'Other',
+                    attitude: v.attitude ?? '',
+                    gender: normalizeGender(v.gender),
+                    provider: v.provider,
+                    preview: undefined,
+                    avatar: undefined,
+                    flagEmoji: undefined,
+                    favorite: false,
+                }));
+
+                mapped.sort((a, b) =>
+                    (a.language + ' ' + (a.title ?? a.id)).localeCompare(
+                        b.language + ' ' + (b.title ?? b.id)
+                    )
+                );
+
+                setCatalog(mapped);
+            } catch {
+                setCatalog([]);
+            }
+        })();
+    }, [showVoice, upperPlan]);
+
+    if (!open) return null; // after hooks are declared above
 
     const handleSave = async () => {
         setError('');
@@ -36,7 +100,6 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
             return;
         }
 
-        // build a .txt file
         const nameBase =
             (title || 'Untitled').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 50) || 'Text';
         const filename = `${nameBase}-${Date.now()}.txt`;
@@ -44,18 +107,15 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
 
         setBusy(true);
         try {
-            // presign → upload → complete
             const { id } = await uploadDocument(file);
 
             if (isFree) {
-                // FREE: safe default (Polly std)
                 await startAudio(id, { voice: 'Joanna', engine: 'standard', format: 'mp3' });
                 onSaved(id);
                 onClose();
                 setTitle('');
                 setText('');
             } else {
-                // PAID: force Speechify voice pick before starting
                 setPendingDocId(id);
                 setShowVoice(true);
             }
@@ -117,17 +177,19 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                 </div>
             </div>
 
-            {/* PAID: Voice picker */}
+            {/* Voice picker (paid) */}
             <VoicePickerModal
                 open={showVoice}
+                voices={catalog}
+                allowPolly={allowPolly}
+                initialLang={undefined}
                 onClose={() => {
-                    setShowVoice(false); // user can start later from library
+                    setShowVoice(false);
                     setPendingDocId(null);
                 }}
                 onPick={async (v: PickedVoice) => {
                     if (!pendingDocId) return;
                     try {
-                        // Speechify path: send voice_id
                         await startAudio(pendingDocId, { voiceId: v.voiceId, engine: 'neural', format: 'mp3' });
                         onSaved(pendingDocId);
                         onClose();

@@ -1,135 +1,118 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Play, Pause, Heart, Search, ChevronDown } from 'lucide-react';
+import { X, Play, Heart, Search, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
+import { prettyRegion } from '../upload/prettyRegion';
 
-/** A single voice in your catalog (Speechify/Polly/etc). */
+/** What the picker consumes */
 export type VoiceMeta = {
-    id: string;                 // provider voice id (Speechify voice_id)
-    title: string;              // display name (Kristy, Mason…)
-    language: string;           // e.g., "English"
-    region: string;             // e.g., "United States", "United Kingdom", "India"
-    attitude?: string;          // Warm, Professional, Gentle…
+    id: string;
+    title?: string;
+    language?: string; // already human (e.g., "UK English", "Arabic")
+    region?: string;   // ISO (e.g., "AE", "GB")
+    attitude?: string;
     gender?: 'Male' | 'Female' | 'Other';
-    preview?: string;           // mp3 URL
-    avatar?: string;            // optional headshot
-    flagEmoji?: string;         // 🇺🇸 🇬🇧 etc
+    preview?: undefined; // no previews (for now)
+    avatar?: string;
+    flagEmoji?: string;
     favorite?: boolean;
+    provider: 'speechify' | 'polly';
 };
 
-/** What the caller needs to start TTS. */
 export type PickedVoice = {
-    voiceId: string;            // same as VoiceMeta.id
-    label: string;              // friendly label for UI (title)
+    voiceId: string;
+    label: string;
+    provider: 'speechify' | 'polly';
 };
 
 type Props = {
     open: boolean;
     onClose: () => void;
-    /** Called when a voice is chosen. */
     onPick: (v: PickedVoice) => void;
-    /** Optional: full catalog; if not provided we render a small sample so UI works. */
     voices?: VoiceMeta[];
-    /** Optional: open the full-page/advanced explorer. */
     onExplore?: () => void;
-    /** Default language tab. */
     initialLang?: string;
+    allowPolly?: boolean;
 };
 
-/* --- Temporary sample so the UI renders even before catalog is wired --- */
-const SAMPLE: VoiceMeta[] = [
-    { id: 'kristy', title: 'Kristy', language: 'English', region: 'United States', attitude: 'Dynamic', gender: 'Female', preview: '/audio/onboarding/onboarding_kristy.mp3', flagEmoji: '🇺🇸' },
-    { id: 'mason',  title: 'Mason',  language: 'English', region: 'United States', attitude: 'Bright',  gender: 'Male',   preview: '/audio/onboarding/onboarding_mason.mp3',  flagEmoji: '🇺🇸' },
-    { id: 'harper', title: 'Harper', language: 'English', region: 'United Kingdom', attitude: 'Warm',   gender: 'Female', preview: '/audio/onboarding/onboarding_harper.mp3', flagEmoji: '🇬🇧' },
-    { id: 'alloy',  title: 'Alloy',  language: 'English', region: 'India',          attitude: 'Deep',   gender: 'Male',   preview: '/audio/onboarding/onboarding_alloy.mp3',  flagEmoji: '🇮🇳' },
-];
+function normalize(v: VoiceMeta) {
+    const title = (v.title && v.title.trim()) || v.id;
+    // Language is already a full label from backend; fallback gracefully
+    const language = (v.language && v.language.trim()) || 'Unknown';
+    const region = v.region?.trim().toUpperCase() || '';
+    return { ...v, title, language, region };
+}
 
 export default function VoicePickerModal({
                                              open,
                                              onClose,
                                              onPick,
                                              onExplore,
-                                             voices = SAMPLE,
-                                             initialLang = 'English',
+                                             voices: voicesProp,
+                                             initialLang,
+                                             allowPolly = true,
                                          }: Props) {
-    // All hooks live at the top — never after a conditional return
+    // map + optionally filter Polly out (defense in depth)
+    const normalized = useMemo(() => {
+        const src = Array.isArray(voicesProp) ? voicesProp : [];
+        const filtered = allowPolly ? src : src.filter(v => v.provider !== 'polly');
+        return filtered.map(normalize);
+    }, [voicesProp, allowPolly]);
+
     const [query, setQuery] = useState('');
-    const [language, setLanguage] = useState(initialLang);
+    const allLanguages = useMemo(() => {
+        const set = new Set<string>();
+        normalized.forEach(v => { if (v.language) set.add(v.language); });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [normalized]);
+
+    // default language: provided initial, or first available, or 'Unknown'
+    const [language, setLanguage] = useState<string>(initialLang || allLanguages[0] || 'Unknown');
+    useEffect(() => {
+        if (!allLanguages.includes(language)) {
+            setLanguage(allLanguages[0] || 'Unknown');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allLanguages.join('|')]);
+
     const [dropdown, setDropdown] = useState(false);
     const [playing, setPlaying] = useState<string | null>(null);
-    const audio = useRef<Record<string, HTMLAudioElement>>({});
+    const audio = useRef<Record<string, HTMLAudioElement>>({}); // kept for future preview work
 
-    // Reset transient UI when `open` toggles; also stop audio when closing
     useEffect(() => {
         if (!open) {
             setQuery('');
             setDropdown(false);
+            Object.values(audio.current).forEach(a => { try { a.pause(); } catch {} });
             setPlaying(null);
-            Object.values(audio.current).forEach(a => {
-                try { a.pause(); a.currentTime = 0; } catch {}
-            });
         }
     }, [open]);
 
-    // Derived lists (still hooks, so must be above any early return)
-    const languages = useMemo(
-        () => Array.from(new Set((voices ?? []).map(v => v.language))).sort(),
-        [voices]
-    );
-
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
-        return (voices ?? []).filter(v =>
+        return normalized.filter(v =>
             v.language === language &&
-            (!q || [v.title, v.region, v.attitude ?? ''].some(s => s.toLowerCase().includes(q)))
+            (!q || [v.title, v.region, v.attitude ?? ''].some(s => (s ?? '').toLowerCase().includes(q)))
         );
-    }, [voices, language, query]);
+    }, [normalized, language, query]);
 
-    // group by region (dialect)
     const groups = useMemo(() => {
         const by: Record<string, VoiceMeta[]> = {};
-        filtered.forEach(v => {
-            const key = v.region || 'Other';
+        for (const v of filtered) {
+            const key = prettyRegion(v.region) || 'Other';
             (by[key] ||= []).push(v);
-        });
-        Object.values(by).forEach(arr => arr.sort((a, b) => a.title.localeCompare(b.title)));
+        }
+        Object.values(by).forEach(arr =>
+            arr.sort((a, b) => (a.title ?? a.id).localeCompare(b.title ?? b.id))
+        );
         return Object.entries(by).sort(([a], [b]) => a.localeCompare(b));
     }, [filtered]);
 
-    const togglePlay = (id: string, src?: string) => {
-        if (!src) return;
-
-        if (!audio.current[id]) {
-            const a = new Audio(src);
-            a.preload = 'auto';
-            a.addEventListener('ended', () => setPlaying(p => (p === id ? null : p)));
-            audio.current[id] = a;
-        }
-
-        // stop other previews
-        Object.entries(audio.current).forEach(([k, a]) => {
-            if (k !== id) {
-                try { a.pause(); a.currentTime = 0; } catch {}
-            }
-        });
-
-        const a = audio.current[id];
-        if (playing === id && !a.paused) {
-            a.pause();
-            setPlaying(null);
-        } else {
-            a.currentTime = 0;
-            a.play().catch(() => {});
-            setPlaying(id);
-        }
-    };
-
-    // Only now is it safe to conditionally not render
-    if (!open) return null;
+    const disabledPlay = true; // previews off for now
 
     return (
-        <div className="fixed inset-0 z-50">
+        <div className={open ? 'fixed inset-0 z-50' : 'fixed inset-0 z-50 hidden'}>
             <div className="absolute inset-0 bg-black/70" onClick={onClose} />
             <div className="absolute inset-0 flex items-center justify-center p-4">
                 <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-black shadow-2xl">
@@ -140,23 +123,26 @@ export default function VoicePickerModal({
                                 <button
                                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm"
                                     onClick={() => setDropdown(d => !d)}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={dropdown}
                                 >
                                     <span className="opacity-80">Language</span>
                                     <ChevronDown className="h-4 w-4 opacity-70" />
                                 </button>
                                 {dropdown && (
                                     <div
-                                        className="absolute z-10 mt-2 w-52 rounded-xl border border-white/10 bg-black shadow-lg"
+                                        className="absolute z-20 mt-2 w-64 rounded-xl border border-white/10 bg-black shadow-lg max-h-72 overflow-y-auto overscroll-contain pr-1"
                                         onMouseLeave={() => setDropdown(false)}
+                                        role="listbox"
                                     >
-                                        {languages.map(l => (
+                                        {allLanguages.map(l => (
                                             <button
                                                 key={l}
                                                 onClick={() => { setLanguage(l); setDropdown(false); }}
-                                                className={[
-                                                    'w-full text-left px-3 py-2 text-sm hover:bg-white/5',
-                                                    l === language ? 'text-accent' : 'text-white/80',
-                                                ].join(' ')}
+                                                className={['w-full text-left px-3 py-2 text-sm hover:bg-white/5',
+                                                    l === language ? 'text-accent' : 'text-white/80'].join(' ')}
+                                                role="option"
+                                                aria-selected={l === language}
                                             >
                                                 {l}
                                             </button>
@@ -170,8 +156,8 @@ export default function VoicePickerModal({
                                 <input
                                     value={query}
                                     onChange={e => setQuery(e.target.value)}
-                                    placeholder="Search voice, region, attitude…"
-                                    className="pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm outline-none focus:border-accent"
+                                    placeholder="Search voice, country, attitude…"
+                                    className="pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm outline-none focus:border-accent w-72"
                                 />
                             </div>
                         </div>
@@ -194,16 +180,19 @@ export default function VoicePickerModal({
                     {/* List */}
                     <div className="max-h-[65vh] overflow-y-auto px-1 py-2">
                         {groups.length === 0 && (
-                            <div className="py-16 text-center text-white/60">No matches.</div>
+                            <div className="py-16 text-center text-white/60">
+                                {allowPolly ? 'No matches.' : 'No voices available for this language yet.'}
+                            </div>
                         )}
 
-                        {groups.map(([region, list]) => (
-                            <div key={region} className="px-4 py-3">
-                                <div className="text-sm font-medium text-white/70 mb-2">{region}</div>
+                        {groups.map(([regionName, list]) => (
+                            <div key={regionName} className="px-4 py-3">
+                                <div className="text-sm font-medium text-white/70 mb-2">{regionName}</div>
                                 <div className="rounded-xl overflow-hidden border border-white/10">
                                     {list.map((v, i) => {
                                         const isLast = i === list.length - 1;
-                                        const active = playing === v.id;
+                                        const title = v.title ?? v.id;
+
                                         return (
                                             <div
                                                 key={v.id}
@@ -213,39 +202,43 @@ export default function VoicePickerModal({
                                                     'hover:bg-white/[0.05]',
                                                 ].join(' ')}
                                             >
-                                                {/* left identity */}
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="h-9 w-9 rounded-full bg-white/[0.05] grid place-items-center text-base">
                                                         {v.flagEmoji ?? '🏳️'}
                                                     </div>
                                                     {v.avatar ? (
                                                         <div className="relative h-9 w-9 rounded-full overflow-hidden border border-white/10">
-                                                            <Image src={v.avatar} alt={v.title} fill className="object-cover" />
+                                                            <Image src={v.avatar} alt={title} fill className="object-cover" />
                                                         </div>
                                                     ) : null}
                                                     <div className="min-w-0">
-                                                        <div className="text-white/90 font-medium truncate">{v.title}</div>
+                                                        <div className="text-white/90 font-medium truncate">{title}</div>
                                                         <div className="text-xs text-white/60 truncate">
-                                                            {v.language}{v.region ? ` · ${v.region}` : ''}{v.attitude ? ` · ${v.attitude}` : ''}
+                                                            {v.language ?? 'Unknown'}
+                                                            {v.region ? ` · ${prettyRegion(v.region)}` : ''}
+                                                            {v.gender && v.gender !== 'Other' ? ` · ${v.gender}` : ''}
+                                                            {v.attitude ? ` · ${v.attitude}` : ''}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* right actions */}
                                                 <div className="flex items-center gap-2">
                                                     <button
-                                                        onClick={() => togglePlay(v.id, v.preview)}
-                                                        className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-sm font-semibold bg-white/5 hover:bg-white/10"
+                                                        className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-sm font-semibold bg-white/5 opacity-60 cursor-not-allowed"
+                                                        disabled
+                                                        title="Preview disabled for now"
                                                     >
-                                                        {active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                                                        {active ? 'Pause' : 'Play'}
+                                                        <Play className="h-4 w-4" />
+                                                        No preview
                                                     </button>
+
                                                     <button
-                                                        onClick={() => onPick({ voiceId: v.id, label: v.title })}
+                                                        onClick={() => onPick({ voiceId: v.id, label: title, provider: v.provider })}
                                                         className="rounded-md border border-accent bg-accent px-3 py-1.5 text-xs font-semibold text-white"
                                                     >
                                                         Select Voice
                                                     </button>
+
                                                     <button className="rounded-md p-2 hover:bg-white/5" title="Favorite">
                                                         <Heart className="h-4 w-4 opacity-70" />
                                                     </button>

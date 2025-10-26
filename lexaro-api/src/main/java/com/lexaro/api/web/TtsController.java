@@ -1,25 +1,24 @@
 package com.lexaro.api.web;
 
 import com.lexaro.api.tts.TtsVoiceCatalogService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import com.lexaro.api.web.dto.VoiceDto;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Set;
 
 @RestController
-@RequestMapping("/tts")
-@RequiredArgsConstructor
 public class TtsController {
 
     private final TtsVoiceCatalogService catalog;
 
-    public record VoiceDto(String name, String gender, String language, Set<String> enginesSupported) {}
+    public TtsController(TtsVoiceCatalogService catalog) {
+        this.catalog = catalog;
+    }
 
-    @GetMapping("/voices")
-    public List<VoiceDto> listVoices() {
-        return catalog.listVoices().stream()
-                .map(v -> new VoiceDto(v.name(), v.gender(), v.language(), v.enginesSupported()))
-                .toList();
+    @GetMapping("/tts/voices")
+    public List<VoiceDto> listVoices(@RequestParam(value = "plan", required = false) String plan) {
+        return catalog.listUnifiedCatalog(plan);
     }
 }
