@@ -16,7 +16,11 @@ import FreeVoicePickModal from '@/components/upload/FreeVoicePickModal';
 
 import api from '@/lib/api';
 
-type Props = { plan: string };
+type Props = {
+    plan: string;
+    /** when true, auto-open the Create Text modal on mount (e.g., from /dashboard?open=upload) */
+    initialOpenUpload?: boolean;
+};
 
 const MAX_SIZE_MB = 50;
 const ACCEPTED_EXTS = ['pdf', 'doc', 'docx', 'txt', 'epub', 'rtf', 'html', 'htm'];
@@ -36,7 +40,7 @@ type VoiceDto = {
 // Local type to avoid coupling the two modals
 type SimplePickedVoice = { voiceId: string; title: string };
 
-export default function UploadSection({ plan }: Props) {
+export default function UploadSection({ plan, initialOpenUpload = false }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const [dragOver, setDragOver] = useState(false);
@@ -44,7 +48,7 @@ export default function UploadSection({ plan }: Props) {
     const [busy, setBusy] = useState(false);
     const [progress, setProgress] = useState<number>(0);
     const [error, setError] = useState<string>('');
-    const [showText, setShowText] = useState(false);
+    const [showText, setShowText] = useState<boolean>(initialOpenUpload);
 
     // Shared pending doc while waiting for voice selection (free or paid)
     const [pendingDocId, setPendingDocId] = useState<number | null>(null);
@@ -62,6 +66,11 @@ export default function UploadSection({ plan }: Props) {
     const upperPlan = plan?.toUpperCase?.() || 'FREE';
     const isFree = upperPlan === 'FREE';
     const isPaid = !isFree;
+
+    // If the page is loaded with ?open=upload, ensure the modal is opened once
+    useEffect(() => {
+        if (initialOpenUpload) setShowText(true);
+    }, [initialOpenUpload]);
 
     const normalizeGender = (g?: string | null): VoiceMeta['gender'] => {
         const s = (g ?? '').trim().toLowerCase();
@@ -99,10 +108,8 @@ export default function UploadSection({ plan }: Props) {
                 favorite: false,
             }));
 
-            // FIX: compare against b.language on the right-hand side
-            mapped.sort((a, b) =>
-                (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id))
-            );
+            // sort by language then title
+            mapped.sort((a, b) => (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id)));
 
             setCatalog(mapped);
         })().catch(() => {

@@ -5,7 +5,7 @@ import { Library, Mic } from 'lucide-react';
 
 const NAV = [
     { href: '/dashboard', label: 'Library', Icon: Library },
-    { href: '/podcasts',  label: 'Podcasts', Icon: Mic },
+    { href: '/saved-audio', label: 'Saved Audio', Icon: Mic },
 ];
 
 export default function Sidebar() {

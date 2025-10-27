@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import UploadSection from '@/components/upload/UploadSection';
 import api from '@/lib/api';
@@ -14,12 +14,19 @@ type MeUsage = {
 
 export default function DashboardPage() {
     const router = useRouter();
+    const params = useSearchParams();
     const [me, setMe] = useState<MeUsage | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // read ?open=upload to auto-open the upload flow
+    const shouldOpenUpload = params.get('open') === 'upload';
+
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        if (!token) { router.replace('/login'); return; }
+        if (!token) {
+            router.replace('/login');
+            return;
+        }
 
         (async () => {
             try {
@@ -33,10 +40,10 @@ export default function DashboardPage() {
         })();
     }, [router]);
 
-    if (loading) return <div className="min-h-screen grid place-items-center text-white bg-black">Loading…</div>;
+    if (loading) {
+        return <div className="min-h-screen grid place-items-center text-white bg-black">Loading…</div>;
+    }
     if (!me) return null;
-
-    const isFree = me.plan?.toUpperCase() === 'FREE';
 
     return (
         <div className="min-h-screen bg-black text-white">
@@ -69,7 +76,7 @@ export default function DashboardPage() {
 
                     {/* upload + TTS flow */}
                     <div className="mt-10">
-                        <UploadSection plan={me.plan} />
+                        <UploadSection plan={me.plan} initialOpenUpload={shouldOpenUpload} />
                     </div>
 
                     {/* small footer vignette to echo landing */}
