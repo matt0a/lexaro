@@ -81,7 +81,7 @@ public class DocumentAudioService {
         // Plan gating for engine (e.g., neural might be disallowed by plan). This applies to any provider.
         String gatedEngine = plans.sanitizeEngineForPlan(reqEngine, plan);
 
-        // IMPORTANT: Only validate against the **Polly** catalog if the requested voice is actually a Polly voice.
+        // IMPORTANT: Only validate against the Polly catalog if the requested voice is actually a Polly voice.
         if (voices.isKnownPollyVoice(reqVoice)) {
             if (!voices.voiceSupportsEngine(reqVoice, gatedEngine)) {
                 // If neural unsupported but standard is OK, fallback; otherwise 400.

@@ -34,12 +34,12 @@ public class MeController {
         private final boolean verified;
 
         private final long monthlyCap;        // base cap from plan (no top-ups)
-        private final long monthlyUsed;
-        private final long monthlyRemaining;  // base + top-ups - used
+        private final long monthlyUsed;       // words used this month
+        private final long monthlyRemaining;  // base + top-ups - used (words)
 
-        private final long dailyCap;
-        private final long dailyUsed;
-        private final long dailyRemaining;
+        private final long dailyCap;          // base daily cap
+        private final long dailyUsed;         // words used today
+        private final long dailyRemaining;    // base - used (words)
     }
 
     @GetMapping("/usage")
@@ -51,12 +51,12 @@ public class MeController {
         boolean unlimited = plans.isUnlimited(u);
         boolean verified  = u.isVerified();
 
-        long mCap  = unlimited ? Long.MAX_VALUE : plans.monthlyCapForPlan(plan);
-        long mUsed = unlimited ? 0L : quota.currentMonthly(u.getId());
+        long mCap  = unlimited ? Long.MAX_VALUE : plans.monthlyCapForPlan(plan);      // words
+        long mUsed = unlimited ? 0L : quota.currentMonthly(u.getId());                // words
         long mRem  = unlimited ? Long.MAX_VALUE : quota.monthlyRemaining(u.getId(), plan, mUsed);
 
-        long dCap  = unlimited ? Long.MAX_VALUE : plans.dailyCapForPlan(plan);
-        long dUsed = unlimited ? 0L : quota.currentDaily(u.getId());
+        long dCap  = unlimited ? Long.MAX_VALUE : plans.dailyCapForPlan(plan);        // words
+        long dUsed = unlimited ? 0L : quota.currentDaily(u.getId());                  // words
         long dRem  = unlimited ? Long.MAX_VALUE : Math.max(0, dCap - dUsed);
 
         return new UsageDto(plan.name(), unlimited, verified, mCap, mUsed, mRem, dCap, dUsed, dRem);

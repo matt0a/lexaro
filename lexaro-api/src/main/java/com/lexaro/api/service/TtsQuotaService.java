@@ -37,6 +37,7 @@ public class TtsQuotaService {
     }
 
     /* ---------- current usage (store words in columns named chars_used) ---------- */
+    // NOTE: We are interpreting chars_used as WORDS now to avoid a migration.
 
     public long currentMonthly(long userId) {
         final String sql = "select chars_used from tts_usage where user_id=? and period_ym=?";
