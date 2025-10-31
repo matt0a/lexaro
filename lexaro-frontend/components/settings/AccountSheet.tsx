@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Gauge, ShieldCheck, CreditCard } from 'lucide-react';
+import { X, Gauge, ShieldCheck, CreditCard, Eye, EyeOff, LogOut } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
 
@@ -11,17 +11,13 @@ type Props = {
     me: { email: string; plan: string; planRaw: string } | null;
 };
 
-/** Matches /me/usage: caps/usage are in WORDS */
 type Usage = {
     plan: string;
     unlimited: boolean;
     verified: boolean;
-
-    monthlyCap: number;       // words (Long.MAX_VALUE if unlimited)
-    monthlyUsed: number;      // words
-    monthlyRemaining: number; // words
-
-    // daily fields exist but we intentionally ignore/hide them (daily is unlimited)
+    monthlyCap: number;
+    monthlyUsed: number;
+    monthlyRemaining: number;
     dailyCap: number;
     dailyUsed: number;
     dailyRemaining: number;
@@ -41,7 +37,6 @@ function formatWords(n: number) {
     return n.toLocaleString();
 }
 
-/** Tiny count-up for nice UX */
 function useCountUp(target: number, durationMs = 600) {
     const [val, setVal] = useState(0);
     useEffect(() => {
@@ -58,17 +53,15 @@ function useCountUp(target: number, durationMs = 600) {
         };
         raf = requestAnimationFrame(step);
         return () => { if (raf) cancelAnimationFrame(raf); };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [target]);
+    }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
     return val;
 }
 
-/** Static plan catalog for the Plan tab (display-only) */
 const PLAN_CATALOG = [
-    { key: 'FREE',          name: 'Free',         monthlyCap: 3_000 },
-    { key: 'PREMIUM',       name: 'Premium',      monthlyCap: 120_000 },
-    { key: 'PREMIUM_PLUS',  name: 'Premium Plus', monthlyCap: 300_000 },
-    { key: 'BUSINESS_PLUS', name: 'Premium Plus', monthlyCap: 300_000 }, // alias
+    { key: 'FREE', name: 'Free',         monthlyCap: 3_000 },
+    { key: 'PREMIUM', name: 'Premium',      monthlyCap: 120_000 },
+    { key: 'PREMIUM_PLUS', name: 'Premium Plus', monthlyCap: 300_000 },
+    { key: 'BUSINESS_PLUS', name: 'Premium Plus', monthlyCap: 300_000 },
 ];
 
 export default function AccountSheet({ open, onClose, me }: Props) {
@@ -79,6 +72,9 @@ export default function AccountSheet({ open, onClose, me }: Props) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmNew, setConfirmNew] = useState('');
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [secBusy, setSecBusy] = useState(false);
     const [secMsg, setSecMsg] = useState<string>('');
     const [secErr, setSecErr] = useState<string>('');
@@ -97,7 +93,6 @@ export default function AccountSheet({ open, onClose, me }: Props) {
 
     useEffect(() => {
         if (!open) {
-            // reset security form when sheet closes
             setCurrentPassword('');
             setNewPassword('');
             setConfirmNew('');
@@ -122,10 +117,22 @@ export default function AccountSheet({ open, onClose, me }: Props) {
 
         try {
             setSecBusy(true);
-            await api.post('/auth/change-password', {
+
+            const res = await api.post<{
+                id: number;
+                email: string;
+                token?: string | null;
+                plan?: string;
+            }>('/auth/change-password', {
                 currentPassword,
                 newPassword,
             });
+
+            const token = res.data?.token ?? null;
+            if (token && typeof window !== 'undefined') {
+                localStorage.setItem('token', token);
+            }
+
             setSecMsg('Password changed successfully.');
             setCurrentPassword('');
             setNewPassword('');
@@ -137,9 +144,16 @@ export default function AccountSheet({ open, onClose, me }: Props) {
         }
     };
 
-    const friendlyPlan = formatPlan(me?.planRaw || usage?.plan);
+    // NEW: logout handler
+    const handleLogout = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            // if you store other auth stuff, clear here too
+            window.location.href = '/login';
+        }
+    };
 
-    // Monthly progress only (daily is unlimited and hidden)
+    const friendlyPlan = formatPlan(me?.planRaw || usage?.plan);
     const isUnlimited = !!usage?.unlimited || (usage?.monthlyCap ?? 0) > 1e15;
     const monthlyCap = usage?.monthlyCap ?? Number.POSITIVE_INFINITY;
     const monthlyUsed = usage?.monthlyUsed ?? 0;
@@ -147,7 +161,6 @@ export default function AccountSheet({ open, onClose, me }: Props) {
         ? 0
         : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
     const animMonthly = useCountUp(monthlyUsed);
-
     const currentPlanKey = (me?.planRaw || usage?.plan || 'FREE').toUpperCase();
 
     return (
@@ -158,7 +171,7 @@ export default function AccountSheet({ open, onClose, me }: Props) {
             ].join(' ')}
             aria-hidden={!open}
         >
-            {/* Dim background */}
+            {/* Background dim */}
             <div
                 className={[
                     'absolute inset-0 bg-black/50 transition-opacity',
@@ -166,7 +179,7 @@ export default function AccountSheet({ open, onClose, me }: Props) {
                 ].join(' ')}
                 onClick={onClose}
             />
-            {/* Sheet */}
+            {/* Slide-over sheet */}
             <div
                 className={[
                     'absolute right-0 top-0 h-full w-[480px] max-w-[90vw] transform bg-black text-white shadow-2xl border-l border-white/10',
@@ -193,141 +206,141 @@ export default function AccountSheet({ open, onClose, me }: Props) {
                     <TabButton active={tab==='security'} onClick={() => setTab('security')} icon={<ShieldCheck className="h-4 w-4" />}>Security</TabButton>
                 </div>
 
-                <div className="px-5 py-4 overflow-y-auto h-[calc(100%-96px)]">
-                    {tab === 'usage' && (
-                        <div className="space-y-5">
-                            <h3 className="text-lg font-medium">Your usage</h3>
+                {/* Content + logout at bottom */}
+                <div className="px-5 py-4 flex flex-col h-[calc(100%-96px)]">
+                    <div className="flex-1 overflow-y-auto">
+                        {tab === 'usage' && (
+                            <div className="space-y-5">
+                                <h3 className="text-lg font-medium">Your usage</h3>
 
-                            {/* Summary cards (no daily) */}
-                            <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                <Card label="Plan" value={friendlyPlan ?? '—'} />
-                                <Card
-                                    label="Monthly Used"
-                                    value={
-                                        usage
-                                            ? `${animMonthly.toLocaleString()} / ${isUnlimited ? '∞' : formatWords(monthlyCap)}`
-                                            : '—'
-                                    }
-                                />
-                            </div>
-
-                            {/* Monthly progress only */}
-                            {!isUnlimited && usage && (
-                                <div className="space-y-4">
-                                    <ProgressRow
-                                        label="Monthly"
-                                        pct={monthlyPct}
-                                        hint={`${formatWords(monthlyUsed)} / ${formatWords(monthlyCap)} words`}
+                                <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    <Card label="Plan" value={friendlyPlan ?? '—'} />
+                                    <Card
+                                        label="Monthly Used"
+                                        value={
+                                            usage
+                                                ? `${animMonthly.toLocaleString()} / ${isUnlimited ? '∞' : formatWords(monthlyCap)}`
+                                                : '—'
+                                        }
                                     />
                                 </div>
-                            )}
 
-                            {isUnlimited && (
-                                <div className="text-sm text-white/60">
-                                    Your plan is unlimited. Usage is tracked for your reference.
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                {!isUnlimited && usage && (
+                                    <div className="space-y-4">
+                                        <ProgressRow
+                                            label="Monthly"
+                                            pct={monthlyPct}
+                                            hint={`${formatWords(monthlyUsed)} / ${formatWords(monthlyCap)} words`}
+                                        />
+                                    </div>
+                                )}
 
-                    {tab === 'plan' && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Plan & Billing</h3>
-                            <p className="text-white/70 text-sm">
-                                You’re currently on <span className="font-medium">{friendlyPlan}</span>.
-                            </p>
-
-                            {/* Plan catalog with your new caps */}
-                            <div className="grid grid-cols-1 gap-3">
-                                {PLAN_CATALOG.map((p) => {
-                                    const active = p.key === currentPlanKey || (p.key === 'PREMIUM_PLUS' && currentPlanKey === 'BUSINESS_PLUS');
-                                    return (
-                                        <div
-                                            key={p.key}
-                                            className={[
-                                                'rounded-2xl border p-4 flex items-center justify-between',
-                                                active ? 'border-white/20 bg-white/[0.06]' : 'border-white/10 bg-white/[0.03]',
-                                            ].join(' ')}
-                                        >
-                                            <div>
-                                                <div className="text-sm font-medium">{p.name}</div>
-                                                <div className="text-xs text-white/60">
-                                                    {formatWords(p.monthlyCap)} words / month
-                                                </div>
-                                            </div>
-                                            {active ? (
-                                                <span className="text-xs text-white/70">Current</span>
-                                            ) : (
-                                                <Link
-                                                    href="/pricing"
-                                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
-                                                >
-                                                    View options
-                                                </Link>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                {isUnlimited && (
+                                    <div className="text-sm text-white/60">
+                                        Your plan is unlimited. Usage is tracked for your reference.
+                                    </div>
+                                )}
                             </div>
+                        )}
 
-                            <Link
-                                href="/pricing"
-                                className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-                            >
-                                Manage plan
-                            </Link>
-                        </div>
-                    )}
+                        {tab === 'plan' && (
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">Plan & Billing</h3>
+                                <p className="text-white/70 text-sm">
+                                    You’re currently on <span className="font-medium">{friendlyPlan}</span>.
+                                </p>
 
-                    {tab === 'security' && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Change password</h3>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {PLAN_CATALOG.map((p) => {
+                                        const active = p.key === currentPlanKey || (p.key === 'PREMIUM_PLUS' && currentPlanKey === 'BUSINESS_PLUS');
+                                        return (
+                                            <div
+                                                key={p.key}
+                                                className={[
+                                                    'rounded-2xl border p-4 flex items-center justify-between',
+                                                    active ? 'border-white/20 bg-white/[0.06]' : 'border-white/10 bg-white/[0.03]',
+                                                ].join(' ')}
+                                            >
+                                                <div>
+                                                    <div className="text-sm font-medium">{p.name}</div>
+                                                    <div className="text-xs text-white/60">
+                                                        {formatWords(p.monthlyCap)} words / month
+                                                    </div>
+                                                </div>
+                                                {active ? (
+                                                    <span className="text-xs text-white/70">Current</span>
+                                                ) : (
+                                                    <Link
+                                                        href="/pricing"
+                                                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
+                                                    >
+                                                        View options
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
-                            <div className="space-y-3">
-                                <Field
+                        {tab === 'security' && (
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">Change password</h3>
+
+                                <PasswordField
                                     label="Current password"
-                                    type="password"
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
-                                    autoComplete="current-password"
+                                    visible={showCurrent}
+                                    onToggle={() => setShowCurrent(!showCurrent)}
                                 />
-                                <Field
+                                <PasswordField
                                     label="New password"
-                                    type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    autoComplete="new-password"
+                                    visible={showNew}
+                                    onToggle={() => setShowNew(!showNew)}
                                 />
-                                <Field
+                                <PasswordField
                                     label="Confirm new password"
-                                    type="password"
                                     value={confirmNew}
                                     onChange={(e) => setConfirmNew(e.target.value)}
-                                    autoComplete="new-password"
+                                    visible={showConfirm}
+                                    onToggle={() => setShowConfirm(!showConfirm)}
                                 />
+
+                                {!!secErr && <div className="text-sm text-red-300">{secErr}</div>}
+                                {!!secMsg && <div className="text-sm text-green-300">{secMsg}</div>}
+
+                                <button
+                                    onClick={submitChangePassword}
+                                    disabled={secBusy}
+                                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                                >
+                                    {secBusy ? 'Saving…' : 'Update password'}
+                                </button>
                             </div>
+                        )}
+                    </div>
 
-                            {!!secErr && <div className="text-sm text-red-300">{secErr}</div>}
-                            {!!secMsg && <div className="text-sm text-green-300">{secMsg}</div>}
-
-                            <button
-                                onClick={submitChangePassword}
-                                disabled={secBusy}
-                                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
-                            >
-                                {secBusy ? 'Saving…' : 'Update password'}
-                            </button>
-                        </div>
-                    )}
+                    {/* logout button */}
+                    <div className="pt-4 border-t border-white/5 mt-4">
+                        <button
+                            onClick={handleLogout}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2 text-sm text-white/80 hover:bg-white/[0.06]"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            Log out
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-function TabButton({
-                       active, onClick, children, icon,
-                   }: { active: boolean; onClick: () => void; children: React.ReactNode; icon: React.ReactNode }) {
+function TabButton({ active, onClick, children, icon }: { active: boolean; onClick: () => void; children: React.ReactNode; icon: React.ReactNode }) {
     return (
         <button
             onClick={onClick}
@@ -350,30 +363,37 @@ function Card({ label, value }: { label: string; value: string | number }) {
     );
 }
 
-function Field({
-                   label, type, value, onChange, autoComplete,
-               }: {
+function PasswordField({
+                           label, value, onChange, visible, onToggle,
+                       }: {
     label: string;
-    type: 'password' | 'text' | 'email';
     value: string;
     onChange: React.ChangeEventHandler<HTMLInputElement>;
-    autoComplete?: string;
+    visible: boolean;
+    onToggle: () => void;
 }) {
     return (
-        <label className="block">
+        <label className="block relative">
             <span className="text-xs text-white/60">{label}</span>
             <input
-                type={type}
+                type={visible ? 'text' : 'password'}
                 value={value}
                 onChange={onChange}
-                autoComplete={autoComplete}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm outline-none focus:border-white/20"
+                autoComplete="new-password"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 pr-9 text-sm outline-none focus:border-white/20"
             />
+            <button
+                type="button"
+                onClick={onToggle}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                tabIndex={-1}
+            >
+                {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
         </label>
     );
 }
 
-/** Pretty progress row with label + % + bar */
 function ProgressRow({ label, pct, hint }: { label: string; pct: number; hint: string }) {
     return (
         <div>
@@ -382,10 +402,7 @@ function ProgressRow({ label, pct, hint }: { label: string; pct: number; hint: s
                 <span>{pct}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                <div
-                    className="h-2 rounded-full bg-white/60"
-                    style={{ width: `${pct}%` }}
-                />
+                <div className="h-2 rounded-full bg-white/60" style={{ width: `${pct}%` }} />
             </div>
             <div className="mt-1 text-[11px] text-white/50">{hint}</div>
         </div>

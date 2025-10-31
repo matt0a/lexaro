@@ -1,10 +1,10 @@
 package com.lexaro.api.web;
 
 import com.lexaro.api.domain.User;
+import com.lexaro.api.mail.MailService;
 import com.lexaro.api.repo.PasswordResetTokenRepository;
 import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.security.PasswordResetToken;
-import com.lexaro.api.mail.MailService;
 import jakarta.transaction.Transactional;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ public class PasswordResetController {
     private final UserRepository users;
     private final PasswordResetTokenRepository tokens;
     private final MailService mail;
-    private final PasswordEncoder encoder;      // <-- NEW
+    private final PasswordEncoder encoder;
 
     @PostMapping("/forgot")
     @Transactional
@@ -44,7 +44,6 @@ public class PasswordResetController {
             String text = "Click to reset your password: " + link;
             String html = "<p>Click to reset your password:</p><p><a href=\"" + link + "\">Reset password</a></p>";
 
-            // Works with ConsoleMailService in dev or SES in prod
             mail.send(u.getEmail(), subject, text, html);
         }
         // Always 200 to avoid email enumeration

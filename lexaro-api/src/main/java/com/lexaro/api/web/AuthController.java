@@ -6,6 +6,7 @@ import com.lexaro.api.web.dto.AuthResponse;
 import com.lexaro.api.web.dto.LoginRequest;
 import com.lexaro.api.web.dto.RegisterRequest;
 import jakarta.validation.Valid;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -56,5 +57,22 @@ public class AuthController {
         Long userId = (Long) a.getPrincipal();
         var u = users.findById(userId).orElseThrow();
         return new AuthResponse(u.getId(), u.getEmail(), null, u.getPlan().name());
+    }
+
+    // change password for logged-in user -----
+    @PostMapping("/change-password")
+    public AuthResponse changePassword(@RequestBody ChangePasswordReq req) {
+        if (req.currentPassword == null || req.currentPassword.isBlank()
+                || req.newPassword == null || req.newPassword.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Both Current Password and New Password are required");
+        }
+        // delegates to service, which hashes it
+        return auth.changePassword(req.currentPassword, req.newPassword);
+    }
+
+    @Data
+    public static class ChangePasswordReq {
+        private String currentPassword;
+        private String newPassword;
     }
 }

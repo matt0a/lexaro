@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +49,12 @@ public class AuthService {
     @Value("${app.dev.adminEmails:}")
     private String adminEmailsCsv;
 
-    // --- Helpers ---
+    // --- helpers to get current user id from JWT ---
+    private Long currentUserId() {
+        return (Long) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
+    }
 
     private boolean isAdminEmail(String email) {
         if (adminEmailsCsv == null || adminEmailsCsv.isBlank()) return false;
@@ -222,5 +228,25 @@ public class AuthService {
             u.setVerificationSentAt(Instant.now());
             users.save(u);
         }
+    }
+
+    @Transactional
+    public AuthResponse changePassword(String currentPassword, String newPassword) {
+        Long userId = currentUserId();
+        var u = users.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // 1) verify current password against stored hash
+        if (!encoder.matches(currentPassword, u.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+
+        // 2) encode the new password
+        u.setPasswordHash(encoder.encode(newPassword));
+        users.save(u);
+
+        // 3) return a fresh token so the frontend can replace localStorage
+        var newToken = jwt.generate(u.getId(), u.getEmail());
+        return new AuthResponse(u.getId(), u.getEmail(), newToken, u.getPlan().name());
     }
 }
