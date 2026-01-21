@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import type { ApiPlan } from "../../lib/plans";
-import { toUiPlans } from "../../lib/plans";
-import { fmtInt } from "../../lib/number";
-import PlanPill from "./PlanPill";
+import React, { useMemo, useState } from "react";
+import type { ApiPlan, UnlimitedOrNumber } from "@/lib/plans";
+import { toUiPlans } from "@/lib/plans";
+import { fmtInt } from "@/lib/number";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Billing = "monthly" | "yearly";
-type Mode = "full" | "trialOnly"; // full = /plans (no trials shown), trialOnly = post-onboarding gate
+type Mode = "full" | "trialOnly";
 
 type Props = {
     apiPlans?: ApiPlan[];
@@ -18,24 +17,19 @@ type Props = {
 };
 
 const PRICES = {
-    MONTHLY: {
-        PREMIUM: 14.99,
-        BUSINESS_PLUS: 29.99,
-    },
-    YEARLY_TOTAL: {
-        PREMIUM: 145, // $12.09/mo billed annually
-        BUSINESS_PLUS: 290, // ~$24.17/mo billed annually
-    },
+    MONTHLY: { PREMIUM: 14.99, BUSINESS_PLUS: 29.99 },
+    YEARLY_TOTAL: { PREMIUM: 145, BUSINESS_PLUS: 290 },
 };
 
 const annualPerMonth = (total: number) => total / 12;
+
 const pctSaved = (monthly: number, annualTotal: number) => {
     const fullYear = monthly * 12;
     return Math.round(((fullYear - annualTotal) / fullYear) * 100);
 };
 
 export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }: Props) {
-    const plans = toUiPlans(apiPlans);
+    const plans = useMemo(() => toUiPlans(apiPlans), [apiPlans]);
     const [billing, setBilling] = useState<Billing>("monthly");
     const router = useRouter();
     const params = useSearchParams();
@@ -49,9 +43,9 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
             if (k === "BUSINESS_PLUS") return `$${PRICES.MONTHLY.BUSINESS_PLUS.toFixed(2)}/month`;
         } else {
             if (k === "PREMIUM")
-                return `$${annualPerMonth(PRICES.YEARLY_TOTAL.PREMIUM).toFixed(2)}/month billed annually`;
+                return `$${annualPerMonth(PRICES.YEARLY_TOTAL.PREMIUM).toFixed(2)}/mo billed annually`;
             if (k === "BUSINESS_PLUS")
-                return `$${annualPerMonth(PRICES.YEARLY_TOTAL.BUSINESS_PLUS).toFixed(2)}/month billed annually`;
+                return `$${annualPerMonth(PRICES.YEARLY_TOTAL.BUSINESS_PLUS).toFixed(2)}/mo billed annually`;
         }
         return "";
     };
@@ -59,10 +53,8 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
     const yearlyTotalLine = (key: ApiPlan) => {
         const k = String(key).toUpperCase();
         if (billing !== "yearly") return null;
-        if (k === "PREMIUM")
-            return <div className="mt-1 text-xs text-white/70">Total ${PRICES.YEARLY_TOTAL.PREMIUM}/year</div>;
-        if (k === "BUSINESS_PLUS")
-            return <div className="mt-1 text-xs text-white/70">Total ${PRICES.YEARLY_TOTAL.BUSINESS_PLUS}/year</div>;
+        if (k === "PREMIUM") return <div className="mt-1 text-xs text-white/65">Total ${PRICES.YEARLY_TOTAL.PREMIUM}/year</div>;
+        if (k === "BUSINESS_PLUS") return <div className="mt-1 text-xs text-white/65">Total ${PRICES.YEARLY_TOTAL.BUSINESS_PLUS}/year</div>;
         return null;
     };
 
@@ -73,31 +65,31 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
             k === "PREMIUM"
                 ? pctSaved(PRICES.MONTHLY.PREMIUM, PRICES.YEARLY_TOTAL.PREMIUM)
                 : pctSaved(PRICES.MONTHLY.BUSINESS_PLUS, PRICES.YEARLY_TOTAL.BUSINESS_PLUS);
+
         return (
-            <span className="ml-2 rounded-full bg-green-600/20 px-2 py-0.5 text-[10px] font-semibold text-green-400">
+            <span className="ml-2 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
         Save {pct}%
       </span>
         );
     };
 
+    const fmtLimit = (v: UnlimitedOrNumber) => (v === "Unlimited" ? "Unlimited" : fmtInt(v));
+    const suffix = (v: UnlimitedOrNumber, s: string) => (v === "Unlimited" ? "" : s);
+
     const onCTA = (plan: ApiPlan) => {
         const k = String(plan).toUpperCase();
         if (effectiveMode === "trialOnly") {
-            // post-onboarding: only Premium yearly trial allowed
             if (k === "PREMIUM") router.push("/trial-offer");
             return;
         }
-        // /plans page: no trials shown; direct to signup/checkout flows
         if (k === "FREE") router.push("/signup?plan=FREE");
         else router.push(`/signup?plan=${k}&cycle=${billing}`);
     };
 
     return (
         <div>
-            {/* Animated billing toggle (badge always visible) */}
             <BillingToggle billing={billing} onChange={setBilling} />
 
-            {/* Push the grid down so pills/toggle never overlap */}
             <div className="mt-6 grid gap-6 md:grid-cols-3" style={{ perspective: 1200 }}>
                 {plans.map((p) => {
                     const key = String(p.key).toUpperCase();
@@ -106,66 +98,81 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
                     const disabledTrialMode = effectiveMode === "trialOnly" && (key === "FREE" || key === "BUSINESS_PLUS");
 
                     return (
-                        <TiltCard key={p.key} variant={isPlus ? "premiumPlus" : isPremium ? "premium" : "default"}>
-                            {/* top-right pills across the border */}
+                        <TiltCard key={p.key} featured={!!p.featured} plus={isPlus}>
+                            {/* Badges */}
                             {isPremium && (
-                                <div className="pointer-events-none absolute top-0 right-6 -translate-y-[190%] z-20">
+                                <div className="pointer-events-none absolute top-0 right-6 -translate-y-[60%] z-20">
                   <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-2 ring-white/60">
                     Most popular
                   </span>
                                 </div>
                             )}
                             {isPlus && (
-                                <div className="pointer-events-none absolute top-0 right-6 -translate-y-[190%] z-20">
+                                <div className="pointer-events-none absolute top-0 right-6 -translate-y-[60%] z-20">
                   <span className="rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-2 ring-white/60">
                     Best value
                   </span>
                                 </div>
                             )}
 
-                            {/* rainbow sweep on hover for premium tiers */}
-                            {(isPremium || isPlus) && <RainbowSweep />}
-
-                            <header className="mb-3 mt-2 flex items-center justify-between">
-                                <h3 className="text-xl font-semibold">{p.name}</h3>
-                                <PlanPill>{p.dailyLimit === "Unlimited" ? "Daily: Unlimited" : `Daily: ${p.dailyLimit}`}</PlanPill>
+                            <header className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold">{p.name}</h3>
+                                    {p.blurb && <p className="mt-1 text-sm text-white/70">{p.blurb}</p>}
+                                </div>
+                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+                  {p.priority}
+                </span>
                             </header>
 
-                            <div className="text-sm text-white/70">Monthly allowance</div>
-                            <div className="text-3xl font-bold">
-                                {fmtInt(p.monthlyWords)} <span className="text-base font-medium text-gray-500">words</span>
+                            {/* Price */}
+                            <div className="mt-4">
+                                <div className="text-sm font-medium text-white/90">
+                                    {priceDisplay(p.key)}
+                                    {savingsBadge(p.key)}
+                                </div>
+                                {yearlyTotalLine(p.key)}
                             </div>
 
-                            {/* price line */}
-                            <div className="mt-3 text-sm font-medium text-white/90">
-                                {priceDisplay(p.key)}
-                                {savingsBadge(p.key)}
+                            {/* Allowances */}
+                            <div className="mt-5 grid grid-cols-2 gap-3">
+                                <Stat label="Study chat" value={fmtLimit(p.aiChatMessagesMonthly)} suffix={suffix(p.aiChatMessagesMonthly, "/mo")} />
+                                <Stat label="Generate" value={fmtLimit(p.aiGenerationsMonthly)} suffix={suffix(p.aiGenerationsMonthly, "/mo")} />
+                                <Stat
+                                    label="Docs processed"
+                                    value={fmtLimit(p.docPagesProcessedMonthly)}
+                                    suffix={suffix(p.docPagesProcessedMonthly, "pages/mo")}
+                                />
+                                <Stat label="Text-to-speech" value={fmtInt(p.monthlyWords)} suffix="words/mo" />
                             </div>
-                            {/* yearly totals (no trial wording on /plans) */}
-                            {yearlyTotalLine(p.key)}
 
-                            {/* bullets */}
-                            <ul className="mt-4 space-y-2 text-sm">
+                            {/* Bullets */}
+                            <ul className="mt-5 space-y-2 text-sm text-white/85">
                                 {key === "FREE" ? (
                                     <>
-                                        <li>• Robotic/basic voices</li>
-                                        <li>• Core text-to-speech features</li>
-                                        <li>• Good for short, simple docs</li>
+                                        <li>• Study Copilot with citations (limited)</li>
+                                        <li>• OCR + PDF extraction included</li>
+                                        <li>• Voice + translation included</li>
                                     </>
                                 ) : isPremium ? (
                                     <>
-                                        <li>• Natural, high-quality voices</li>
-                                        <li>• 60+ languages & accents</li>
-                                        <li>• Smooth rendering while you work</li>
+                                        <li>• Unlimited Study chat + generators</li>
+                                        <li>• Faster streaming + higher concurrency</li>
+                                        <li>• Better reliability safeguards</li>
                                     </>
                                 ) : (
                                     <>
-                                        <li>• Studio-grade & Pro voices</li>
-                                        <li>• 60+ languages & accents</li>
-                                        <li>• Priority rendering for long projects</li>
+                                        <li>• Everything in Premium</li>
+                                        <li>• Bigger context + more speed</li>
+                                        <li>• Best experience for long projects</li>
                                     </>
                                 )}
                             </ul>
+
+                            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+                                <span className="font-semibold text-white/90">Unlimited:</span> Paid plans have no monthly caps for normal use,
+                                with protective rate & concurrency limits to prevent abuse.
+                            </div>
 
                             {/* CTA */}
                             <button
@@ -193,7 +200,7 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
                                         : "Upgrade"}
                             </button>
 
-                            <footer className="mt-3 text-center text-xs text-gray-500">
+                            <footer className="mt-3 text-center text-xs text-white/55">
                                 {p.name === "Free" ? "No credit card required" : "Cancel anytime"}
                             </footer>
                         </TiltCard>
@@ -204,7 +211,17 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
     );
 }
 
-/* ============ Animated billing toggle (badge always visible) ============ */
+function Stat({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
+    return (
+        <div className="rounded-xl bg-white/5 px-3 py-2 border border-white/10">
+            <div className="text-[11px] uppercase tracking-widest text-white/50">{label}</div>
+            <div className="mt-0.5 text-lg font-semibold text-white">
+                {value}
+                {suffix ? <span className="ml-1 text-sm font-medium text-white/60">{suffix}</span> : null}
+            </div>
+        </div>
+    );
+}
 
 function BillingToggle({
                            billing,
@@ -216,159 +233,53 @@ function BillingToggle({
     const active = (key: "monthly" | "yearly") => billing === key;
 
     return (
-        <div className="mb-2 flex justify-center">
-            <div className="relative flex items-center gap-1 rounded-full bg-white/5 p-1">
-                {/* Monthly */}
+        <div className="flex justify-center">
+            <div className="relative flex items-center gap-1 rounded-full bg-white/5 p-1 border border-white/10">
                 <button
                     type="button"
                     aria-pressed={active("monthly")}
                     onClick={() => onChange("monthly")}
-                    className={[
-                        "relative overflow-hidden rounded-full px-4 py-1 text-sm font-semibold",
-                        active("monthly") ? "text-white" : "text-gray-300 hover:text-white",
-                    ].join(" ")}
+                    className={["relative z-10 rounded-full px-4 py-2 text-sm font-semibold", active("monthly") ? "text-black" : "text-white/75"].join(" ")}
                 >
-                    {active("monthly") && (
-                        <motion.div
-                            layoutId="billing-pill"
-                            className="absolute inset-0 rounded-full bg-blue-600"
-                            transition={{ type: "spring", stiffness: 400, damping: 34, mass: 0.5 }}
-                        />
-                    )}
-                    <span className="relative z-10">Monthly</span>
+                    Monthly
                 </button>
-
-                {/* Yearly */}
                 <button
                     type="button"
                     aria-pressed={active("yearly")}
                     onClick={() => onChange("yearly")}
-                    className={[
-                        "relative overflow-hidden rounded-full px-4 py-1 text-sm font-semibold",
-                        active("yearly") ? "text-white" : "text-gray-300 hover:text-white",
-                    ].join(" ")}
+                    className={["relative z-10 rounded-full px-4 py-2 text-sm font-semibold", active("yearly") ? "text-black" : "text-white/75"].join(" ")}
                 >
-                    {active("yearly") && (
-                        <motion.div
-                            layoutId="billing-pill"
-                            className="absolute inset-0 rounded-full bg-blue-600"
-                            transition={{ type: "spring", stiffness: 400, damping: 34, mass: 0.5 }}
-                        />
-                    )}
-                    <span className="relative z-10">Yearly</span>
-                    {/* Badge is ALWAYS visible */}
-                    <span
-                        className={[
-                            "relative z-10 ml-2 rounded-full bg-green-600/20 px-2 py-0.5 text-[10px] font-semibold text-green-400",
-                            active("yearly") ? "opacity-100" : "opacity-100",
-                        ].join(" ")}
-                    >
-            Save ~19%
-          </span>
+                    Yearly <span className="ml-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">Save</span>
                 </button>
+
+                <motion.div
+                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-white"
+                    animate={{ x: billing === "monthly" ? 0 : "100%" }}
+                    transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                />
             </div>
         </div>
     );
 }
 
-/* ============ Hover effects & premium+ border ============ */
-
-function RainbowSweep() {
+function TiltCard({ children, featured, plus }: { children: React.ReactNode; featured?: boolean; plus?: boolean }) {
     return (
-        <motion.div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-2xl">
-            <motion.div
-                className="absolute -inset-x-1 top-0 h-[140%] -translate-y-1/5 opacity-0"
-                style={{
-                    background:
-                        "linear-gradient(90deg, rgba(255,0,122,.25), rgba(255,154,0,.25), rgba(255,255,0,.25), rgba(0,255,128,.25), rgba(0,153,255,.25), rgba(170,102,255,.25))",
-                    filter: "blur(18px)",
-                }}
-                initial={{ x: "-120%" }}
-                whileHover={{ x: ["-120%", "120%"], opacity: [0, 1, 0] }}
-                transition={{ duration: 1.8, ease: "linear", repeat: Infinity }}
-            />
-        </motion.div>
-    );
-}
-
-/** Card with tilt pop & premium+ gradient border */
-function TiltCard({
-                      children,
-                      variant = "default",
-                  }: {
-    children: React.ReactNode;
-    variant?: "default" | "premium" | "premiumPlus";
-}) {
-    const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
-
-    const onMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        const cx = (e.clientX - r.left) / r.width - 0.5;
-        const cy = (e.clientY - r.top) / r.height - 0.5;
-        setTilt({ rx: cy * -6, ry: cx * 6 });
-    };
-
-    const premiumPlusBorder =
-        variant === "premiumPlus" ? (
-            <>
-                {/* colorful gradient ring */}
-                <div
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-[2px] rounded-2xl"
-                    style={{
-                        background:
-                            "linear-gradient(135deg, #f0abfc 0%, #60a5fa 40%, #22d3ee 60%, #34d399 100%)",
-                        filter: "blur(0.6px)",
-                        zIndex: 0,
-                    }}
-                />
-                {/* inner surface */}
-                <div className="pointer-events-none absolute inset-[2px] z-[1] rounded-2xl bg-black" />
-                {/* soft glow */}
-                <div
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-3 z-0 rounded-3xl"
-                    style={{
-                        background:
-                            "radial-gradient(60% 60% at 50% 0%, rgba(96,165,250,.25), rgba(52,211,153,.15), rgba(0,0,0,0) 70%)",
-                        filter: "blur(22px)",
-                    }}
-                />
-            </>
-        ) : null;
-
-    const nonPlusShadow =
-        variant === "premium"
-            ? "0 0 0 2px rgba(59,130,246,0.7), 0 12px 40px rgba(59,130,246,0.18)"
-            : "0 0 0 1px rgba(255,255,255,0.08)";
-
-    return (
-        <motion.article
-            onMouseMove={onMove}
-            onMouseLeave={() => setTilt({ rx: 0, ry: 0 })}
+        <motion.div
             className={[
-                "relative overflow-visible rounded-2xl border border-white/10 p-6 shadow-sm transition-colors",
-                "transform-gpu will-change-transform",
+                "relative rounded-[1.25rem] p-6 card",
+                featured ? "ring-2 ring-blue-500/35" : "",
+                plus ? "ring-2 ring-white/20" : "",
             ].join(" ")}
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5 }}
+            whileHover={{ rotateX: 2, rotateY: -2, y: -4 }}
             style={{ transformStyle: "preserve-3d" }}
-            initial={{ scale: 1, y: 0, rotateX: 0, rotateY: 0 }}
-            animate={{ rotateX: tilt.rx, rotateY: tilt.ry }}
-            whileHover={{
-                scale: 1.045,
-                y: -6,
-                boxShadow: variant === "premiumPlus" ? "0 10px 25px rgba(0,0,0,0.35)" : nonPlusShadow,
-            }}
-            transition={{ type: "spring", stiffness: 220, damping: 20, mass: 0.6 }}
         >
-            {premiumPlusBorder}
-            {variant !== "premiumPlus" && (
-                <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 rounded-2xl"
-                    style={{ boxShadow: nonPlusShadow, zIndex: 0 }}
-                />
-            )}
-            <div className="relative z-[2]">{children}</div>
-        </motion.article>
+            {/* subtle top glow */}
+            <div className="pointer-events-none absolute inset-0 rounded-[1.25rem] bg-[radial-gradient(600px_250px_at_50%_0%,rgba(255,255,255,.08),transparent)]" />
+            <div className="relative">{children}</div>
+        </motion.div>
     );
 }

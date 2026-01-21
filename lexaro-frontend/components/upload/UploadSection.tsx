@@ -154,7 +154,7 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
     return (
         <section>
             <h2 className="text-xl font-semibold">Library</h2>
-            <p className="text-white/70 mt-1">Hey, upload your first file</p>
+            <p className="text-white/70 mt-1">Hey! Upload your files here</p>
 
             {/* Upload card */}
             <div
