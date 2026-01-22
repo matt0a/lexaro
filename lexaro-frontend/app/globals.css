@@ -22,9 +22,51 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
             linear-gradient(180deg, rgba(255,255,255,.01), transparent 24%);
 }
 
-/* ---------- UI primitives ---------- */
 @layer components{
-    /* Buttons */
+
+    /* =======================
+       Landing / Auth-style scene backgrounds
+       ======================= */
+    .bg-dotgrid{
+        background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1.1px, transparent 1.7px);
+        background-size: 24px 24px;
+        background-position: center;
+    }
+
+    .bg-center-glow{
+        background:
+                radial-gradient(900px 520px at 50% 55%, rgba(34,140,219,.12), transparent 62%),
+                radial-gradient(720px 520px at 50% 75%, rgba(124,58,237,.08), transparent 60%);
+    }
+
+    .bg-vignette-strong{
+        background: radial-gradient(
+                1100px 700px at 50% 55%,
+                rgba(0,0,0,0) 35%,
+                rgba(0,0,0,0.60) 75%,
+                rgba(0,0,0,0.90) 100%
+        );
+    }
+
+    /* ✅ NEW: overlays to match landing sections */
+    .bg-hero-overlay{
+        background: linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.10), rgba(0,0,0,0.40));
+    }
+
+    .bg-lines-overlay{
+        background:
+                linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(14,165,233,0.06), rgba(0,0,0,0.40));
+    }
+
+    /* =======================
+       Accent helpers
+       ======================= */
+    .bg-accent{ background: var(--accent); }
+    .text-accent{ color: var(--accent); }
+
+    /* =======================
+       Buttons
+       ======================= */
     .btn{
         @apply inline-flex items-center justify-center gap-2
         rounded-full px-5 py-2.5 text-sm font-medium
@@ -32,6 +74,7 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
         hover:scale-[1.02] hover:shadow-[0_12px_30px_rgba(0,0,0,.45)]
         active:scale-[.99];
     }
+
     .btn-accent{
         @apply inline-flex items-center justify-center gap-2
         rounded-full px-5 py-2.5 text-sm font-medium
@@ -39,7 +82,8 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
         hover:bg-[#1b6fb0] hover:shadow-[0_12px_30px_rgba(0,0,0,.45),0_6px_15px_rgba(34,140,219,.2)]
         active:scale-[.99];
     }
-    .btn-ghost {
+
+    .btn-ghost{
         @apply inline-flex items-center justify-center gap-2
         rounded-full px-4 py-2 text-sm font-medium
         text-white/90 bg-transparent
@@ -47,27 +91,105 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
         @apply hover:bg-[rgba(255,255,255,.08)] active:scale-[.98];
     }
 
-    /* Cards / surfaces */
-    .card{
-        @apply rounded-[1.25rem] bg-[var(--card)];
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.55);
+    /* Compatibility alias */
+    .btn-primary{ @apply btn-accent; }
+
+    /* Slightly richer primary */
+    .btn-primary-pop{
+        @apply btn-accent;
+        background: linear-gradient(135deg, rgba(34,140,219,1), rgba(34,140,219,.72));
+        box-shadow:
+                0 12px 30px rgba(0,0,0,.45),
+                0 10px 25px rgba(34,140,219,.18);
+    }
+    .btn-primary-pop:hover{
+        background: linear-gradient(135deg, rgba(34,140,219,.95), rgba(34,140,219,.62));
     }
 
-    .card-hover {
-        @apply transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(0,0,0,.45),0_6px_15px_rgba(34,140,219,.15)] active:translate-y-0;
+    .btn:disabled,
+    .btn-accent:disabled,
+    .btn-primary:disabled,
+    .btn-primary-pop:disabled{
+        @apply opacity-60 cursor-not-allowed;
+        transform: none !important;
     }
 
-    .surface{
-        @apply rounded-[1.25rem] bg-[var(--surface)] border border-white/10;
+    /* =======================
+       Inputs (Auth + forms)
+       ======================= */
+    .input{
+        @apply w-full rounded-2xl px-4 py-3 text-sm
+        bg-white/5 border border-white/10 text-white
+        placeholder:text-white/40 outline-none transition;
+        @apply focus:border-white/20 focus:ring-2 focus:ring-[rgba(34,140,219,.25)];
     }
 
-    .hero-title { @apply text-white; }
-    .hero-sub   { @apply text-white/80; }
-    /* Layout helpers & type scale */
+    .input:disabled{ @apply opacity-60 cursor-not-allowed; }
+
+    .form-label{ @apply block text-sm font-medium text-white/80 mb-1; }
+    .form-help{ @apply text-xs text-white/55 mt-1; }
+    .form-error{ @apply text-sm text-red-300; }
+
+    /* =======================
+       Panels (match landing/login card)
+       ======================= */
+    .panel-auth{
+        @apply rounded-[1.5rem] bg-black/45 border border-white/10 backdrop-blur-xl;
+        box-shadow:
+                0 0 0 1px rgba(255,255,255,.05),
+                0 20px 70px rgba(0,0,0,.70);
+    }
+
+    .panel-auth-hover{
+        @apply transition-transform duration-200 ease-out hover:-translate-y-0.5;
+        box-shadow:
+                0 0 0 1px rgba(255,255,255,.06),
+                0 24px 90px rgba(0,0,0,.75),
+                0 14px 38px rgba(34,140,219,.10);
+    }
+
+    .panel-sheen{
+        @apply pointer-events-none absolute inset-0;
+        background: linear-gradient(135deg, rgba(255,255,255,.08), transparent 45%);
+        opacity: .55;
+    }
+
+    /* =======================
+       Chips, rules
+       ======================= */
+    .chip{
+        @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs
+        bg-white/5 border border-white/10 text-white/75;
+    }
+
+    .chip-accent{
+        @apply chip;
+        border-color: rgba(34,140,219,.25);
+        background: rgba(34,140,219,.10);
+        color: rgba(255,255,255,.82);
+    }
+
+    .section-rule{
+        @apply mt-3 h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent;
+    }
+
+    /* =======================
+       Typography / layout
+       ======================= */
+    .hero-title{ @apply text-white; }
+    .hero-sub{ @apply text-white/80; }
+
     .section{ @apply max-w-6xl mx-auto px-4 md:px-6 sm:px-8; }
     .kicker{ @apply text-xs tracking-widest uppercase text-white/60; }
+
     .h1{ @apply text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.03]; }
     .h2{ @apply text-3xl md:text-4xl font-semibold; }
-    .p { @apply text-base text-white/80; }
+    .p{ @apply text-base text-white/80; }
+
+    /* =======================
+       Auth helpers (keep)
+       ======================= */
+    .auth-wrap{ @apply min-h-screen bg-black text-white; }
+    .auth-center{ @apply relative min-h-[calc(100vh-64px)] overflow-hidden flex items-center; }
+    .auth-card{ @apply mx-auto w-full max-w-md; }
 }

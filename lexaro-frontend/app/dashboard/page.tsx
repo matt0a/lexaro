@@ -6,16 +6,20 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import UploadSection from '@/components/upload/UploadSection';
 import api from '@/lib/api';
 
+// Landing background
+import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
+
 type MeUsage = {
     plan: 'FREE' | 'PREMIUM' | 'PREMIUM_PLUS' | 'BUSINESS' | 'BUSINESS_PLUS' | string;
     monthlyUsed: number;
     dailyUsed: number;
-    email?: string; // if your /me/usage includes it; otherwise Sidebar fetches /me
+    email?: string;
 };
 
 export default function DashboardPage() {
     const router = useRouter();
     const params = useSearchParams();
+
     const [me, setMe] = useState<MeUsage | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -23,7 +27,10 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        if (!token) { router.replace('/login'); return; }
+        if (!token) {
+            router.replace('/login');
+            return;
+        }
 
         (async () => {
             try {
@@ -37,26 +44,33 @@ export default function DashboardPage() {
         })();
     }, [router]);
 
-    if (loading) return <div className="min-h-screen grid place-items-center text-white bg-black">Loading…</div>;
+    if (loading) {
+        return (
+            <div className="min-h-screen grid place-items-center text-white bg-black">
+                Loading…
+            </div>
+        );
+    }
+
     if (!me) return null;
 
     return (
         <div className="min-h-screen bg-black text-white">
             <Sidebar />
-            <main className="md:ml-56">
-                {/* subtle top vignette */}
-                <div className="relative overflow-hidden">
-                    <div className="pointer-events-none absolute -inset-x-24 -top-32 h-48 bg-[radial-gradient(700px_250px_at_50%_0%,rgba(255,255,255,.06),transparent)]" />
-                </div>
 
-                <div className="px-4 md:px-6 py-10 max-w-6xl mx-auto">
-                    {/* Removed: header + usage cards */}
-                    <div className="mt-2">
-                        <UploadSection plan={me.plan} initialOpenUpload={shouldOpenUpload} />
+            <main className="md:ml-56">
+                {/* Landing-style scene */}
+                <div className="relative overflow-hidden min-h-screen">
+                    <div className="pointer-events-none absolute inset-0 -z-10">
+                        <LightPillarsBackground />
+                        {/* soft overlays so pillars don’t overpower UI */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/45" />
+                        <div className="absolute inset-0 bg-vignette-strong opacity-100" />
                     </div>
 
-                    {/* bottom vignette */}
-                    <div className="pointer-events-none mt-16 h-40 bg-[radial-gradient(700px_250px_at_50%_100%,rgba(255,255,255,.05),transparent)]" />
+                    <div className="px-4 md:px-6 py-10 max-w-6xl mx-auto relative">
+                        <UploadSection plan={me.plan} initialOpenUpload={shouldOpenUpload} />
+                    </div>
                 </div>
             </main>
         </div>

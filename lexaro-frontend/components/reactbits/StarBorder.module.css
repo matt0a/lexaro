@@ -1,0 +1,69 @@
+.container{
+    position: relative;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+/* glassy inner panel (matches your cards) */
+.inner{
+    position: relative;
+    z-index: 2;
+    border-radius: calc(1.5rem - 1px);
+    background: rgba(10,10,12,0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow:
+            0 0 0 1px rgba(255,255,255,0.06),
+            0 10px 30px rgba(0,0,0,0.55);
+}
+
+/* animated border “sparkles” */
+.borderGradientTop,
+.borderGradientBottom{
+    position: absolute;
+    left: -40%;
+    width: 180%;
+    height: 140%;
+    opacity: 0.55;
+    filter: blur(12px);
+    z-index: 1;
+    animation-name: drift;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+/* top sweep */
+.borderGradientTop{
+    top: -65%;
+    transform: rotate(12deg);
+}
+
+/* bottom sweep */
+.borderGradientBottom{
+    bottom: -65%;
+    transform: rotate(-12deg);
+}
+
+@keyframes drift{
+    from { transform: translateX(-10%) rotate(var(--r, 0deg)); }
+    to   { transform: translateX(10%) rotate(var(--r, 0deg)); }
+}
+
+/* add a subtle “edge glow” that matches your accent */
+.container::before{
+    content:"";
+    position:absolute;
+    inset: 0;
+    border-radius: 1.5rem;
+    padding: 1px;
+    background: radial-gradient(60% 60% at 50% 0%, rgba(34,140,219,0.35), transparent 60%),
+    radial-gradient(60% 60% at 50% 100%, rgba(34,140,219,0.25), transparent 60%);
+    -webkit-mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.9;
+    z-index: 3;
+    pointer-events: none;
+}
