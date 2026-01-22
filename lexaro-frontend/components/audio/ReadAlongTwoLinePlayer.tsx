@@ -41,12 +41,15 @@ type Props = {
     downloadHref?: string;
     onRefresh?: () => void;
     maxSpeed?: number;
+
+    /**
+     * Optional: when desktop sidebar is visible, pass 224 (56*4) so the fixed player shifts right.
+     * If you already have a known sidebar width, you can keep this.
+     */
+    insetLeftPx?: number;
 };
 
 type ViewMode = "focus" | "full";
-
-// ✅ ONE wrapper used everywhere so page + floating player always align
-const WRAP = "mx-auto max-w-5xl px-6";
 
 function prefersReducedMotion() {
     if (typeof window === "undefined") return false;
@@ -55,7 +58,6 @@ function prefersReducedMotion() {
 
 /**
  * Smooth scroll controller that EASES towards a target scrollTop.
- * Instead of snapping, it moves the whole container down smoothly.
  */
 function useSmoothAutoScroll() {
     const rafRef = useRef<number | null>(null);
@@ -71,7 +73,6 @@ function useSmoothAutoScroll() {
 
     function setTarget(container: HTMLElement, target: number) {
         targetRef.current = target;
-
         if (rafRef.current != null) return;
 
         const reduce = prefersReducedMotion();
@@ -91,7 +92,6 @@ function useSmoothAutoScroll() {
             const cur = container.scrollTop;
             const delta = tgt - cur;
 
-            // close enough
             if (Math.abs(delta) < 0.75) {
                 container.scrollTop = tgt;
                 targetRef.current = null;
@@ -99,9 +99,7 @@ function useSmoothAutoScroll() {
                 return;
             }
 
-            // Easing: move a fraction each frame (smooth, not jumpy)
             container.scrollTop = cur + delta * 0.10;
-
             rafRef.current = requestAnimationFrame(step);
         };
 
@@ -118,6 +116,7 @@ export default function ReadAlongTwoLinePlayer({
                                                    downloadHref,
                                                    onRefresh,
                                                    maxSpeed = 1,
+                                                   insetLeftPx = 0,
                                                }: Props) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -244,10 +243,8 @@ export default function ReadAlongTwoLinePlayer({
 
     /**
      * Smooth autoscroll behavior:
-     * - Only in FULL mode (since focus mode doesn't scroll content)
+     * - Only in FULL mode
      * - Only if enabled
-     * - Eases container scrollTop towards keeping active sentence near ~35% from top
-     * - No snapping / no jump
      */
     useEffect(() => {
         if (!enableAutoScroll) {
@@ -264,11 +261,9 @@ export default function ReadAlongTwoLinePlayer({
         const el = sentenceRefs.current[activeIdx];
         if (!container || !el) return;
 
-        // Keep the active sentence in a comfortable "reading band"
         const topPadding = container.clientHeight * 0.35;
         const target = el.offsetTop - topPadding;
 
-        // clamp to container bounds
         const maxScroll = container.scrollHeight - container.clientHeight;
         const clampedTarget = Math.max(0, Math.min(target, Math.max(0, maxScroll)));
 
@@ -279,10 +274,24 @@ export default function ReadAlongTwoLinePlayer({
         return () => cancelScroll();
     }, [cancelScroll]);
 
-    // Reset sentence refs when transcript changes
     useEffect(() => {
         sentenceRefs.current = [];
     }, [transcript]);
+
+    // ✅ one shared wrap for BOTH page and player so they align perfectly
+    const WRAP = "mx-auto w-full max-w-5xl px-4 md:px-6";
+
+    /**
+     * ✅ Desktop sidebar offset logic:
+     * - On desktop, shift the *fixed* player to the right (so it never sits under sidebar).
+     * - Keep mobile full-width (sidebar overlays on mobile anyway).
+     *
+     * If you pass insetLeftPx, it will apply as a CSS var on md+ screens.
+     */
+    const playerStyle =
+        insetLeftPx > 0
+            ? ({ ["--sb" as any]: `${insetLeftPx}px` } as React.CSSProperties)
+            : undefined;
 
     return (
         <div className="relative min-h-[calc(100vh-80px)]">
@@ -292,7 +301,7 @@ export default function ReadAlongTwoLinePlayer({
             <div className={cn(WRAP, "pt-6 pb-40")}>
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-[0_26px_90px_rgba(0,0,0,.65)] overflow-hidden">
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+                    <div className="px-5 md:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                             <div className="text-[11px] tracking-[0.25em] text-white/50 uppercase">Read Along</div>
                             <div className="mt-2 text-lg font-semibold truncate text-white/90">{title}</div>
@@ -308,7 +317,7 @@ export default function ReadAlongTwoLinePlayer({
                                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10 transition"
                             >
                                 <Settings className="h-4 w-4" />
-                                Settings
+                                <span className="hidden sm:inline">Settings</span>
                             </button>
 
                             {onRefresh ? (
@@ -318,7 +327,7 @@ export default function ReadAlongTwoLinePlayer({
                                     type="button"
                                 >
                                     <RefreshCcw className="h-4 w-4" />
-                                    Refresh link
+                                    <span className="hidden sm:inline">Refresh</span>
                                 </button>
                             ) : null}
 
@@ -329,21 +338,21 @@ export default function ReadAlongTwoLinePlayer({
                                     className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15 transition"
                                 >
                                     <Download className="h-4 w-4" />
-                                    Download
+                                    <span className="hidden sm:inline">Download</span>
                                 </a>
                             ) : null}
                         </div>
                     </div>
 
                     {/* Body */}
-                    <div className="px-7 py-6">
+                    <div className="px-5 md:px-7 py-6">
                         {!transcript ? (
                             <div className="text-white/60">No transcript found.</div>
                         ) : sentences.length === 0 ? (
                             <div className="text-white/60">Couldn’t split transcript into sentences.</div>
                         ) : viewMode === "focus" ? (
                             // ---------- Focus (2 lines) ----------
-                            <div className="mx-auto max-w-3xl py-6">
+                            <div className="mx-auto max-w-3xl py-4 md:py-6">
                                 <div className="text-[12px] text-white/45 mb-3">
                                     Approx highlight based on audio progress (no speech marks)
                                 </div>
@@ -356,13 +365,13 @@ export default function ReadAlongTwoLinePlayer({
                                             "transition-colors duration-300"
                                         )}
                                     >
-                                        <div className="text-[17px] leading-8 text-white/95 whitespace-pre-wrap">
+                                        <div className="text-[16px] md:text-[17px] leading-8 text-white/95 whitespace-pre-wrap">
                                             {currentLine || "\u00A0"}
                                         </div>
                                     </div>
 
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 transition-colors duration-300">
-                                        <div className="text-[17px] leading-8 text-white/80 whitespace-pre-wrap">
+                                        <div className="text-[16px] md:text-[17px] leading-8 text-white/80 whitespace-pre-wrap">
                                             {nextLine || "\u00A0"}
                                         </div>
                                     </div>
@@ -378,7 +387,7 @@ export default function ReadAlongTwoLinePlayer({
                                 ref={transcriptScrollRef}
                                 className={cn(
                                     "relative rounded-2xl border border-white/10 bg-black/20",
-                                    "px-6 py-6",
+                                    "px-4 md:px-6 py-6",
                                     "max-h-[calc(100vh-260px)] overflow-auto",
                                     "[scrollbar-width:none]",
                                     "[-ms-overflow-style:none]",
@@ -424,9 +433,7 @@ export default function ReadAlongTwoLinePlayer({
                                     })}
                                 </div>
 
-                                <div className="mt-5 text-[12px] text-white/45">
-                                    Click any sentence to jump (approx).
-                                </div>
+                                <div className="mt-5 text-[12px] text-white/45">Click any sentence to jump (approx).</div>
                             </div>
                         )}
                     </div>
@@ -434,18 +441,18 @@ export default function ReadAlongTwoLinePlayer({
             </div>
 
             {/* ---- Floating player ---- */}
-            {/* ✅ KEY LAYOUT FIX: shift the entire fixed bar to the right of the sidebar */}
             <div
-                className="fixed bottom-0 z-50"
-                style={{
-                    left: "var(--sidebar-w, 0px)",
-                    right: 0,
-                }}
+                className={cn(
+                    "fixed bottom-0 z-50",
+                    "left-0 right-0", // default
+                    insetLeftPx > 0 ? "md:left-[var(--sb)]" : "md:left-0" // desktop offset if provided
+                )}
+                style={playerStyle}
             >
-                {/* ✅ shift gradient too (since it lives inside the shifted container now) */}
                 <div className="pointer-events-none absolute inset-x-0 -top-16 h-16 bg-gradient-to-t from-black/70 to-transparent" />
 
-                <div className={cn(WRAP, "pb-6")}>
+                {/* IMPORTANT: use the SAME WRAP to align with page */}
+                <div className={cn(WRAP, "pb-5 md:pb-6")}>
                     <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-xl shadow-[0_18px_70px_rgba(0,0,0,.65)] p-5">
                         <div className="flex items-center justify-between text-xs text-white/55">
                             <div>
@@ -514,11 +521,7 @@ export default function ReadAlongTwoLinePlayer({
                                 className="h-12 w-24 rounded-2xl border border-white/10 bg-white/10 hover:bg-white/15 transition grid place-items-center"
                                 aria-label={isPlaying ? "Pause" : "Play"}
                             >
-                                {isPlaying ? (
-                                    <Pause className="h-6 w-6 text-white" />
-                                ) : (
-                                    <Play className="h-6 w-6 text-white" />
-                                )}
+                                {isPlaying ? <Pause className="h-6 w-6 text-white" /> : <Play className="h-6 w-6 text-white" />}
                             </button>
 
                             <button
@@ -620,7 +623,6 @@ export default function ReadAlongTwoLinePlayer({
                         </div>
 
                         <div className="p-5 space-y-4">
-                            {/* Mode */}
                             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                                 <div className="text-xs font-semibold text-white/70 mb-3">View</div>
 
@@ -648,7 +650,6 @@ export default function ReadAlongTwoLinePlayer({
                                 </div>
                             </div>
 
-                            {/* Display */}
                             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                                 <div className="text-xs font-semibold text-white/70 mb-3">Display</div>
 

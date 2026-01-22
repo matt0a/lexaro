@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { usePathname } from 'next/navigation';
-import { Library, Mic, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Library, Mic, Settings, Menu, X } from 'lucide-react';
 import api from '@/lib/api';
 import AccountSheet from '@/components/settings/AccountSheet';
 
@@ -59,37 +58,36 @@ async function loadPlan(): Promise<{ planRaw: string; plan: string } | null> {
     }
 }
 
-function cn(...classes: Array<string | undefined | false | null>) {
-    return classes.filter(Boolean).join(' ');
-}
-
-const OPEN_W = 224;   // w-56
-const CLOSED_W = 72;  // comfy icon rail
-
 export default function Sidebar() {
-    const pathname = usePathname();
-
     const [email, setEmail] = useState<string>('—');
     const [plan, setPlan] = useState<string>('Free');
     const [planRaw, setPlanRaw] = useState<string>('FREE');
+
     const [openSettings, setOpenSettings] = useState(false);
 
-    const [collapsed, setCollapsed] = useState(false);
+    // mobile drawer state
+    const [mobileOpen, setMobileOpen] = useState(false);
 
-    // apply sidebar width globally so pages + floating player can react
-    function applySidebarWidth(nextCollapsed: boolean) {
-        const w = nextCollapsed ? CLOSED_W : OPEN_W;
-        document.documentElement.style.setProperty('--sidebar-w', `${w}px`);
-        document.documentElement.style.setProperty('--sidebar-open', nextCollapsed ? '0' : '1');
-    }
+    // close drawer on resize to desktop
+    useEffect(() => {
+        function onResize() {
+            if (window.innerWidth >= 768) setMobileOpen(false);
+        }
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    // lock background scroll when mobile drawer open
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        if (mobileOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = '';
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [mobileOpen]);
 
     useEffect(() => {
-        // restore collapse state
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('lexaro.sidebar.collapsed') : null;
-        const initialCollapsed = saved === '1';
-        setCollapsed(initialCollapsed);
-        applySidebarWidth(initialCollapsed);
-
         // read email from token
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const claims = parseJwtPayload(token);
@@ -103,15 +101,7 @@ export default function Sidebar() {
                 setPlanRaw(p.planRaw);
             }
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        localStorage.setItem('lexaro.sidebar.collapsed', collapsed ? '1' : '0');
-        applySidebarWidth(collapsed);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [collapsed]);
 
     const NAV = useMemo(
         () => [
@@ -125,72 +115,84 @@ export default function Sidebar() {
 
     return (
         <>
-            <aside
-                className={cn(
-                    'fixed inset-y-0 left-0 z-[80] border-r border-white/10 bg-black/60 backdrop-blur-sm text-white',
-                    'flex flex-col',
-                    collapsed ? 'w-[72px]' : 'w-[224px]'
-                )}
-            >
-                {/* Top brand row + collapse toggle */}
-                <div className={cn('px-3 py-3 flex items-center', collapsed ? 'justify-center' : 'justify-between')}>
-                    {!collapsed ? <div className="text-lg font-semibold tracking-wide">Lexaro</div> : <div className="text-lg font-semibold">L</div>}
+            {/* Mobile hamburger (ONLY when drawer is closed) */}
+            {!mobileOpen ? (
+                <button
+                    type="button"
+                    aria-label="Open menu"
+                    onClick={() => setMobileOpen(true)}
+                    className="md:hidden fixed left-5 top-5 z-[120] h-11 w-11 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md grid place-items-center shadow-[0_14px_50px_rgba(0,0,0,.55)]"
+                >
+                    <Menu className="h-5 w-5 text-white/90" />
+                </button>
+            ) : null}
 
+            {/* Mobile overlay */}
+            {mobileOpen ? (
+                <div
+                    className="md:hidden fixed inset-0 z-[110] bg-black/45"
+                    onClick={() => setMobileOpen(false)}
+                />
+            ) : null}
+
+            {/* Sidebar */}
+            <aside
+                className={[
+                    'fixed inset-y-0 left-0 z-[115] w-56 border-r border-white/10 bg-black/70 backdrop-blur-sm text-white flex flex-col',
+                    // Desktop: always visible
+                    'md:translate-x-0',
+                    // Mobile: slide
+                    mobileOpen ? 'translate-x-0' : '-translate-x-full',
+                    'transition-transform duration-300 ease-out',
+                ].join(' ')}
+            >
+                {/* Top bar */}
+                <div className="px-4 py-4 flex items-center justify-between">
+                    <div className="text-lg font-semibold tracking-wide">Lexaro</div>
+
+                    {/* Mobile close button */}
                     <button
                         type="button"
-                        onClick={() => setCollapsed((v) => !v)}
-                        className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition grid place-items-center"
-                        aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
-                        title={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
+                        aria-label="Close menu"
+                        onClick={() => setMobileOpen(false)}
+                        className="md:hidden h-9 w-9 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] grid place-items-center"
                     >
-                        {collapsed ? <PanelLeftOpen className="h-4 w-4 text-white/85" /> : <PanelLeftClose className="h-4 w-4 text-white/85" />}
+                        <X className="h-4 w-4 text-white/85" />
                     </button>
                 </div>
 
-                <nav className="flex-1 px-2 pt-1">
-                    {NAV.map(({ href, label, Icon }) => {
-                        const active = pathname === href || pathname?.startsWith(href + '/');
-                        return (
-                            <Link
-                                key={href}
-                                href={href}
-                                className={cn(
-                                    'flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-white/5 transition',
-                                    active ? 'bg-white/10 text-white' : 'text-white/85',
-                                    collapsed ? 'justify-center' : ''
-                                )}
-                                title={collapsed ? label : undefined}
-                            >
-                                <Icon className="h-4 w-4" />
-                                {!collapsed ? <span>{label}</span> : null}
-                            </Link>
-                        );
-                    })}
+                <nav className="flex-1 px-2">
+                    {NAV.map(({ href, label, Icon }) => (
+                        <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setMobileOpen(false)}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/85 hover:bg-white/5"
+                        >
+                            <Icon className="h-4 w-4" />
+                            {label}
+                        </Link>
+                    ))}
                 </nav>
 
-                {/* Bottom account/settings button (NO big box card) */}
-                <div className={cn('mt-auto px-2 pb-3', collapsed ? 'flex flex-col items-center gap-2' : '')}>
+                {/* Bottom account/settings (no big box) */}
+                <div className="mt-auto border-t border-white/10 px-4 py-4">
                     <button
                         onClick={() => setOpenSettings(true)}
-                        className={cn(
-                            'w-full rounded-xl hover:bg-white/5 transition flex items-center gap-3 px-3 py-2',
-                            collapsed ? 'justify-center' : ''
-                        )}
+                        className="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04] transition"
                         title="Account & Settings"
+                        type="button"
                     >
                         <div className="h-9 w-9 shrink-0 rounded-full bg-white/10 grid place-items-center text-sm font-semibold">
                             {initial}
                         </div>
 
-                        {!collapsed ? (
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm text-white/90">{email || '—'}</div>
-                                <div className="text-[11px] text-white/55 flex items-center gap-1">
-                                    <Settings className="h-3 w-3" />
-                                    {plan}
-                                </div>
-                            </div>
-                        ) : null}
+                        <div className="min-w-0 flex-1 text-left">
+                            <div className="truncate text-sm text-white/90">{email || '—'}</div>
+                            <div className="text-[11px] text-white/55">{plan}</div>
+                        </div>
+
+                        <Settings className="h-4 w-4 text-white/70" />
                     </button>
                 </div>
             </aside>

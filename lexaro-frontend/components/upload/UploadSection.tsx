@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, FileUp, Type, AlertTriangle } from 'lucide-react';
 import AudioStatus from '@/components/dashboard/AudioStatus';
 import AddTextModal from '@/components/upload/AddTextModal';
@@ -11,21 +12,17 @@ import VoicePickerModal, {
     type VoiceMeta,
 } from '@/components/voices/VoicePickerModal';
 
-// Free-plan modal (2 voices: Joanna / Matthew)
 import FreeVoicePickModal from '@/components/upload/FreeVoicePickModal';
-
 import api from '@/lib/api';
 
 type Props = {
     plan: string;
-    /** when true, auto-open the Create Text modal on mount (e.g., from /dashboard?open=upload) */
     initialOpenUpload?: boolean;
 };
 
 const MAX_SIZE_MB = 50;
 const ACCEPTED_EXTS = ['pdf', 'doc', 'docx', 'txt', 'epub', 'rtf', 'html', 'htm'];
 
-/** Matches backend /tts/voices normalized response */
 type VoiceDto = {
     id: string;
     title: string | null;
@@ -37,10 +34,10 @@ type VoiceDto = {
     preview: string | null;
 };
 
-// Local type to avoid coupling the two modals
 type SimplePickedVoice = { voiceId: string; title: string };
 
 export default function UploadSection({ plan, initialOpenUpload = false }: Props) {
+    const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
 
     const [dragOver, setDragOver] = useState(false);
@@ -50,24 +47,22 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
     const [error, setError] = useState<string>('');
     const [showText, setShowText] = useState<boolean>(initialOpenUpload);
 
-    // Shared pending doc while waiting for voice selection (free or paid)
+    // ✅ used for redirect title
+    const [lastDocName, setLastDocName] = useState<string | null>(null);
+
     const [pendingDocId, setPendingDocId] = useState<number | null>(null);
 
-    // Paid picker
     const [showVoice, setShowVoice] = useState(false);
 
-    // Free picker
     const [showFreeVoice, setShowFreeVoice] = useState(false);
     const [lastFreeVoice, setLastFreeVoice] = useState<SimplePickedVoice | null>(null);
 
-    // Voice catalog for paid picker
     const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
 
     const upperPlan = plan?.toUpperCase?.() || 'FREE';
     const isFree = upperPlan === 'FREE';
     const isPaid = !isFree;
 
-    // If the page is loaded with ?open=upload, ensure the modal is opened once
     useEffect(() => {
         if (initialOpenUpload) setShowText(true);
     }, [initialOpenUpload]);
@@ -87,7 +82,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
         return null;
     };
 
-    // Load voices once for PAID users (no previews)
     useEffect(() => {
         if (!isPaid) return;
 
@@ -108,13 +102,12 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 favorite: false,
             }));
 
-            // sort by language then title
-            mapped.sort((a, b) => (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id)));
+            mapped.sort((a, b) =>
+                (a.language + ' ' + (a.title ?? a.id)).localeCompare(b.language + ' ' + (b.title ?? b.id))
+            );
 
             setCatalog(mapped);
-        })().catch(() => {
-            // swallow – the picker will simply show "No matches"
-        });
+        })().catch(() => {});
     }, [isPaid, upperPlan]);
 
     const onFiles = useCallback(
@@ -134,13 +127,12 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
             try {
                 const { id } = await uploadDocument(file, (p) => setProgress(p));
 
-                // Route to the appropriate picker
+                // ✅ store name for redirect title
+                setLastDocName(file.name);
+
                 setPendingDocId(id);
-                if (isFree) {
-                    setShowFreeVoice(true);
-                } else {
-                    setShowVoice(true);
-                }
+                if (isFree) setShowFreeVoice(true);
+                else setShowVoice(true);
             } catch (e: any) {
                 setError(e?.message || 'Upload failed. Please try again.');
             } finally {
@@ -156,7 +148,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
             <h2 className="text-xl font-semibold">Library</h2>
             <p className="text-white/70 mt-1">Hey! Upload your files here</p>
 
-            {/* Upload card */}
             <div
                 onDragOver={(e) => {
                     e.preventDefault();
@@ -201,7 +192,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                         onChange={(e) => onFiles(e.target.files)}
                     />
 
-                    {/* Progress */}
                     {busy && progress > 0 && (
                         <div className="mt-4 w-full max-w-lg">
                             <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
@@ -214,7 +204,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                         </div>
                     )}
 
-                    {/* Error */}
                     {!!error && (
                         <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                             <AlertTriangle className="h-4 w-4" />
@@ -224,7 +213,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 </div>
             </div>
 
-            {/* Create Text */}
             <div className="mt-6">
                 <button
                     onClick={() => setShowText(true)}
@@ -238,22 +226,28 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 </button>
             </div>
 
-            {/* Live job status */}
             {docId !== null && (
                 <div className="mt-8">
-                    <AudioStatus docId={docId} />
+                    <AudioStatus
+                        docId={docId}
+                        onReady={(readyDocId) => {
+                            const name = lastDocName ?? `Audio ${readyDocId}`;
+                            router.push(`/dashboard/saved-audio/${readyDocId}?name=${encodeURIComponent(name)}`);
+                        }}
+                    />
                 </div>
             )}
 
-            {/* Add Text modal */}
             <AddTextModal
                 open={showText}
                 plan={plan}
                 onClose={() => setShowText(false)}
-                onSaved={(id) => setDocId(id)}
+                onSaved={(id) => {
+                    setLastDocName(`Text ${id}`);
+                    setDocId(id);
+                }}
             />
 
-            {/* Voice picker (paid) */}
             <VoicePickerModal
                 open={showVoice}
                 voices={catalog}
@@ -267,7 +261,7 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                     if (!pendingDocId) return;
                     try {
                         await startAudio(pendingDocId, { voiceId: v.voiceId, engine: 'neural', format: 'mp3' });
-                        setDocId(pendingDocId);
+                        setDocId(pendingDocId); // start polling → redirects when READY
                     } finally {
                         setShowVoice(false);
                         setPendingDocId(null);
@@ -275,7 +269,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 }}
             />
 
-            {/* Voice picker (free) — two choices only */}
             <FreeVoicePickModal
                 open={showFreeVoice}
                 initialVoiceId={lastFreeVoice?.voiceId ?? null}
@@ -286,14 +279,14 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 onPick={async (picked: SimplePickedVoice) => {
                     if (!pendingDocId) return;
                     try {
-                        // Free plan → Polly STANDARD (mp3)
                         await startAudio(pendingDocId, {
-                            voice: picked.voiceId, // 'Joanna' | 'Matthew'
+                            voice: picked.voiceId,
                             engine: 'standard',
                             format: 'mp3',
                         });
+
                         setLastFreeVoice(picked);
-                        setDocId(pendingDocId);
+                        setDocId(pendingDocId); // start polling → redirects when READY
                     } finally {
                         setShowFreeVoice(false);
                         setPendingDocId(null);

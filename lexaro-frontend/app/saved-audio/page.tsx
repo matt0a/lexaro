@@ -210,7 +210,7 @@ export default function SavedAudioPage() {
     return (
         <div className="min-h-screen bg-black text-white">
             <Sidebar />
-            <main className="ml-56">
+            <main className="md:ml-56">
                 {/* top vignette */}
                 <div className="relative overflow-hidden">
                     <div className="pointer-events-none absolute -inset-x-24 -top-32 h-48 bg-[radial-gradient(700px_250px_at_50%_0%,rgba(255,255,255,.06),transparent)]" />
@@ -220,7 +220,7 @@ export default function SavedAudioPage() {
                     </div>
                 </div>
 
-                <div className="px-6 py-10 max-w-6xl mx-auto relative">
+                <div className="px-4 md:px-6 py-10 max-w-6xl mx-auto relative">
                     <header className="mb-6 flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-semibold">Saved Audio</h1>

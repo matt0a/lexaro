@@ -43,13 +43,13 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen bg-black text-white">
             <Sidebar />
-            <main className="ml-56">
+            <main className="md:ml-56">
                 {/* subtle top vignette */}
                 <div className="relative overflow-hidden">
                     <div className="pointer-events-none absolute -inset-x-24 -top-32 h-48 bg-[radial-gradient(700px_250px_at_50%_0%,rgba(255,255,255,.06),transparent)]" />
                 </div>
 
-                <div className="px-6 py-10 max-w-6xl mx-auto">
+                <div className="px-4 md:px-6 py-10 max-w-6xl mx-auto">
                     {/* Removed: header + usage cards */}
                     <div className="mt-2">
                         <UploadSection plan={me.plan} initialOpenUpload={shouldOpenUpload} />

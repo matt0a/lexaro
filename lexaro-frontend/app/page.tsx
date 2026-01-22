@@ -43,7 +43,7 @@ export default function Page() {
                 {/* subtle hero vignette */}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40" />
 
-                <div className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-10">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-10">
                     <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
                         <div>
                             <FadeInSection>
@@ -156,7 +156,7 @@ export default function Page() {
                     <div className="absolute -top-32 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <Header
                             kicker="Lexaro Learn"
@@ -222,7 +222,7 @@ export default function Page() {
 
             {/* Study flow */}
             <FluidGlassSection tone="blue">
-                <div className="mx-auto max-w-6xl px-6 py-20">
+                <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <Header
                             kicker="Study flow"
@@ -344,7 +344,7 @@ export default function Page() {
 
             {/* Voice previews — ✅ StarBorder wraps Voice gallery already */}
             <FluidGlassSection tone="violet">
-                <div className="mx-auto max-w-6xl px-6 py-20">
+                <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <Header
                             kicker="Lexaro Voice"
@@ -422,7 +422,7 @@ export default function Page() {
             {/* CTA + FAQ */}
             <section className="relative overflow-hidden">
                 <FloatingLinesBackground />
-                <div className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <CTA />
                     </FadeInSection>

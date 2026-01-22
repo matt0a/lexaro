@@ -86,7 +86,7 @@ export default function PlansPage() {
                     <div className="absolute left-1/3 top-44 h-[420px] w-[840px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-10">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-10">
                     <FadeInSection>
                         <p className="text-xs tracking-[0.25em] text-white/60 uppercase">
                             Pricing
@@ -246,7 +246,7 @@ export default function PlansPage() {
 
             {/* Small CTA section at bottom */}
             <FluidGlassSection tone="violet">
-                <div className="mx-auto max-w-6xl px-6 py-20">
+                <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md p-8 text-center">
                             <h3 className="text-2xl md:text-3xl font-semibold">

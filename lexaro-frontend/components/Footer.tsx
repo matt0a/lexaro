@@ -1,1 +1,1 @@
-export default function Footer() { return (<footer className="border-t border-black/5 dark:border-white/10 py-10 mt-24"><div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-sm text-neutral-500">© {new Date().getFullYear()} Lexaro. All rights reserved.</div></footer>); }
+export default function Footer() { return (<footer className="border-t border-black/5 dark:border-white/10 py-10 mt-24"><div className="mx-auto max-w-7xl px-4 sm:px-4 md:px-6 lg:px-8 text-sm text-neutral-500">© {new Date().getFullYear()} Lexaro. All rights reserved.</div></footer>); }

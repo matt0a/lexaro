@@ -106,7 +106,7 @@ export default function VoicesShowcase() {
     };
 
     return (
-        <section className="mx-auto max-w-6xl px-6">
+        <section className="mx-auto max-w-6xl px-4 md:px-6">
             <h3 className="text-center text-white/80 text-sm tracking-widest uppercase">
                 Try some of our most popular voices
             </h3>

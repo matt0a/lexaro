@@ -85,7 +85,7 @@ export default function PlanComparison() {
 
             <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_30px_120px_rgba(0,0,0,.7)]">
                 {/* top header */}
-                <div className="px-6 pt-8 pb-6">
+                <div className="px-4 md:px-6 pt-8 pb-6">
                     <div className="mx-auto max-w-2xl text-center">
                         <h2 className="text-3xl md:text-4xl font-semibold">
                             Compare plans
@@ -226,7 +226,7 @@ export default function PlanComparison() {
                 </div>
 
                 {/* CTA buttons */}
-                <div className="px-6 py-7 border-t border-white/10">
+                <div className="px-4 md:px-6 py-7 border-t border-white/10">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <a
                             href="#plans"

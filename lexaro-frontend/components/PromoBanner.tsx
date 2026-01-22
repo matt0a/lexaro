@@ -11,7 +11,7 @@ export default function PromoBanner() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ duration: 0.6, ease: 'easeOut' }}
-                className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
+                className="mx-auto max-w-6xl px-4 sm:px-4 md:px-6 lg:px-8"
             >
                 <div className="relative overflow-hidden rounded-[2rem] bg-white text-black shadow-xl">
                     <div className="grid grid-cols-1 gap-6 p-8 sm:grid-cols-2 sm:p-12">

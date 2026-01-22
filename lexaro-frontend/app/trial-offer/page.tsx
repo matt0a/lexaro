@@ -42,7 +42,7 @@ export default function Dashboard() {
         <div className="min-h-screen bg-black text-white">
             <Sidebar />
 
-            <main className="ml-56 px-6 py-10">
+            <main className="md:ml-56 px-4 md:px-6 py-10">
                 <header className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold">Library</h1>

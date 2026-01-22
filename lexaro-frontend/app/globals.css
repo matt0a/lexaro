@@ -65,7 +65,7 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
     .hero-title { @apply text-white; }
     .hero-sub   { @apply text-white/80; }
     /* Layout helpers & type scale */
-    .section{ @apply max-w-6xl mx-auto px-6 sm:px-8; }
+    .section{ @apply max-w-6xl mx-auto px-4 md:px-6 sm:px-8; }
     .kicker{ @apply text-xs tracking-widest uppercase text-white/60; }
     .h1{ @apply text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.03]; }
     .h2{ @apply text-3xl md:text-4xl font-semibold; }
