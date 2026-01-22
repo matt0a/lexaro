@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -32,7 +33,16 @@ public class DocumentAudioWorker {
     private final PlanService plans;
     private final TextExtractor extractor;
     private final TtsQuotaService quota;
+
     private final @Autowired(required = false) TranslateService translate;
+
+    private static final Pattern WS = Pattern.compile("\\s+");
+
+    private static String normalizeWhitespace(String s) {
+        if (s == null) return "";
+        String t = s.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", " ").trim();
+        return WS.matcher(t).replaceAll(" ");
+    }
 
     @Async("ttsExecutor")
     public void process(Long userId,
@@ -50,13 +60,15 @@ public class DocumentAudioWorker {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
 
         try {
+            if (doc.getObjectKey() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored file for this document");
+            }
+
             byte[] bytes = storage.getBytes(doc.getObjectKey());
 
             String text = extractor.extract(doc.getMime(), bytes, 0);
-            if (text == null) text = "";
-            text = text.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", " ")
-                    .replaceAll("\\s+", " ")
-                    .trim();
+            text = normalizeWhitespace(text);
+
             if (text.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
@@ -65,7 +77,6 @@ public class DocumentAudioWorker {
             int perDocCap = plans.ttsMaxCharsForPlan(doc.getPlanAtUpload());
             if (text.length() > perDocCap) text = text.substring(0, perDocCap);
 
-            // Optional translation (kept as-is)
             boolean doTranslate = translate != null
                     && targetLang != null
                     && !targetLang.isBlank()
@@ -74,6 +85,7 @@ public class DocumentAudioWorker {
 
             if (doTranslate) {
                 text = translate.translate(text, "auto", targetLang);
+                text = normalizeWhitespace(text);
                 if (text.length() > perDocCap) text = text.substring(0, perDocCap);
             }
 
@@ -81,33 +93,41 @@ public class DocumentAudioWorker {
             List<String> chunks = TextChunker.splitBySentences(text, safeChunk);
             log.debug("TTS chunks docId={}, count={}", docId, chunks.size());
 
-            // Defaults
-            String v = (voice == null || voice.isBlank()) ? plans.defaultTtsVoice()   : voice;
+            String v = (voice == null || voice.isBlank()) ? plans.defaultTtsVoice() : voice;
             String e = (engine == null || engine.isBlank()) ? plans.defaultTtsEngine() : engine.toLowerCase(Locale.ROOT);
             String f = (format == null || format.isBlank()) ? "mp3" : format.toLowerCase(Locale.ROOT);
 
-            // Modern Speechify API doesn’t require language; pass null so the client won’t add it.
             String lang = doTranslate ? targetLang : null;
 
             Plan plan = doc.getPlanAtUpload();
 
             ByteArrayOutputStream mix = new ByteArrayOutputStream();
+
             for (String c : chunks) {
                 if (c == null || c.isBlank()) continue;
-                // The Speechify client returns raw audio bytes. MP3 frames can be concatenated safely.
-                mix.write(tts.synthesize(plan, c, v, e, f, lang));
+
+                byte[] audio = tts.synthesize(plan, c, v, e, f, lang);
+                if (audio == null || audio.length == 0) continue;
+
+                // MP3 frames can be concatenated safely for most encoders
+                mix.write(audio);
             }
+
             byte[] merged = mix.toByteArray();
+            if (merged.length == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No audio could be generated");
+            }
 
             String ext = switch (f) {
                 case "ogg_vorbis" -> "ogg";
-                case "pcm"        -> "pcm";
-                default           -> "mp3";
+                case "pcm" -> "pcm";
+                default -> "mp3";
             };
+
             String contentType = switch (ext) {
                 case "ogg" -> "audio/ogg";
                 case "pcm" -> "audio/wave";
-                default    -> "audio/mpeg";
+                default -> "audio/mpeg";
             };
 
             String key = "aud/u/%d/%d/%s.%s".formatted(userId, doc.getId(), UUID.randomUUID(), ext);
@@ -125,14 +145,17 @@ public class DocumentAudioWorker {
             doc.setAudioError(null);
             docs.save(doc);
 
-            log.info("TTS success docId={}, bytesOut={}, key={}", docId, merged.length, key);
+            log.info("TTS success docId={}, bytesOut={}, key={}",
+                    docId, merged.length, key);
 
         } catch (Exception ex) {
             log.error("TTS failed docId={}, userId={}, reason={}", docId, userId, ex.toString(), ex);
+
             doc.setAudioStatus(AudioStatus.FAILED);
             doc.setAudioObjectKey(null);
             doc.setAudioFormat(null);
             doc.setAudioVoice(null);
+
             String msg = ex.getMessage() == null ? "TTS failed" : ex.getMessage();
             doc.setAudioError(msg.substring(0, Math.min(250, msg.length())));
             docs.save(doc);

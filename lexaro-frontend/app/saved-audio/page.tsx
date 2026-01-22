@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import api from "@/lib/api";
 import { Trash2, RefreshCcw, FileAudio2 } from "lucide-react";
@@ -31,6 +32,18 @@ type SavedAudioItem = {
     validUntil: number;
 };
 
+type UsageDto = {
+    plan: string;
+    unlimited: boolean;
+    verified: boolean;
+    monthlyCap: number;
+    monthlyUsed: number;
+    monthlyRemaining: number;
+    dailyCap: number;
+    dailyUsed: number;
+    dailyRemaining: number;
+};
+
 function fmtBytes(b: number) {
     if (b < 1024) return b + " B";
     if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB";
@@ -38,21 +51,17 @@ function fmtBytes(b: number) {
     return (b / 1024 / 1024 / 1024).toFixed(1) + " GB";
 }
 
-/**
- * Plan -> speed cap
- * Update these strings to match whatever you store.
- */
-function planToMaxSpeed(planRaw: string | null): 1 | 3.5 | 10 {
-    const p = (planRaw ?? "").toLowerCase();
-
-    // common variants
-    if (p.includes("premium plus") || p.includes("premium_plus") || p.includes("premium+") || p.includes("plus")) return 10;
-    if (p.includes("premium")) return 3.5;
-
+function planToMaxSpeed(plan?: string) {
+    const p = (plan || "").toUpperCase();
+    // Handles PREMIUM_PLUS / BUSINESS_PLUS etc.
+    if (p.includes("PLUS")) return 10;
+    if (p.includes("PREMIUM") || p.includes("BUSINESS")) return 3.5;
     return 1;
 }
 
 export default function SavedAudioPage() {
+    const router = useRouter();
+
     const [logicalPage, setLogicalPage] = useState(0);
     const [hasNext, setHasNext] = useState(false);
 
@@ -60,22 +69,27 @@ export default function SavedAudioPage() {
     const [items, setItems] = useState<SavedAudioItem[]>([]);
     const [error, setError] = useState<string>("");
 
+    const [maxSpeed, setMaxSpeed] = useState<number>(1);
+
     const pageSize = 12;
     const backendChunkSize = 50;
 
-    // Read plan from localStorage (client only)
-    const [planRaw, setPlanRaw] = useState<string | null>(null);
-
+    // Load max speed from authenticated profile (server truth)
     useEffect(() => {
-        try {
-            const v = localStorage.getItem("lexaro_plan") ?? localStorage.getItem("plan");
-            setPlanRaw(v);
-        } catch {
-            setPlanRaw(null);
-        }
+        let alive = true;
+        (async () => {
+            try {
+                const { data } = await api.get<UsageDto>("/me/usage");
+                if (!alive) return;
+                setMaxSpeed(planToMaxSpeed(data?.plan));
+            } catch {
+                // keep default 1x if something goes wrong
+            }
+        })();
+        return () => {
+            alive = false;
+        };
     }, []);
-
-    const maxSpeed = useMemo(() => planToMaxSpeed(planRaw), [planRaw]);
 
     const loadLogicalPage = useCallback(
         async (lp: number) => {
@@ -188,6 +202,11 @@ export default function SavedAudioPage() {
         reloadFirst();
     }
 
+    function openReadAlong(docId: number, filename: string) {
+        const name = encodeURIComponent(filename);
+        router.push(`/dashboard/saved-audio/${docId}?name=${name}`);
+    }
+
     return (
         <div className="min-h-screen bg-black text-white">
             <Sidebar />
@@ -207,12 +226,6 @@ export default function SavedAudioPage() {
                             <h1 className="text-2xl font-semibold">Saved Audio</h1>
                             <p className="text-white/70 mt-1">
                                 Your 12 most recent audio files show here. Older files appear on the next pages.
-                            </p>
-
-                            {/* tiny hint so you can confirm plan mapping quickly */}
-                            <p className="mt-2 text-xs text-white/45">
-                                Speed cap: <span className="text-white/70 font-semibold">{maxSpeed}×</span>
-                                {planRaw ? <span className="ml-2 text-white/40">(plan: {planRaw})</span> : null}
                             </p>
                         </div>
 
@@ -261,8 +274,9 @@ export default function SavedAudioPage() {
                                     return (
                                         <div
                                             key={doc.id}
+                                            onClick={() => openReadAlong(doc.id, mp3Name)}
                                             className={[
-                                                "group rounded-3xl border border-white/10",
+                                                "group cursor-pointer rounded-3xl border border-white/10",
                                                 "bg-gradient-to-b from-white/[0.06] to-white/[0.03]",
                                                 "backdrop-blur-md p-5",
                                                 "shadow-[0_26px_90px_rgba(0,0,0,.65)]",
@@ -286,25 +300,38 @@ export default function SavedAudioPage() {
                                                 </div>
 
                                                 <button
-                                                    onClick={() => deleteDoc(doc.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteDoc(doc.id);
+                                                    }}
                                                     className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
                                                     title="Delete"
+                                                    type="button"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
 
-                                            <AudioPlayer
+                                            {/* Player (prevent card navigation when interacting) */}
+                                            <div
                                                 className="mt-4"
-                                                filename={mp3Name}
-                                                src={url}
-                                                downloadHref={url}
-                                                onRefresh={() => refreshLink(doc.id)}
-                                                maxSpeed={maxSpeed}
-                                            />
+                                                onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                            >
+                                                <AudioPlayer
+                                                    src={url}
+                                                    downloadHref={url}
+                                                    onRefresh={() => refreshLink(doc.id)}
+                                                    maxSpeed={maxSpeed}
+                                                />
+                                            </div>
 
                                             <div className="mt-3 text-[11px] text-white/50">
                                                 Link valid ~ {secondsLeft}s (use “Refresh link” to renew)
+                                            </div>
+
+                                            <div className="mt-2 text-[11px] text-white/45">
+                                                Click card to open read-along
                                             </div>
                                         </div>
                                     );

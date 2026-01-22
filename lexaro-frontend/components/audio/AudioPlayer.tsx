@@ -1,13 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+    ChevronDown,
+    ChevronUp,
     Download,
     RefreshCcw,
     Volume2,
     VolumeX,
-    Pause,
     Play,
+    Pause,
     RotateCcw,
     RotateCw,
 } from "lucide-react";
@@ -16,129 +18,163 @@ function cn(...classes: Array<string | undefined | false | null>) {
     return classes.filter(Boolean).join(" ");
 }
 
-type Props = {
-    src: string;
-    filename?: string;
-    downloadHref?: string;
-    onRefresh?: () => void;
-    maxSpeed?: 1 | 3.5 | 10;
-    className?: string;
-};
-
-const SPEED_PRESETS: number[] = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 5, 7.5, 10];
-
-function formatTime(sec: number) {
-    if (!Number.isFinite(sec) || sec < 0) return "0:00";
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
+function fmtTime(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
     return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+type Props = {
+    className?: string;
+    src: string;
+    downloadHref?: string;
+    onRefresh?: () => void;
+
+    /** 1 for Free, 3.5 for Premium, 10 for Premium+ */
+    maxSpeed?: number;
+
+    /** Optional: stop card clicks from triggering when interacting with the player */
+    stopClickPropagation?: boolean;
+};
+
+const ALL_SPEEDS = [1, 1.25, 1.5, 2, 2.5, 3, 3.5, 5, 7.5, 10] as const;
+
 export default function AudioPlayer({
+                                        className,
                                         src,
-                                        filename,
                                         downloadHref,
                                         onRefresh,
                                         maxSpeed = 1,
-                                        className,
+                                        stopClickPropagation = true,
                                     }: Props) {
-    const audioRef = React.useRef<HTMLAudioElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const btnRef = useRef<HTMLButtonElement | null>(null);
 
-    const [ready, setReady] = React.useState(false);
-    const [playing, setPlaying] = React.useState(false);
-    const [muted, setMuted] = React.useState(false);
-    const [rate, setRate] = React.useState<number>(1);
+    const speeds = useMemo(() => ALL_SPEEDS.filter((s) => s <= maxSpeed), [maxSpeed]);
 
-    const [duration, setDuration] = React.useState(0);
-    const [current, setCurrent] = React.useState(0);
+    const [isReady, setIsReady] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
 
-    const allowedSpeeds = React.useMemo(
-        () => SPEED_PRESETS.filter((x) => x <= maxSpeed),
-        [maxSpeed]
-    );
+    const [duration, setDuration] = useState(0);
+    const [current, setCurrent] = useState(0);
 
-    // keep rate inside cap
-    React.useEffect(() => {
-        if (rate > maxSpeed) setRate(maxSpeed);
-    }, [maxSpeed, rate]);
+    const [muted, setMuted] = useState(false);
+    const [rate, setRate] = useState<number>(1);
+    const [openSpeed, setOpenSpeed] = useState(false);
 
-    // apply settings
-    React.useEffect(() => {
-        const el = audioRef.current;
-        if (!el) return;
-        el.playbackRate = rate;
-        el.muted = muted;
-    }, [rate, muted]);
+    // Keep rate valid if plan changes
+    useEffect(() => {
+        if (rate > maxSpeed) setRate(Math.max(1, speeds[speeds.length - 1] ?? 1));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [maxSpeed]);
 
-    // reset on src change
-    React.useEffect(() => {
-        setReady(false);
-        setPlaying(false);
-        setCurrent(0);
-        setDuration(0);
+    useEffect(() => {
+        const a = audioRef.current;
+        if (!a) return;
+        a.playbackRate = rate;
+    }, [rate]);
+
+    useEffect(() => {
+        const a = audioRef.current;
+        if (!a) return;
+        a.muted = muted;
+    }, [muted]);
+
+    // Close speed menu on outside click
+    useEffect(() => {
+        function onDocDown(e: MouseEvent) {
+            if (!openSpeed) return;
+            const t = e.target as Node;
+            if (menuRef.current?.contains(t)) return;
+            if (btnRef.current?.contains(t)) return;
+            setOpenSpeed(false);
+        }
+        document.addEventListener("mousedown", onDocDown);
+        return () => document.removeEventListener("mousedown", onDocDown);
+    }, [openSpeed]);
+
+    // Audio events
+    useEffect(() => {
+        const a = audioRef.current;
+        if (!a) return;
+
+        const onLoaded = () => {
+            setIsReady(true);
+            setDuration(a.duration || 0);
+        };
+        const onTime = () => setCurrent(a.currentTime || 0);
+        const onPlay = () => setIsPlaying(true);
+        const onPause = () => setIsPlaying(false);
+        const onEnded = () => setIsPlaying(false);
+
+        a.addEventListener("loadedmetadata", onLoaded);
+        a.addEventListener("timeupdate", onTime);
+        a.addEventListener("play", onPlay);
+        a.addEventListener("pause", onPause);
+        a.addEventListener("ended", onEnded);
+
+        return () => {
+            a.removeEventListener("loadedmetadata", onLoaded);
+            a.removeEventListener("timeupdate", onTime);
+            a.removeEventListener("play", onPlay);
+            a.removeEventListener("pause", onPause);
+            a.removeEventListener("ended", onEnded);
+        };
     }, [src]);
 
-    const togglePlay = async () => {
-        const el = audioRef.current;
-        if (!el) return;
+    async function togglePlay() {
+        const a = audioRef.current;
+        if (!a) return;
         try {
-            if (el.paused) await el.play();
-            else el.pause();
+            if (a.paused) await a.play();
+            else a.pause();
         } catch {
-            // ignore
+            // ignore autoplay restrictions
         }
-    };
+    }
 
-    const seekBy = (delta: number) => {
-        const el = audioRef.current;
-        if (!el) return;
-        const d = Number.isFinite(el.duration) ? el.duration : duration;
-        const next = Math.max(0, Math.min((el.currentTime || 0) + delta, d || 0));
-        el.currentTime = next;
-        setCurrent(next);
-    };
+    function seekTo(next: number) {
+        const a = audioRef.current;
+        if (!a) return;
+        const clamped = Math.max(0, Math.min(next, duration || 0));
+        a.currentTime = clamped;
+        setCurrent(clamped);
+    }
 
-    const onScrub = (v: number) => {
-        const el = audioRef.current;
-        if (!el) return;
-        el.currentTime = v;
-        setCurrent(v);
-    };
+    function skip(delta: number) {
+        seekTo(current + delta);
+    }
 
-    const cycleSpeed = () => {
-        const idx = allowedSpeeds.findIndex((s) => s === rate);
-        const next = idx === -1 ? allowedSpeeds[0] : allowedSpeeds[(idx + 1) % allowedSpeeds.length];
-        setRate(next);
-    };
-
-    const progressPct =
-        duration > 0 ? Math.max(0, Math.min(100, (current / duration) * 100)) : 0;
+    const percent = duration > 0 ? (current / duration) * 100 : 0;
 
     return (
         <div
+            onClick={stopClickPropagation ? (e) => e.stopPropagation() : undefined}
             className={cn(
-                "rounded-2xl border border-white/10 bg-black/45 backdrop-blur-md",
-                "shadow-[0_20px_60px_rgba(0,0,0,.45)]",
+                "relative z-0 isolate overflow-visible",
+                "rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md",
+                "shadow-[0_18px_70px_rgba(0,0,0,.55)]",
+                "p-4",
                 className
             )}
         >
-            {/* Header */}
-            <div className="flex items-center justify-between gap-3 px-4 pt-4">
-                <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white/90">
-                        {filename ?? "Audio"}
-                    </div>
-                    <div className="mt-0.5 text-xs text-white/55">
-                        {ready ? `${formatTime(current)} / ${formatTime(duration)}` : "Loading…"}
-                    </div>
+            <audio ref={audioRef} src={src} preload="metadata" />
+
+            {/* Actions row */}
+            <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-white/55">
+                    {fmtTime(current)} / {fmtTime(duration)}
+                    {!isReady ? <span className="ml-2 text-white/35">Loading…</span> : null}
                 </div>
 
                 <div className="flex items-center gap-2">
                     {onRefresh ? (
                         <button
                             onClick={onRefresh}
-                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-                            title="Refresh link"
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 hover:bg-white/10 transition"
+                            type="button"
                         >
                             <RefreshCcw className="h-4 w-4" />
                             Refresh link
@@ -148,10 +184,8 @@ export default function AudioPlayer({
                     {downloadHref ? (
                         <a
                             href={downloadHref}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs hover:bg-white/15 transition"
-                            title="Download"
+                            download
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15 transition"
                         >
                             <Download className="h-4 w-4" />
                             Download
@@ -160,124 +194,144 @@ export default function AudioPlayer({
                 </div>
             </div>
 
-            {/* Timeline (colorful) */}
-            <div className="px-4 pt-3">
+            {/* Progress */}
+            <div className="mt-4">
                 <div className="relative">
-                    {/* track */}
-                    <div className="h-2 w-full rounded-full bg-white/10" />
-                    {/* fill */}
+                    <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-white/10" />
                     <div
-                        className="absolute left-0 top-0 h-2 rounded-full bg-gradient-to-r from-sky-500 via-violet-500 to-fuchsia-500"
-                        style={{ width: `${progressPct}%` }}
+                        className="absolute inset-y-0 left-0 rounded-full"
+                        style={{
+                            width: `${percent}%`,
+                            background:
+                                "linear-gradient(90deg, rgba(56,189,248,.95), rgba(99,102,241,.95), rgba(217,70,239,.95))",
+                            boxShadow: "0 0 22px rgba(56,189,248,.25)",
+                        }}
                     />
-                    {/* input sits on top */}
+
                     <input
                         aria-label="Seek"
                         type="range"
                         min={0}
-                        max={Math.max(0, duration)}
+                        max={duration || 0}
                         step={0.1}
-                        value={Math.min(current, duration)}
-                        onChange={(e) => onScrub(Number(e.target.value))}
+                        value={Math.min(current, duration || 0)}
+                        onChange={(e) => seekTo(Number(e.target.value))}
                         className={cn(
-                            "absolute inset-0 w-full cursor-pointer bg-transparent",
-                            // normalize vertical alignment (fix thumb sitting too low)
-                            "appearance-none",
-                            "[&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:bg-transparent",
+                            "relative w-full appearance-none bg-transparent",
                             "[&::-webkit-slider-thumb]:appearance-none",
                             "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
                             "[&::-webkit-slider-thumb]:rounded-full",
                             "[&::-webkit-slider-thumb]:bg-white",
-                            "[&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white/30",
-                            "[&::-webkit-slider-thumb]:shadow-[0_10px_30px_rgba(0,0,0,.6)]",
-                            // center thumb on the track
-                            "[&::-webkit-slider-thumb]:mt-[-4px]",
-                            // firefox
-                            "[&::-moz-range-track]:h-2 [&::-moz-range-track]:bg-transparent",
-                            "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white"
+                            "[&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(255,255,255,.12)]",
+                            "[&::-webkit-slider-thumb]:-translate-y-[3px]",
+                            "[&::-webkit-slider-runnable-track]:h-2",
+                            "[&::-webkit-slider-runnable-track]:rounded-full",
+                            "[&::-webkit-slider-runnable-track]:bg-transparent",
+                            "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white",
+                            "[&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent"
                         )}
                     />
                 </div>
             </div>
 
-            {/* Main controls */}
-            <div className="px-4 pt-4">
-                <div className="flex items-center justify-center gap-3">
-                    <button
-                        onClick={() => seekBy(-10)}
-                        className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 h-11 w-11 hover:bg-white/10 transition"
-                        title="Back 10 seconds"
-                    >
-                        <RotateCcw className="h-5 w-5 text-white/85" />
-                    </button>
+            {/* Transport */}
+            <div className="mt-4 flex items-center justify-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => skip(-10)}
+                    className="h-11 w-12 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition grid place-items-center"
+                    aria-label="Back 10 seconds"
+                >
+                    <RotateCcw className="h-5 w-5 text-white/85" />
+                </button>
 
-                    <button
-                        onClick={togglePlay}
-                        className={cn(
-                            "inline-flex items-center justify-center rounded-2xl h-11 w-20",
-                            "border border-white/10 bg-white/10 hover:bg-white/15 transition"
-                        )}
-                        title={playing ? "Pause" : "Play"}
-                    >
-                        {playing ? (
-                            <Pause className="h-5 w-5 text-white" />
-                        ) : (
-                            <Play className="h-5 w-5 text-white" />
-                        )}
-                    </button>
+                <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="h-11 w-20 rounded-2xl border border-white/10 bg-white/10 hover:bg-white/15 transition grid place-items-center"
+                    aria-label={isPlaying ? "Pause" : "Play"}
+                >
+                    {isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                </button>
 
-                    <button
-                        onClick={() => seekBy(10)}
-                        className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 h-11 w-11 hover:bg-white/10 transition"
-                        title="Forward 10 seconds"
-                    >
-                        <RotateCw className="h-5 w-5 text-white/85" />
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    onClick={() => skip(10)}
+                    className="h-11 w-12 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition grid place-items-center"
+                    aria-label="Forward 10 seconds"
+                >
+                    <RotateCw className="h-5 w-5 text-white/85" />
+                </button>
             </div>
 
-            {/* Secondary row */}
-            <div className="px-4 py-4">
-                <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={cycleSpeed}
-                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-                            title="Playback speed"
+            {/* Controls */}
+            <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="relative z-[9999]">
+                    <button
+                        ref={btnRef}
+                        type="button"
+                        onClick={() => setOpenSpeed((v) => !v)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
+                    >
+                        Speed <span className="text-white/70">{rate}x</span>
+                        {openSpeed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+
+                    {openSpeed ? (
+                        <div
+                            ref={menuRef}
+                            className={cn(
+                                "absolute left-0 bottom-full mb-2 w-44",
+                                "rounded-2xl border border-white/10 bg-black/95 backdrop-blur-md",
+                                "shadow-[0_24px_90px_rgba(0,0,0,.85)] overflow-hidden"
+                            )}
                         >
-                            <span className="font-semibold text-white/90">{rate}×</span>
-                            <span className="text-white/55">Speed</span>
-                        </button>
-                        <div className="hidden sm:block text-[11px] text-white/50">Max: {maxSpeed}×</div>
-                    </div>
+                            <div className="px-3 py-2 text-[11px] tracking-wide text-white/55 border-b border-white/10">
+                                Playback speed
+                            </div>
 
-                    <button
-                        onClick={() => setMuted((m) => !m)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-                        title={muted ? "Unmute" : "Mute"}
-                    >
-                        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                        {muted ? "Unmute" : "Mute"}
-                    </button>
+                            <div
+                                className={cn(
+                                    "max-h-60 overflow-auto",
+                                    "[scrollbar-width:none]",
+                                    "[-ms-overflow-style:none]",
+                                    "[&::-webkit-scrollbar]:hidden"
+                                )}
+                            >
+                                {speeds.map((s) => {
+                                    const active = s === rate;
+                                    return (
+                                        <button
+                                            key={s}
+                                            type="button"
+                                            onClick={() => {
+                                                setRate(s);
+                                                setOpenSpeed(false);
+                                            }}
+                                            className={cn(
+                                                "w-full flex items-center justify-between px-3 py-2 text-sm",
+                                                active ? "bg-white/10 text-white" : "text-white/85 hover:bg-white/5"
+                                            )}
+                                        >
+                                            <span>{s}x</span>
+                                            {active ? <span className="text-emerald-300">✓</span> : <span />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
-            </div>
 
-            {/* Hidden audio element */}
-            <audio
-                ref={audioRef}
-                src={src}
-                preload="metadata"
-                onLoadedMetadata={(e) => {
-                    const el = e.currentTarget;
-                    const d = Number.isFinite(el.duration) ? el.duration : 0;
-                    setDuration(d);
-                    setReady(true);
-                }}
-                onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                onEnded={() => setPlaying(false)}
-            />
+                <button
+                    type="button"
+                    onClick={() => setMuted((m) => !m)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
+                >
+                    {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    {muted ? "Unmute" : "Mute"}
+                </button>
+            </div>
         </div>
     );
 }

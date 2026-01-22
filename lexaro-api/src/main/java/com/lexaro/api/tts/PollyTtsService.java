@@ -9,11 +9,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.polly.PollyClient;
-import software.amazon.awssdk.services.polly.model.Engine;
-import software.amazon.awssdk.services.polly.model.OutputFormat;
-import software.amazon.awssdk.services.polly.model.PollyException;
-import software.amazon.awssdk.services.polly.model.SynthesizeSpeechRequest;
-import software.amazon.awssdk.services.polly.model.VoiceId;
+import software.amazon.awssdk.services.polly.model.*;
 
 import java.text.Normalizer;
 import java.util.HashMap;
@@ -56,7 +52,9 @@ public class PollyTtsService implements TtsService {
     }
 
     /* -------- ctors -------- */
-    public PollyTtsService(PollyClient polly) { this.polly = polly; }
+    public PollyTtsService(PollyClient polly) {
+        this.polly = polly;
+    }
 
     public PollyTtsService(String region) {
         this.polly = PollyClient.builder()
@@ -68,7 +66,9 @@ public class PollyTtsService implements TtsService {
     public PollyTtsService(String region, String accessKey, String secretKey) {
         var b = PollyClient.builder().region(Region.of(region));
         if (notBlank(accessKey) && notBlank(secretKey)) {
-            b.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)));
+            b.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(accessKey, secretKey)
+            ));
         } else {
             b.credentialsProvider(DefaultCredentialsProvider.create());
         }
@@ -83,7 +83,7 @@ public class PollyTtsService implements TtsService {
                              String engine,
                              String format,
                              String language) throws Exception {
-        // NOTE: Polly derives language from the voice; `language` is intentionally ignored.
+        // Polly derives language from the voice; `language` intentionally ignored.
 
         String resolvedVoice = canonicalVoice(voice);
         if (resolvedVoice == null) {
@@ -91,9 +91,7 @@ public class PollyTtsService implements TtsService {
             resolvedVoice = "Joanna";
         }
 
-        String eStr = engine == null ? "" : engine.trim().toLowerCase(Locale.ROOT);
-        Engine e = "neural".equals(eStr) ? Engine.NEURAL : Engine.STANDARD;
-
+        Engine e = toEngine(engine);
         OutputFormat f = toOutputFormat(format);
 
         SynthesizeSpeechRequest.Builder rb = SynthesizeSpeechRequest.builder()
@@ -105,10 +103,9 @@ public class PollyTtsService implements TtsService {
         SynthesizeSpeechRequest req = rb.build();
 
         try {
-            // primary attempt (requested engine)
             return PollyRetry.runWithRetry(() -> polly.synthesizeSpeechAsBytes(req).asByteArray());
         } catch (PollyException ex) {
-            // If NEURAL fails due to unsupported voice/region/etc, retry STANDARD once.
+            // If NEURAL fails (voice not supported), fall back to STANDARD
             if (e == Engine.NEURAL) {
                 log.warn("Polly NEURAL failed for voice '{}': {} — retrying STANDARD",
                         resolvedVoice,
@@ -116,7 +113,6 @@ public class PollyTtsService implements TtsService {
                 SynthesizeSpeechRequest fallbackReq = rb.engine(Engine.STANDARD).build();
                 return PollyRetry.runWithRetry(() -> polly.synthesizeSpeechAsBytes(fallbackReq).asByteArray());
             }
-            // Let checked exceptions propagate (method declares throws Exception)
             throw ex;
         }
     }
@@ -128,7 +124,13 @@ public class PollyTtsService implements TtsService {
     }
 
     /* -------- helpers -------- */
+
     private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
+
+    private static Engine toEngine(String engine) {
+        String eStr = engine == null ? "" : engine.trim().toLowerCase(Locale.ROOT);
+        return "neural".equals(eStr) ? Engine.NEURAL : Engine.STANDARD;
+    }
 
     private static OutputFormat toOutputFormat(String format) {
         if (!notBlank(format)) return OutputFormat.MP3;
