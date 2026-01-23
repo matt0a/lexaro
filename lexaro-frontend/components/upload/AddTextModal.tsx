@@ -28,7 +28,8 @@ type VoiceDto = {
     region: string | null;
     gender: string | null;
     attitude: string | null;
-    preview: string | null;
+    preview: string | null; // ✅ preview audio url
+    avatar: string | null; // ✅ avatar image url
 };
 
 // local type for free picker
@@ -43,51 +44,44 @@ function prefersReducedMotion() {
     return !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 }
 
-// ---- curated paid voices (English 20 + 6 langs x 4) ----
-const MAJOR_LANGS = ["Spanish", "French", "Portuguese", "German", "Arabic", "Hindi"] as const;
+/**
+ * Keep these 4 as “known languages” (10 each).
+ * Everything else (except English) becomes “lesser used” (6 each).
+ */
+const KNOWN_LANGS = ["Spanish", "French", "German", "Portuguese"] as const;
 
 /**
- * English “popular-first” order based on Speechify’s public “most popular voices” section
- * + we FORCE include Kristy, June, Mason.
+ * English “popular-first” order + MUST include Kristy/June/Mason.
+ * Matched against BOTH id and title (loosely).
  *
- * Note: These are matched against BOTH `id` and `title`.
+ * Note: We can’t reliably “look up” per-language popularity lists publicly,
+ * so for English we use a curated name list + fallbacks.
  */
 const MUST_HAVE_ENGLISH = ["kristy", "june", "mason"] as const;
 
 const POPULAR_ENGLISH_ORDER = [
-    // force in-app favorites / must-haves
     "kristy",
     "june",
     "mason",
-
-    // Speechify “most popular voices” page names (public)
     "gwyneth",
     "snoop",
-    "cliff weitzman",
     "mrbeast",
+    "cliff",
+    "cliff weitzman",
     "nate",
+    "ali",
     "ali abdaal",
-    "benjamin",
-    "erica",
     "henry",
-    "joe",
-    "carly",
-    "oliver",
-    "ben wilson",
-    "john",
     "emma",
+    "oliver",
     "jamie",
-    "tasha",
     "mary",
     "lisa",
     "george",
-    "rob",
     "jessica",
-    "aria",
-    "sally",
     "simon",
-    "keenan",
-    "leah",
+    "sally",
+    "aria",
 ] as const;
 
 function normalizeLang(raw?: string | null) {
@@ -95,22 +89,21 @@ function normalizeLang(raw?: string | null) {
     if (!s) return "Other";
     const lower = s.toLowerCase();
 
+    // ISO-ish
     if (lower.startsWith("en")) return "English";
     if (lower.startsWith("es")) return "Spanish";
     if (lower.startsWith("fr")) return "French";
     if (lower.startsWith("pt")) return "Portuguese";
     if (lower.startsWith("de")) return "German";
-    if (lower.startsWith("ar")) return "Arabic";
-    if (lower.startsWith("hi")) return "Hindi";
 
+    // Human labels
     if (lower.includes("english")) return "English";
     if (lower.includes("spanish")) return "Spanish";
     if (lower.includes("french")) return "French";
     if (lower.includes("portuguese")) return "Portuguese";
     if (lower.includes("german")) return "German";
-    if (lower.includes("arabic")) return "Arabic";
-    if (lower.includes("hindi")) return "Hindi";
 
+    // otherwise keep as-is (Japanese, Arabic, Hindi, etc.)
     return s;
 }
 
@@ -126,9 +119,10 @@ function keyify(s: string) {
 }
 
 function stableVoiceSort(a: VoiceMeta, b: VoiceMeta) {
+    // preview first (these are the ones that feel “featured”)
     const ap = a.preview ? 1 : 0;
     const bp = b.preview ? 1 : 0;
-    if (ap !== bp) return bp - ap; // preview first
+    if (ap !== bp) return bp - ap;
 
     // prefer speechify first
     const aProv = a.provider === "speechify" ? 0 : 1;
@@ -138,38 +132,43 @@ function stableVoiceSort(a: VoiceMeta, b: VoiceMeta) {
     return (a.title ?? a.id).localeCompare(b.title ?? b.id);
 }
 
-function pickByGender(list: VoiceMeta[], wantFemale: number, wantMale: number) {
+/** Gender-balanced picker with fallback. */
+function pickByGender(list: VoiceMeta[], total: number) {
     const females = list.filter((v) => v.gender === "Female").sort(stableVoiceSort);
     const males = list.filter((v) => v.gender === "Male").sort(stableVoiceSort);
-    const others = list.filter((v) => v.gender !== "Female" && v.gender !== "Male").sort(stableVoiceSort);
+    const others = list
+        .filter((v) => v.gender !== "Female" && v.gender !== "Male")
+        .sort(stableVoiceSort);
+
+    const wantFemale = Math.floor(total / 2);
+    const wantMale = total - wantFemale;
 
     const picked: VoiceMeta[] = [];
     picked.push(...females.slice(0, wantFemale));
     picked.push(...males.slice(0, wantMale));
 
-    const totalWanted = wantFemale + wantMale;
-    if (picked.length < totalWanted) {
-        const usedIds = new Set(picked.map((p) => p.id));
-        const pool = [...females, ...males, ...others].filter((v) => !usedIds.has(v.id));
-        picked.push(...pool.slice(0, totalWanted - picked.length));
+    if (picked.length < total) {
+        const used = new Set(picked.map((p) => p.id));
+        const pool = [...females, ...males, ...others].filter((v) => !used.has(v.id));
+        picked.push(...pool.slice(0, total - picked.length));
     }
 
-    return picked.sort(stableVoiceSort);
+    return picked.slice(0, total).sort(stableVoiceSort);
 }
 
-/**
- * English 20: popular-first (by id/title), then fill remaining by preview/provider/gender.
- */
-function pickEnglish20Popular(all: VoiceMeta[]) {
-    const english = all.filter((v) => v.language === "English");
-
-    // quick lookup by multiple keys
+/** Pick voices by a name-priority list (matches against id/title), then fill by stable sort. */
+function pickByNameOrder(
+    src: VoiceMeta[],
+    nameOrder: readonly string[],
+    count: number,
+    forceNames?: readonly string[]
+) {
     const byKey = new Map<string, VoiceMeta[]>();
-    for (const v of english) {
+
+    for (const v of src) {
         const keys = new Set<string>();
         keys.add(keyify(v.id));
         if (v.title) keys.add(keyify(v.title));
-        // sometimes people have titles with spaces; id without, etc.
         for (const k of keys) {
             const arr = byKey.get(k) ?? [];
             arr.push(v);
@@ -180,85 +179,158 @@ function pickEnglish20Popular(all: VoiceMeta[]) {
     const picked: VoiceMeta[] = [];
     const used = new Set<string>();
 
-    // 1) Force must-haves
-    for (const name of MUST_HAVE_ENGLISH) {
-        const candidates = byKey.get(keyify(name)) ?? [];
-        const best = candidates.sort(stableVoiceSort)[0];
-        if (best && !used.has(best.id)) {
-            picked.push(best);
-            used.add(best.id);
-        }
-    }
-
-    // 2) Add popular order
-    for (const name of POPULAR_ENGLISH_ORDER) {
-        const candidates = byKey.get(keyify(name)) ?? [];
-        const best = candidates.sort(stableVoiceSort)[0];
-        if (best && !used.has(best.id)) {
-            picked.push(best);
-            used.add(best.id);
-        }
-        if (picked.length >= 20) break;
-    }
-
-    // 3) Fill remaining up to 20 (prefer preview + speechify)
-    if (picked.length < 20) {
-        const rest = english.filter((v) => !used.has(v.id)).sort(stableVoiceSort);
-
-        // mild gender balancing during fill (not strict)
-        const females = rest.filter((v) => v.gender === "Female");
-        const males = rest.filter((v) => v.gender === "Male");
-        const others = rest.filter((v) => v.gender !== "Female" && v.gender !== "Male");
-
-        const fill: VoiceMeta[] = [];
-        // alternate a bit
-        fill.push(...females.slice(0, 10));
-        fill.push(...males.slice(0, 10));
-        fill.push(...others);
-
-        for (const v of fill) {
-            if (picked.length >= 20) break;
-            if (!used.has(v.id)) {
-                picked.push(v);
-                used.add(v.id);
+    // Force include (Kristy/June/Mason)
+    if (forceNames?.length) {
+        for (const n of forceNames) {
+            const candidates = byKey.get(keyify(n)) ?? [];
+            const best = candidates.sort(stableVoiceSort)[0];
+            if (best && !used.has(best.id)) {
+                picked.push(best);
+                used.add(best.id);
             }
         }
     }
 
-    return picked.slice(0, 20);
-}
-
-function curateVoices(all: VoiceMeta[]) {
-    const english20 = pickEnglish20Popular(all);
-
-    const majors = MAJOR_LANGS.flatMap((lang) => {
-        const inLang = all.filter((v) => v.language === lang);
-        return pickByGender(inLang, 2, 2);
-    });
-
-    // dedupe + order
-    const seen = new Set<string>();
-    const final: VoiceMeta[] = [];
-    for (const v of [...english20, ...majors]) {
-        if (seen.has(v.id)) continue;
-        seen.add(v.id);
-        final.push(v);
+    // Add by name order
+    for (const n of nameOrder) {
+        if (picked.length >= count) break;
+        const candidates = byKey.get(keyify(n)) ?? [];
+        const best = candidates.sort(stableVoiceSort)[0];
+        if (best && !used.has(best.id)) {
+            picked.push(best);
+            used.add(best.id);
+        }
     }
 
-    const entries: Array<[string, number]> = [
-        ["English", 0],
-        ...MAJOR_LANGS.map((l, i) => [l, i + 1] as [string, number]),
+    // Fill remaining
+    if (picked.length < count) {
+        const rest = src.filter((v) => !used.has(v.id)).sort(stableVoiceSort);
+        for (const v of rest) {
+            if (picked.length >= count) break;
+            picked.push(v);
+            used.add(v.id);
+        }
+    }
+
+    return picked.slice(0, count);
+}
+
+/**
+ * English 30:
+ * - 15 US voices
+ * - 15 non-US voices spread across accents via region “round-robin”
+ */
+function pickEnglish30(all: VoiceMeta[]) {
+    const english = all.filter((v) => v.language === "English");
+    const us = english.filter((v) => (v.region ?? "").toUpperCase() === "US");
+    const nonUs = english.filter((v) => (v.region ?? "").toUpperCase() !== "US");
+
+    // US 15: popular-first + forced names
+    const us15 = pickByNameOrder(us, POPULAR_ENGLISH_ORDER, 15, MUST_HAVE_ENGLISH);
+
+    // non-US 15: bucket by region, take best-first round robin
+    const buckets = new Map<string, VoiceMeta[]>();
+    for (const v of nonUs) {
+        const r = (v.region ?? "OTHER").toUpperCase();
+        const arr = buckets.get(r) ?? [];
+        arr.push(v);
+        buckets.set(r, arr);
+    }
+    for (const arr of buckets.values()) arr.sort(stableVoiceSort);
+
+    // prefer some common accent regions first
+    const preferredRegions = ["GB", "UK", "AU", "CA", "IN", "IE", "NZ", "ZA", "SG", "PH", "NG", "KE"];
+
+    const regionOrder = [
+        ...preferredRegions.filter((r) => buckets.has(r)),
+        ...Array.from(buckets.keys()).filter((r) => !preferredRegions.includes(r)),
     ];
-    const langOrder = new Map<string, number>(entries);
 
-    final.sort((a, b) => {
-        const la = langOrder.get(a.language ?? "") ?? 999;
-        const lb = langOrder.get(b.language ?? "") ?? 999;
-        if (la !== lb) return la - lb;
-        return stableVoiceSort(a, b);
-    });
+    const nonUsPicked: VoiceMeta[] = [];
+    const usedNonUs = new Set<string>();
 
-    return final;
+    // round robin
+    while (nonUsPicked.length < 15) {
+        let progressed = false;
+        for (const r of regionOrder) {
+            const arr = buckets.get(r);
+            if (!arr || arr.length === 0) continue;
+            const next = arr.shift()!;
+            if (usedNonUs.has(next.id)) continue;
+            nonUsPicked.push(next);
+            usedNonUs.add(next.id);
+            progressed = true;
+            if (nonUsPicked.length >= 15) break;
+        }
+        if (!progressed) break;
+    }
+
+    // fill if still short
+    if (nonUsPicked.length < 15) {
+        const rest = nonUs.filter((v) => !usedNonUs.has(v.id)).sort(stableVoiceSort);
+        nonUsPicked.push(...rest.slice(0, 15 - nonUsPicked.length));
+    }
+
+    // final dedupe
+    const seen = new Set<string>();
+    const out: VoiceMeta[] = [];
+    for (const v of [...us15, ...nonUsPicked]) {
+        if (seen.has(v.id)) continue;
+        seen.add(v.id);
+        out.push(v);
+    }
+    return out.slice(0, 30);
+}
+
+/**
+ * Main curator:
+ * - English: 30 (15 US + 15 other accents)
+ * - Known langs: 10 each
+ * - All other langs: 6 each
+ */
+function curateVoices(all: VoiceMeta[]) {
+    const byLang = new Map<string, VoiceMeta[]>();
+    for (const v of all) {
+        const lang = v.language ?? "Other";
+        const arr = byLang.get(lang) ?? [];
+        arr.push(v);
+        byLang.set(lang, arr);
+    }
+
+    // English first
+    const result: VoiceMeta[] = [];
+    const english = byLang.get("English") ?? [];
+    result.push(...pickEnglish30(all));
+
+    // Known languages next (10 each)
+    for (const lang of KNOWN_LANGS) {
+        const list = (byLang.get(lang) ?? []).sort(stableVoiceSort);
+        result.push(...pickByGender(list, 10));
+    }
+
+    // Everything else (except English + known) => 6 each
+    const skip = new Set<string>(["English", ...KNOWN_LANGS]);
+    const othersLangs = Array.from(byLang.keys())
+        .filter((l) => !skip.has(l))
+        .sort((a, b) => a.localeCompare(b));
+
+    for (const lang of othersLangs) {
+        const list = (byLang.get(lang) ?? []).sort(stableVoiceSort);
+        result.push(...pickByGender(list, 6));
+    }
+
+    // final dedupe + stable order by (lang group, then stable sort)
+    const seen = new Set<string>();
+    const deduped: VoiceMeta[] = [];
+    for (const v of result) {
+        if (seen.has(v.id)) continue;
+        seen.add(v.id);
+        deduped.push(v);
+    }
+
+    // Keep the grouped ordering we built, but within groups keep stable sorting
+    // (English already curated; others already picked + sorted).
+    return deduped;
 }
 
 export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
@@ -279,7 +351,7 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
 
     const upperPlan = plan?.toUpperCase?.() || "FREE";
     const isFree = upperPlan === "FREE";
-    const allowPolly = isFree; // keep your original logic
+    const allowPolly = isFree;
 
     const panelRef = useRef<HTMLDivElement | null>(null);
     const textRef = useRef<HTMLTextAreaElement | null>(null);
@@ -293,21 +365,21 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
 
         (async () => {
             try {
-                const { data } = await api.get<VoiceDto[]>("/tts/voices", { params: { plan: upperPlan } });
+                const { data } = await api.get<VoiceDto[]>("/tts/voices", {
+                    params: { plan: upperPlan },
+                });
                 const list = Array.isArray(data) ? data : [];
 
                 const mapped: VoiceMeta[] = list.map((v) => ({
                     id: v.id,
                     title: (v.title ?? v.id) || v.id,
                     language: normalizeLang(v.language),
-                    region: v.region ?? "Other",
+                    region: (v.region ?? "").toUpperCase() || "OTHER",
                     attitude: v.attitude ?? "",
                     gender: normalizeGender(v.gender),
                     provider: v.provider,
-                    // NOTE: VoicePickerModal currently types preview as undefined only.
-                    // We'll keep it undefined here until you change VoicePickerModal type.
-                    preview: undefined,
-                    avatar: undefined,
+                    preview: v.preview ?? undefined,
+                    avatar: v.avatar ?? undefined,
                     flagEmoji: undefined,
                     favorite: false,
                 }));
@@ -360,10 +432,16 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
         }
 
         const nameBase =
-            (title || "Untitled").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 50) || "Text";
+            (title || "Untitled")
+                .replace(/[^\w\- ]+/g, "")
+                .trim()
+                .replace(/\s+/g, "-")
+                .slice(0, 50) || "Text";
 
         const filename = `${nameBase}-${Date.now()}.txt`;
-        const file = new File([new Blob([text], { type: "text/plain" })], filename, { type: "text/plain" });
+        const file = new File([new Blob([text], { type: "text/plain" })], filename, {
+            type: "text/plain",
+        });
 
         setBusy(true);
         try {
@@ -419,7 +497,9 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                             </div>
 
                             <div>
-                                <div className="text-sm tracking-[0.22em] uppercase text-white/45">Add Text</div>
+                                <div className="text-sm tracking-[0.22em] uppercase text-white/45">
+                                    Add Text
+                                </div>
                                 <div className="mt-1 text-[13px] text-white/60">
                                     Paste notes or a chapter, then pick a voice to generate audio.
                                 </div>
@@ -460,8 +540,12 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                         {/* Text */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="block text-xs font-semibold text-white/70">Text</label>
-                                <div className="text-[11px] text-white/40">{charCount.toLocaleString()} chars</div>
+                                <label className="block text-xs font-semibold text-white/70">
+                                    Text
+                                </label>
+                                <div className="text-[11px] text-white/40">
+                                    {charCount.toLocaleString()} chars
+                                </div>
                             </div>
 
                             <textarea
@@ -533,7 +617,11 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                 onPick={async (v: PickedVoice) => {
                     if (!pendingDocId) return;
                     try {
-                        await startAudio(pendingDocId, { voiceId: v.voiceId, engine: "neural", format: "mp3" });
+                        await startAudio(pendingDocId, {
+                            voiceId: v.voiceId,
+                            engine: "neural",
+                            format: "mp3",
+                        });
                         onSaved(pendingDocId);
                         onClose();
                         resetForm();
@@ -557,7 +645,11 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                 onPick={async (picked: SimplePickedVoice) => {
                     if (!pendingDocId) return;
                     try {
-                        await startAudio(pendingDocId, { voice: picked.voiceId, engine: "standard", format: "mp3" });
+                        await startAudio(pendingDocId, {
+                            voice: picked.voiceId,
+                            engine: "standard",
+                            format: "mp3",
+                        });
                         setLastFreeVoice(picked);
                         onSaved(pendingDocId);
                         onClose();

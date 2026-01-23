@@ -1,12 +1,14 @@
 package com.lexaro.api.tts;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lexaro.api.web.dto.VoiceDto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -18,44 +20,30 @@ import java.util.stream.Collectors;
 @Service
 public class SpeechifyCatalogService {
 
-    private final WebClient tokenClient;   // sends: token: <apiKey>
-    private final WebClient bearerClient;  // sends: Authorization: Bearer <apiKey>
+    private final WebClient speechifyWebClient;
+    private final ObjectMapper om = new ObjectMapper();
+
+    private final String apiKey;
     private final long timeoutMs;
 
     public SpeechifyCatalogService(
-            @Value("${app.tts.speechify.baseUrl}") String baseUrl,
-            @Value("${app.tts.speechify.apiKey}")  String apiKey,
+            @Qualifier("speechifyWebClient") WebClient speechifyWebClient,
+            @Value("${app.tts.speechify.apiKey}") String apiKey,
             @Value("${app.tts.speechify.timeoutMs:90000}") long timeoutMs
     ) {
+        this.speechifyWebClient = speechifyWebClient;
+        this.apiKey = apiKey;
         this.timeoutMs = timeoutMs;
-
-        ExchangeStrategies strategies = ExchangeStrategies.builder()
-                .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-                .build();
-
-        this.tokenClient = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader("token", apiKey)
-                .exchangeStrategies(strategies)
-                .build();
-
-        this.bearerClient = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .exchangeStrategies(strategies)
-                .build();
-
-        log.info("Speechify client initialized (token + bearer headers enabled).");
     }
 
     /** Blocking, header-strategy failover: token → bearer. */
     public List<VoiceDto> listVoicesBlocking() {
         try {
-            return fetchWithClient(tokenClient);
+            return fetchWithHeader("token", apiKey);
         } catch (WebClientResponseException.Unauthorized ex) {
             log.warn("Speechify 401 with 'token' header; retrying with 'Authorization: Bearer'.");
             try {
-                return fetchWithClient(bearerClient);
+                return fetchWithHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
             } catch (Exception ex2) {
                 log.warn("Speechify fetch failed with bearer as well: {}", ex2.toString());
                 return List.of();
@@ -66,109 +54,196 @@ public class SpeechifyCatalogService {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private List<VoiceDto> fetchWithClient(WebClient client) {
-        List<Map<String, Object>> rows = client.get()
+    private List<VoiceDto> fetchWithHeader(String headerName, String headerValue) {
+        String body = speechifyWebClient.get()
                 .uri("/v1/voices")
                 .accept(MediaType.APPLICATION_JSON)
+                .headers(h -> h.set(headerName, headerValue))
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(String.class)
                 .block(Duration.ofMillis(timeoutMs));
 
-        if (rows == null) rows = List.of();
+        if (body == null || body.isBlank()) return List.of();
 
-        List<VoiceDto> out = rows.stream().map(row -> {
-            String id    = s(row.get("id"));
-            String title = coalesce(
-                    s(row.get("title")),
-                    s(row.get("display_name")),
-                    s(row.get("name")),
-                    id
-            );
+        try {
+            JsonNode root = om.readTree(body);
 
-            String language = null;
-            String region = null;
+            JsonNode voicesNode = null;
+            if (root.isArray()) {
+                voicesNode = root;
+            } else if (root.isObject()) {
+                // most common
+                if (root.hasNonNull("voices") && root.get("voices").isArray()) voicesNode = root.get("voices");
+                    // sometimes providers use "data"
+                else if (root.hasNonNull("data") && root.get("data").isArray()) voicesNode = root.get("data");
+            }
 
-            var modelsObj = row.get("models");
-            if (modelsObj instanceof List<?> models && !models.isEmpty()) {
-                for (Object mObj : models) {
-                    if (!(mObj instanceof Map<?, ?> m)) continue;
-                    Object langsObj = m.get("languages");
-                    if (langsObj instanceof List<?> langs && !langs.isEmpty()) {
-                        Object first = langs.get(0);
-                        if (first instanceof Map<?, ?> lm) {
-                            String locale = s(lm.get("locale")); // en-US
+            if (voicesNode == null || !voicesNode.isArray()) return List.of();
+
+            List<VoiceDto> out = new ArrayList<>();
+
+            for (JsonNode v : voicesNode) {
+                String id = text(v, "id");
+                if (id == null || id.isBlank()) continue;
+
+                String title = coalesce(
+                        text(v, "title"),
+                        text(v, "display_name"),
+                        text(v, "name"),
+                        id
+                );
+
+                // language/region from models.languages[0].locale (best)
+                String language = null;
+                String region = null;
+
+                JsonNode models = v.get("models");
+                if (models != null && models.isArray()) {
+                    for (JsonNode m : models) {
+                        JsonNode langs = m.get("languages");
+                        if (langs != null && langs.isArray() && langs.size() > 0) {
+                            JsonNode first = langs.get(0);
+                            String locale = text(first, "locale"); // en-US
                             if (locale != null && !locale.isBlank()) {
                                 String[] parts = locale.split("[-_]");
-                                String langPart = parts.length > 0 ? parts[0] : null;
-                                String regPart  = parts.length > 1 ? parts[1] : null;
-                                language = mapIsoToName(langPart);
-                                region   = regPart == null ? null : regPart.toUpperCase(Locale.ROOT);
+                                String iso = parts.length > 0 ? parts[0] : null;
+                                String reg = parts.length > 1 ? parts[1] : null;
+                                language = mapIsoToName(iso);
+                                region = reg == null ? null : reg.toUpperCase(Locale.ROOT);
+                                break;
                             }
                         }
                     }
-                    if (language != null) break;
                 }
+
+                // fallback direct fields
+                if (language == null) language = normalizeProviderLanguage(text(v, "language"));
+                if (region == null) region = upper2(text(v, "region"));
+
+                String displayLang = humanLanguage(language, region);
+
+                String gender = normGender(text(v, "gender"));
+                String mood = text(v, "attitude");
+
+                // ✅ Preview audio + avatar image
+                String preview = coalesce(
+                        text(v, "preview_audio"),
+                        text(v, "previewAudio"),
+                        text(v, "preview_url"),
+                        text(v, "previewUrl"),
+                        extractFirstPreviewFromModels(models)
+                );
+
+                String avatar = coalesce(
+                        text(v, "avatar_image"),
+                        text(v, "avatarImage"),
+                        text(v, "avatar"),
+                        text(v, "image")
+                );
+
+                out.add(new VoiceDto(
+                        id,
+                        title,
+                        "speechify",
+                        displayLang,
+                        region,
+                        gender,
+                        mood,
+                        preview,
+                        avatar
+                ));
             }
 
-            if (language == null) language = s(row.get("language"));
-            if (region == null)   region   = s(row.get("region"));
+            out.sort(Comparator
+                    .comparing((VoiceDto vv) -> Optional.ofNullable(vv.language()).orElse(""), String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(vv -> Optional.ofNullable(vv.title()).orElse(""), String.CASE_INSENSITIVE_ORDER));
 
-            String displayLang = humanLanguage(language, region);
+            log.info("Speechify voices loaded: {}", out.size());
+            return out;
 
-            String gender  = normGender(s(row.get("gender")));
-            String mood    = s(row.get("attitude"));
-
-            String preview = coalesce(
-                    s(row.get("previewUrl")),
-                    s(row.get("preview_url")),
-                    s(row.get("preview")),
-                    extractFirstPreviewFromModels(modelsObj),
-                    s(row.get("sampleUrl")),
-                    s(row.get("sample_url"))
-            );
-
-            return new VoiceDto(
-                    id, title, "speechify",
-                    displayLang, region, gender, mood, preview
-            );
-        }).collect(Collectors.toCollection(ArrayList::new));
-
-        out.sort(Comparator
-                .comparing((VoiceDto v) -> Optional.ofNullable(v.language()).orElse(""), String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(v -> Optional.ofNullable(v.title()).orElse(""), String.CASE_INSENSITIVE_ORDER));
-
-        log.info("Speechify voices loaded: {}", out.size());
-        return out;
+        } catch (Exception e) {
+            log.warn("Speechify JSON parse failed: {}", e.toString());
+            return List.of();
+        }
     }
 
     /* ---------- helpers ---------- */
 
-    private static String extractFirstPreviewFromModels(Object modelsObj) {
-        if (!(modelsObj instanceof List<?> models)) return null;
-        for (Object mObj : models) {
-            if (!(mObj instanceof Map<?, ?> m)) continue;
+    private static String extractFirstPreviewFromModels(JsonNode models) {
+        if (models == null || !models.isArray()) return null;
+
+        for (JsonNode m : models) {
             String p = coalesce(
-                    s(m.get("previewUrl")),
-                    s(m.get("preview_url")),
-                    s(m.get("sampleUrl")),
-                    s(m.get("sample_url"))
+                    text(m, "preview_audio"),
+                    text(m, "previewAudio"),
+                    text(m, "previewUrl"),
+                    text(m, "preview_url"),
+                    text(m, "sampleUrl"),
+                    text(m, "sample_url")
             );
             if (p != null) return p;
-            Object samplesObj = m.get("samples");
-            if (samplesObj instanceof List<?> samples) {
-                for (Object sObj : samples) {
-                    if (!(sObj instanceof Map<?, ?> sm)) continue;
+
+            JsonNode samples = m.get("samples");
+            if (samples != null && samples.isArray()) {
+                for (JsonNode sm : samples) {
                     String sp = coalesce(
-                            s(sm.get("url")),
-                            s(sm.get("previewUrl")),
-                            s(sm.get("preview_url"))
+                            text(sm, "url"),
+                            text(sm, "previewUrl"),
+                            text(sm, "preview_url"),
+                            text(sm, "preview_audio")
                     );
                     if (sp != null) return sp;
                 }
             }
         }
         return null;
+    }
+
+    private static String text(JsonNode n, String field) {
+        if (n == null) return null;
+        JsonNode v = n.get(field);
+        if (v == null || v.isNull()) return null;
+        String s = v.asText();
+        return (s == null || s.isBlank()) ? null : s;
+    }
+
+    @SafeVarargs
+    private static <T> T coalesce(T... vals) {
+        for (T v : vals) {
+            if (v == null) continue;
+            if (v instanceof String s) {
+                if (!s.isBlank()) return v;
+            } else return v;
+        }
+        return null;
+    }
+
+    private static String upper2(String r) {
+        if (r == null || r.isBlank()) return null;
+        return r.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String normGender(String g) {
+        if (g == null) return null;
+        String x = g.trim().toLowerCase(Locale.ROOT);
+        if (x.startsWith("f")) return "Female";
+        if (x.startsWith("m")) return "Male";
+        return "Other";
+    }
+
+    private static String normalizeProviderLanguage(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String s = raw.trim();
+        // If Speechify returns locale-ish values, normalize a bit
+        String lower = s.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("en")) return "English";
+        if (lower.startsWith("es")) return "Spanish";
+        if (lower.startsWith("fr")) return "French";
+        if (lower.startsWith("pt")) return "Portuguese";
+        if (lower.startsWith("de")) return "German";
+        if (lower.startsWith("ar")) return "Arabic";
+        if (lower.startsWith("hi")) return "Hindi";
+        return s;
     }
 
     private static String mapIsoToName(String iso) {
@@ -188,19 +263,10 @@ public class SpeechifyCatalogService {
             case "da" -> "Danish";
             case "no", "nb", "nn" -> "Norwegian";
             case "ru" -> "Russian";
+            case "ar" -> "Arabic";
+            case "hi" -> "Hindi";
             default -> null;
         };
-    }
-
-    private static String s(Object o) { return o == null ? null : String.valueOf(o); }
-    @SafeVarargs private static <T> T coalesce(T... vals) { for (T v : vals) if (v != null && !(v instanceof String s && s.isBlank())) return v; return null; }
-
-    private static String normGender(String g) {
-        if (g == null) return null;
-        String x = g.trim().toLowerCase(Locale.ROOT);
-        if (x.startsWith("f")) return "Female";
-        if (x.startsWith("m")) return "Male";
-        return "Other";
     }
 
     /** Don’t force English when missing—let UI show Unknown/Other. */
@@ -208,6 +274,7 @@ public class SpeechifyCatalogService {
         if (language == null || language.isBlank()) return null;
         String L = language.trim();
         String R = region == null ? "" : region.trim().toUpperCase(Locale.ROOT);
+
         return switch (L.toLowerCase(Locale.ROOT)) {
             case "english" -> switch (R) {
                 case "US" -> "US English";
@@ -221,19 +288,39 @@ public class SpeechifyCatalogService {
                 case "AE" -> "UAE English";
                 default -> "English";
             };
-            case "german"      -> switch (R) { case "AT" -> "Austrian German"; case "CH" -> "Swiss German"; default -> "German"; };
-            case "french"      -> switch (R) { case "CA" -> "Canadian French"; case "CH" -> "Swiss French"; case "BE" -> "Belgian French"; default -> "French"; };
-            case "spanish"     -> switch (R) { case "ES" -> "European Spanish"; case "MX" -> "Mexican Spanish"; case "US" -> "US Spanish"; default -> "Spanish"; };
-            case "portuguese"  -> switch (R) { case "BR" -> "Brazilian Portuguese"; case "PT" -> "European Portuguese"; default -> "Portuguese"; };
+            case "german" -> switch (R) {
+                case "AT" -> "Austrian German";
+                case "CH" -> "Swiss German";
+                default -> "German";
+            };
+            case "french" -> switch (R) {
+                case "CA" -> "Canadian French";
+                case "CH" -> "Swiss French";
+                case "BE" -> "Belgian French";
+                default -> "French";
+            };
+            case "spanish" -> switch (R) {
+                case "ES" -> "European Spanish";
+                case "MX" -> "Mexican Spanish";
+                case "US" -> "US Spanish";
+                default -> "Spanish";
+            };
+            case "portuguese" -> switch (R) {
+                case "BR" -> "Brazilian Portuguese";
+                case "PT" -> "European Portuguese";
+                default -> "Portuguese";
+            };
+            case "arabic" -> "Arabic";
+            case "hindi" -> "Hindi";
             case "chinese", "mandarin", "cantonese" -> "Chinese";
             case "japanese" -> "Japanese";
-            case "korean"   -> "Korean";
-            case "italian"  -> "Italian";
-            case "dutch"    -> "Dutch";
-            case "swedish"  -> "Swedish";
-            case "danish"   -> "Danish";
-            case "norwegian"-> "Norwegian";
-            case "russian"  -> "Russian";
+            case "korean" -> "Korean";
+            case "italian" -> "Italian";
+            case "dutch" -> "Dutch";
+            case "swedish" -> "Swedish";
+            case "danish" -> "Danish";
+            case "norwegian" -> "Norwegian";
+            case "russian" -> "Russian";
             default -> L;
         };
     }

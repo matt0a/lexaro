@@ -44,9 +44,7 @@ public class TtsVoiceCatalogService {
         }
     }
 
-    /* ---------------- Unified catalog with plan-based filtering ---------------- */
-
-    /** FREE: exactly [Joanna (F), Matthew (M)] from Polly. PAID: Speechify catalog (unchanged). */
+    /** FREE: exactly [Joanna (F), Matthew (M)] from Polly. PAID: Speechify catalog. */
     public List<VoiceDto> listUnifiedCatalog(String plan) {
         final String p = plan == null ? "FREE" : plan.trim().toUpperCase(Locale.ROOT);
         final boolean isPaid = switch (p) {
@@ -57,12 +55,10 @@ public class TtsVoiceCatalogService {
         List<VoiceDto> out = new ArrayList<>();
 
         if (isPaid) {
-            // Paid → Speechify only (unchanged)
             try {
                 out.addAll(speechifyCatalogService.listVoicesBlocking());
-            } catch (Exception ignore) { /* keep going with empty list */ }
+            } catch (Exception ignore) { /* empty */ }
         } else {
-            // Free → lock to exactly two Polly voices: Joanna (Female) + Matthew (Male)
             List<VoiceInfo> polly = listVoices();
 
             Optional<VoiceInfo> joanna = polly.stream()
@@ -73,7 +69,6 @@ public class TtsVoiceCatalogService {
                     .filter(v -> "MATTHEW".equalsIgnoreCase(v.name()))
                     .findFirst();
 
-            // If Matthew is missing in the region, fall back to any English male
             if (matthew.isEmpty()) {
                 matthew = polly.stream()
                         .filter(v -> "MALE".equalsIgnoreCase(v.gender()))
@@ -82,43 +77,35 @@ public class TtsVoiceCatalogService {
             }
 
             joanna.ifPresent(v -> out.add(new VoiceDto(
-                    v.name(), "Female (Joanna)", "polly",
-                    humanLanguage(v.language(), "US"), "US",
-                    "Female", null, null
+                    v.name(),
+                    "Female (Joanna)",
+                    "polly",
+                    humanLanguage(v.language(), "US"),
+                    "US",
+                    "Female",
+                    null,
+                    null,
+                    null
             )));
 
             matthew.ifPresent(v -> out.add(new VoiceDto(
-                    v.name(), "Male (Matthew)", "polly",
-                    humanLanguage(v.language(), "US"), "US",
-                    "Male", null, null
+                    v.name(),
+                    "Male (Matthew)",
+                    "polly",
+                    humanLanguage(v.language(), "US"),
+                    "US",
+                    "Male",
+                    null,
+                    null,
+                    null
             )));
         }
 
-        // NULL-SAFE sort
         out.sort(Comparator
                 .comparing((VoiceDto v) -> Optional.ofNullable(v.language()).orElse(""), String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(v -> Optional.ofNullable(v.title()).orElse(""), String.CASE_INSENSITIVE_ORDER));
 
         return out;
-    }
-
-    private static String normGender(String g) {
-        if (g == null) return "Other";
-        String s = g.trim().toLowerCase(Locale.ROOT);
-        if (s.startsWith("f")) return "Female";
-        if (s.startsWith("m")) return "Male";
-        return "Other";
-    }
-
-    private static String inferRegionCode(String languageName) {
-        if (languageName == null) return null;
-        String s = languageName.toLowerCase(Locale.ROOT);
-        if (s.contains("us english") || s.contains("american english")) return "US";
-        if (s.contains("british english") || s.contains("uk english")) return "GB";
-        if (s.contains("indian english"))  return "IN";
-        if (s.contains("australian english")) return "AU";
-        if (s.contains("canadian english"))   return "CA";
-        return null;
     }
 
     /* ---------------- Polly cache logic ---------------- */
@@ -208,7 +195,6 @@ public class TtsVoiceCatalogService {
         return listVoices().stream().map(VoiceInfo::name).toList();
     }
 
-    /** Shared display label logic (don’t force English when unknown). */
     private static String humanLanguage(String language, String region) {
         if (language == null || language.isBlank()) return null;
         String L = language.trim();
