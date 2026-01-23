@@ -44,7 +44,6 @@ type Props = {
 
     /**
      * Optional: when desktop sidebar is visible, pass 224 (56*4) so the fixed player shifts right.
-     * If you already have a known sidebar width, you can keep this.
      */
     insetLeftPx?: number;
 };
@@ -155,8 +154,56 @@ export default function ReadAlongTwoLinePlayer({
         return activeSentenceIndexByProgressWeighted(sentences, current, duration);
     }, [sentences, current, duration]);
 
-    const currentLine = activeIdx >= 0 ? sentences[activeIdx]?.text ?? "" : "";
-    const nextLine = activeIdx >= 0 ? sentences[activeIdx + 1]?.text ?? "" : "";
+    // ✅ Smooth focus-mode transitions:
+    // - Debounce index changes slightly (avoid boundary jitter)
+    // - Fade out → swap line → fade in
+    const [displayIdx, setDisplayIdx] = useState(0);
+    const [focusVisible, setFocusVisible] = useState(true);
+
+    const switchTimerRef = useRef<number | null>(null);
+    const fadeTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (viewMode !== "focus") return;
+        if (activeIdx < 0) return;
+
+        if (activeIdx === displayIdx) return;
+
+        // debounce
+        if (switchTimerRef.current) window.clearTimeout(switchTimerRef.current);
+
+        const debounceMs = isPlaying ? 90 : 0;
+
+        switchTimerRef.current = window.setTimeout(() => {
+            const reduce = prefersReducedMotion();
+            if (reduce) {
+                setDisplayIdx(activeIdx);
+                return;
+            }
+
+            // fade out
+            setFocusVisible(false);
+
+            // swap after fade-out
+            if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+            fadeTimerRef.current = window.setTimeout(() => {
+                setDisplayIdx(activeIdx);
+                // fade in (next tick to ensure DOM updates)
+                requestAnimationFrame(() => setFocusVisible(true));
+            }, 140);
+        }, debounceMs);
+    }, [activeIdx, displayIdx, viewMode, isPlaying]);
+
+    useEffect(() => {
+        return () => {
+            if (switchTimerRef.current) window.clearTimeout(switchTimerRef.current);
+            if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+        };
+    }, []);
+
+    const focusIdx = viewMode === "focus" ? displayIdx : activeIdx;
+    const currentLine = focusIdx >= 0 ? sentences[focusIdx]?.text ?? "" : "";
+    const nextLine = focusIdx >= 0 ? sentences[focusIdx + 1]?.text ?? "" : "";
 
     // keep rate valid if plan changes
     useEffect(() => {
@@ -281,17 +328,17 @@ export default function ReadAlongTwoLinePlayer({
     // ✅ one shared wrap for BOTH page and player so they align perfectly
     const WRAP = "mx-auto w-full max-w-5xl px-4 md:px-6";
 
-    /**
-     * ✅ Desktop sidebar offset logic:
-     * - On desktop, shift the *fixed* player to the right (so it never sits under sidebar).
-     * - Keep mobile full-width (sidebar overlays on mobile anyway).
-     *
-     * If you pass insetLeftPx, it will apply as a CSS var on md+ screens.
-     */
     const playerStyle =
-        insetLeftPx > 0
-            ? ({ ["--sb" as any]: `${insetLeftPx}px` } as React.CSSProperties)
-            : undefined;
+        insetLeftPx > 0 ? ({ ["--sb" as any]: `${insetLeftPx}px` } as React.CSSProperties) : undefined;
+
+    // ✅ Highlight TWO sentences in full mode (active + next), so “off by 1” still looks right.
+    const activeSet = useMemo(() => {
+        const set = new Set<number>();
+        if (!enableHighlight) return set;
+        if (activeIdx >= 0) set.add(activeIdx);
+        if (activeIdx >= 0) set.add(activeIdx + 1);
+        return set;
+    }, [activeIdx, enableHighlight]);
 
     return (
         <div className="relative min-h-[calc(100vh-80px)]">
@@ -365,13 +412,31 @@ export default function ReadAlongTwoLinePlayer({
                                             "transition-colors duration-300"
                                         )}
                                     >
-                                        <div className="text-[16px] md:text-[17px] leading-8 text-white/95 whitespace-pre-wrap">
+                                        <div
+                                            className={cn(
+                                                "text-[16px] md:text-[17px] leading-8 text-white/95 whitespace-pre-wrap",
+                                                "transition-all duration-200 ease-out",
+                                                focusVisible
+                                                    ? "opacity-100 translate-y-0 blur-0"
+                                                    : "opacity-0 translate-y-1 blur-[3px]"
+                                            )}
+                                            style={{ minHeight: "3.25rem" }}
+                                        >
                                             {currentLine || "\u00A0"}
                                         </div>
                                     </div>
 
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 transition-colors duration-300">
-                                        <div className="text-[16px] md:text-[17px] leading-8 text-white/80 whitespace-pre-wrap">
+                                        <div
+                                            className={cn(
+                                                "text-[16px] md:text-[17px] leading-8 text-white/80 whitespace-pre-wrap",
+                                                "transition-all duration-200 ease-out",
+                                                focusVisible
+                                                    ? "opacity-100 translate-y-0 blur-0"
+                                                    : "opacity-0 translate-y-1 blur-[3px]"
+                                            )}
+                                            style={{ minHeight: "3.25rem" }}
+                                        >
                                             {nextLine || "\u00A0"}
                                         </div>
                                     </div>
@@ -395,12 +460,13 @@ export default function ReadAlongTwoLinePlayer({
                                 )}
                             >
                                 <div className="text-[12px] text-white/45 mb-4">
-                                    Full transcript {enableHighlight ? "(current sentence highlighted)" : "(highlighting off)"}
+                                    Full transcript{" "}
+                                    {enableHighlight ? "(active + next sentence highlighted)" : "(highlighting off)"}
                                 </div>
 
                                 <div className="space-y-3">
                                     {sentences.map((s: SentenceSpan, i: number) => {
-                                        const isActive = i === activeIdx;
+                                        const isActive = activeSet.has(i);
 
                                         return (
                                             <div
@@ -411,13 +477,27 @@ export default function ReadAlongTwoLinePlayer({
                                                 className={cn(
                                                     "whitespace-pre-wrap text-[15px] leading-8",
                                                     "rounded-xl px-3 py-2",
-                                                    "transition-all duration-300",
+                                                    // smoother, less “flashy” transitions
+                                                    "transition-colors transition-shadow transition-opacity duration-200 ease-out",
+                                                    "will-change-[opacity,transform]",
                                                     enableHighlight && isActive
                                                         ? "bg-sky-400/18 text-white shadow-[0_0_0_3px_rgba(56,189,248,.10)]"
                                                         : "text-white/80 hover:bg-white/[0.03]"
                                                 )}
                                                 style={{
-                                                    opacity: enableHighlight && isActive ? 1 : isPlaying ? 0.82 : 0.95,
+                                                    opacity: enableHighlight
+                                                        ? isActive
+                                                            ? 1
+                                                            : isPlaying
+                                                                ? 0.78
+                                                                : 0.92
+                                                        : isPlaying
+                                                            ? 0.9
+                                                            : 0.95,
+                                                    transform:
+                                                        enableHighlight && isActive && !prefersReducedMotion()
+                                                            ? "translateY(-0.5px)"
+                                                            : "translateY(0px)",
                                                 }}
                                                 onClick={() => {
                                                     if (!duration || duration <= 0) return;
@@ -444,14 +524,13 @@ export default function ReadAlongTwoLinePlayer({
             <div
                 className={cn(
                     "fixed bottom-0 z-50",
-                    "left-0 right-0", // default
-                    insetLeftPx > 0 ? "md:left-[var(--sb)]" : "md:left-0" // desktop offset if provided
+                    "left-0 right-0",
+                    insetLeftPx > 0 ? "md:left-[var(--sb)]" : "md:left-0"
                 )}
                 style={playerStyle}
             >
                 <div className="pointer-events-none absolute inset-x-0 -top-16 h-16 bg-gradient-to-t from-black/70 to-transparent" />
 
-                {/* IMPORTANT: use the SAME WRAP to align with page */}
                 <div className={cn(WRAP, "pb-5 md:pb-6")}>
                     <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-xl shadow-[0_18px_70px_rgba(0,0,0,.65)] p-5">
                         <div className="flex items-center justify-between text-xs text-white/55">
@@ -466,10 +545,13 @@ export default function ReadAlongTwoLinePlayer({
 
                         {/* Progress */}
                         <div className="mt-3">
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-white/10" />
+                            <div className="relative h-6">
+                                {/* base track (centered) */}
+                                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-white/10" />
+
+                                {/* fill (centered) */}
                                 <div
-                                    className="absolute inset-y-0 left-0 rounded-full"
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 h-2 rounded-full"
                                     style={{
                                         width: `${percent}%`,
                                         background:
@@ -486,20 +568,7 @@ export default function ReadAlongTwoLinePlayer({
                                     step={0.1}
                                     value={Math.min(current, duration || 0)}
                                     onChange={(e) => seekTo(Number(e.target.value))}
-                                    className={cn(
-                                        "relative w-full appearance-none bg-transparent",
-                                        "[&::-webkit-slider-thumb]:appearance-none",
-                                        "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
-                                        "[&::-webkit-slider-thumb]:rounded-full",
-                                        "[&::-webkit-slider-thumb]:bg-white",
-                                        "[&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(255,255,255,.12)]",
-                                        "[&::-webkit-slider-thumb]:-translate-y-[3px]",
-                                        "[&::-webkit-slider-runnable-track]:h-2",
-                                        "[&::-webkit-slider-runnable-track]:rounded-full",
-                                        "[&::-webkit-slider-runnable-track]:bg-transparent",
-                                        "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white",
-                                        "[&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent"
-                                    )}
+                                    className="audio-seek absolute inset-0 w-full h-6 bg-transparent cursor-pointer"
                                 />
                             </div>
                         </div>

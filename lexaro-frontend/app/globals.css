@@ -192,4 +192,46 @@ html,body{ @apply bg-[var(--bg)] text-[var(--text)] antialiased; }
     .auth-wrap{ @apply min-h-screen bg-black text-white; }
     .auth-center{ @apply relative min-h-[calc(100vh-64px)] overflow-hidden flex items-center; }
     .auth-card{ @apply mx-auto w-full max-w-md; }
+
+    /* ===== Audio seek slider (centers thumb perfectly) ===== */
+    .audio-seek{
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+    }
+
+    /* WebKit (Chrome / Edge / Safari) */
+    .audio-seek::-webkit-slider-runnable-track{
+        height: 8px;
+        background: transparent;
+    }
+
+    .audio-seek::-webkit-slider-thumb{
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(255,255,255,.12);
+
+        /* ✅ THIS IS THE VERTICAL CONTROL */
+        margin-top: -4px;
+    }
+
+    /* Firefox */
+    .audio-seek::-moz-range-track{
+        height: 8px;
+        background: transparent;
+    }
+
+    .audio-seek::-moz-range-thumb{
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+        border: 0;
+        box-shadow: 0 0 0 4px rgba(255,255,255,.12);
+    }
+
 }

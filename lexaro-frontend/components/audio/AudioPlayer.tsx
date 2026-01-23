@@ -196,10 +196,13 @@ export default function AudioPlayer({
 
             {/* Progress */}
             <div className="mt-4">
-                <div className="relative">
-                    <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-white/10" />
+                <div className="relative h-6">
+                    {/* base track (centered) */}
+                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-white/10" />
+
+                    {/* fill (centered) */}
                     <div
-                        className="absolute inset-y-0 left-0 rounded-full"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-2 rounded-full"
                         style={{
                             width: `${percent}%`,
                             background:
@@ -208,6 +211,7 @@ export default function AudioPlayer({
                         }}
                     />
 
+                    {/* IMPORTANT: use a real CSS class for the slider */}
                     <input
                         aria-label="Seek"
                         type="range"
@@ -216,20 +220,7 @@ export default function AudioPlayer({
                         step={0.1}
                         value={Math.min(current, duration || 0)}
                         onChange={(e) => seekTo(Number(e.target.value))}
-                        className={cn(
-                            "relative w-full appearance-none bg-transparent",
-                            "[&::-webkit-slider-thumb]:appearance-none",
-                            "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
-                            "[&::-webkit-slider-thumb]:rounded-full",
-                            "[&::-webkit-slider-thumb]:bg-white",
-                            "[&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(255,255,255,.12)]",
-                            "[&::-webkit-slider-thumb]:-translate-y-[3px]",
-                            "[&::-webkit-slider-runnable-track]:h-2",
-                            "[&::-webkit-slider-runnable-track]:rounded-full",
-                            "[&::-webkit-slider-runnable-track]:bg-transparent",
-                            "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white",
-                            "[&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent"
-                        )}
+                        className="audio-seek absolute inset-0 w-full h-6 bg-transparent cursor-pointer"
                     />
                 </div>
             </div>
@@ -251,7 +242,11 @@ export default function AudioPlayer({
                     className="h-11 w-20 rounded-2xl border border-white/10 bg-white/10 hover:bg-white/15 transition grid place-items-center"
                     aria-label={isPlaying ? "Pause" : "Play"}
                 >
-                    {isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white" />}
+                    {isPlaying ? (
+                        <Pause className="h-5 w-5 text-white" />
+                    ) : (
+                        <Play className="h-5 w-5 text-white" />
+                    )}
                 </button>
 
                 <button
