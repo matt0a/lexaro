@@ -1,4 +1,7 @@
+// app/page.tsx
 "use client";
+
+import React from "react";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -16,6 +19,8 @@ import FadeInSection from "@/components/reactbits/FadeInSection";
 import LightPillarsBackground from "@/components/reactbits/LightPillarsBackground";
 import FloatingLinesBackground from "@/components/reactbits/FloatingLinesBackground";
 
+import Link from "next/link";
+
 import {
     ArrowRight,
     Upload,
@@ -29,6 +34,9 @@ import {
     CheckCircle2,
     Zap,
     MousePointerClick,
+    FileText,
+    CalendarDays,
+    GraduationCap,
 } from "lucide-react";
 
 export default function Page() {
@@ -62,17 +70,22 @@ export default function Page() {
 
                             <FadeInSection delay={0.1}>
                                 <p className="mt-6 text-white/80 text-lg max-w-xl">
-                                    Upload your notes, ask questions, and get answers with{" "}
-                                    <span className="text-white font-semibold">page links</span>. Then
-                                    generate flashcards and quizzes in one click.
+                                    Upload your material, ask questions, and get answers with{" "}
+                                    <span className="text-white font-semibold">page links</span>. Then generate{" "}
+                                    <span className="text-white font-semibold">notes</span>,{" "}
+                                    <span className="text-white font-semibold">flashcards</span>,{" "}
+                                    <span className="text-white font-semibold">quizzes</span>, grade essays, and plan
+                                    your study schedule.
                                 </p>
                             </FadeInSection>
 
                             <FadeInSection delay={0.14}>
                                 <div className="mt-6 flex flex-wrap gap-2 text-xs text-white/70">
                                     <Pill icon={<Upload className="h-4 w-4" />} text="Upload PDFs & notes" />
-                                    <Pill icon={<Quote className="h-4 w-4" />} text="Answers with sources" />
-                                    <Pill icon={<Sparkles className="h-4 w-4" />} text="Flashcards & quizzes" />
+                                    <Pill icon={<Quote className="h-4 w-4" />} text="Answers with page links" />
+                                    <Pill icon={<Sparkles className="h-4 w-4" />} text="Notes / Flashcards / Quizzes" />
+                                    <Pill icon={<FileText className="h-4 w-4" />} text="Essay grader" />
+                                    <Pill icon={<CalendarDays className="h-4 w-4" />} text="Study calendar" />
                                     <Pill icon={<Volume2 className="h-4 w-4" />} text="Listen out loud" />
                                     <Pill icon={<Languages className="h-4 w-4" />} text="Translate instantly" />
                                 </div>
@@ -86,16 +99,20 @@ export default function Page() {
                                     <ShimmerButton href="/plans" variant="ghost">
                                         See pricing <ArrowRight className="h-4 w-4" />
                                     </ShimmerButton>
+
+                                    {/* ✅ NEW: features link */}
+                                    <ShimmerButton href="/about/features" variant="ghost">
+                                        See all features <ArrowRight className="h-4 w-4" />
+                                    </ShimmerButton>
                                 </div>
 
                                 <p className="mt-4 text-xs text-white/55">
-                                    Free plan is limited so you can test it. Premium feels unlimited
-                                    for normal use.
+                                    Free plan is limited so you can test it. Premium feels unlimited for normal use.
                                 </p>
                             </FadeInSection>
                         </div>
 
-                        {/* ✅ Live preview now has StarBorder */}
+                        {/* Live preview */}
                         <div className="hidden lg:block">
                             <FadeInSection delay={0.12}>
                                 <StarBorderCard>
@@ -118,7 +135,8 @@ export default function Page() {
                                             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                                                 <div className="text-xs text-white/60">Lexaro</div>
                                                 <div className="mt-1 text-sm text-white/90">
-                                                    Got you — here’s the quick explanation, plus a 3-question quiz.
+                                                    Got you — here’s the quick explanation, plus a 3-question quiz. Want
+                                                    flashcards and a study plan too?
                                                 </div>
 
                                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -146,11 +164,10 @@ export default function Page() {
                 </div>
             </section>
 
-            {/* ✅ Lexaro Learn section now has its own background treatment */}
+            {/* Lexaro Learn section */}
             <section className="relative overflow-hidden">
                 <FloatingLinesBackground />
 
-                {/* premium overlay behind the lines */}
                 <div className="pointer-events-none absolute inset-0">
                     <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-sky-900/10 to-black/40" />
                     <div className="absolute -top-32 left-1/2 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
@@ -165,6 +182,7 @@ export default function Page() {
                         />
                     </FadeInSection>
 
+                    {/* ✅ Expanded feature grid */}
                     <div className="mt-10 grid gap-6 md:grid-cols-3">
                         <FadeInSection delay={0.05}>
                             <GlareHoverCard className="bg-gradient-to-b from-sky-500/12 to-white/5">
@@ -188,7 +206,34 @@ export default function Page() {
                             <GlareHoverCard className="bg-gradient-to-b from-cyan-400/12 to-white/5">
                                 <CardTitle icon={<Sparkles className="h-5 w-5" />} title="Practice instantly" />
                                 <p className="mt-3 text-white/70">
-                                    One click for flashcards and quizzes from your chapter.
+                                    One click for notes, flashcards, and quizzes from your chapter.
+                                </p>
+                            </GlareHoverCard>
+                        </FadeInSection>
+
+                        <FadeInSection delay={0.08}>
+                            <GlareHoverCard className="bg-gradient-to-b from-emerald-400/12 to-white/5">
+                                <CardTitle icon={<GraduationCap className="h-5 w-5" />} title="Quizzes by difficulty" />
+                                <p className="mt-3 text-white/70">
+                                    Choose easy, medium, or hard depending on your goal.
+                                </p>
+                            </GlareHoverCard>
+                        </FadeInSection>
+
+                        <FadeInSection delay={0.14}>
+                            <GlareHoverCard className="bg-gradient-to-b from-fuchsia-500/12 to-white/5">
+                                <CardTitle icon={<FileText className="h-5 w-5" />} title="Essay grader" />
+                                <p className="mt-3 text-white/70">
+                                    Get structured feedback, score breakdowns, and improvements.
+                                </p>
+                            </GlareHoverCard>
+                        </FadeInSection>
+
+                        <FadeInSection delay={0.2}>
+                            <GlareHoverCard className="bg-gradient-to-b from-sky-500/12 to-white/5">
+                                <CardTitle icon={<CalendarDays className="h-5 w-5" />} title="Study calendar" />
+                                <p className="mt-3 text-white/70">
+                                    Generate a plan and daily tasks to stay consistent.
                                 </p>
                             </GlareHoverCard>
                         </FadeInSection>
@@ -196,25 +241,25 @@ export default function Page() {
 
                     <div className="mt-8 grid gap-4 md:grid-cols-3">
                         <FadeInSection delay={0.08}>
-                            <MiniStat
-                                icon={<Timer className="h-4 w-4" />}
-                                title="Fast answers"
-                                desc="Feels instant while you study"
-                            />
+                            <MiniStat icon={<Timer className="h-4 w-4" />} title="Fast answers" desc="Feels instant while you study" />
                         </FadeInSection>
                         <FadeInSection delay={0.12}>
-                            <MiniStat
-                                icon={<ShieldCheck className="h-4 w-4" />}
-                                title="Trust the source"
-                                desc="Answers point to your pages"
-                            />
+                            <MiniStat icon={<ShieldCheck className="h-4 w-4" />} title="Trust the source" desc="Answers point to your pages" />
                         </FadeInSection>
                         <FadeInSection delay={0.16}>
-                            <MiniStat
-                                icon={<Sparkles className="h-4 w-4" />}
-                                title="Better memory"
-                                desc="Practice tools built-in"
-                            />
+                            <MiniStat icon={<Sparkles className="h-4 w-4" />} title="Better memory" desc="Practice tools built-in" />
+                        </FadeInSection>
+                    </div>
+
+                    {/* ✅ Small link */}
+                    <div className="mt-8">
+                        <FadeInSection delay={0.2}>
+                            <Link
+                                href="/about/features"
+                                className="inline-flex items-center gap-2 text-sm text-white/75 hover:text-white"
+                            >
+                                See the full feature list <ArrowRight className="h-4 w-4" />
+                            </Link>
                         </FadeInSection>
                     </div>
                 </div>
@@ -261,23 +306,15 @@ export default function Page() {
                                         badge="Step 3"
                                         icon={<Zap className="h-5 w-5" />}
                                         title="Generate notes + practice instantly"
-                                        desc="Turn any chapter into clean notes, flashcards, and quizzes in one click — then track weak spots."
+                                        desc="Turn any chapter into clean notes, flashcards, quizzes, essay feedback, and a study plan."
                                     />
                                 </GlareHoverCard>
                             </FadeInSection>
 
                             <FadeInSection delay={0.2}>
                                 <div className="grid gap-3 sm:grid-cols-2">
-                                    <BulletCard
-                                        icon={<Quote className="h-4 w-4" />}
-                                        title="Sources included"
-                                        desc="Answers point back to the page."
-                                    />
-                                    <BulletCard
-                                        icon={<CheckCircle2 className="h-4 w-4" />}
-                                        title="Explain simply"
-                                        desc="Switch to easy mode anytime."
-                                    />
+                                    <BulletCard icon={<Quote className="h-4 w-4" />} title="Sources included" desc="Answers point back to the page." />
+                                    <BulletCard icon={<CheckCircle2 className="h-4 w-4" />} title="Explain simply" desc="Switch to easy mode anytime." />
                                 </div>
                             </FadeInSection>
                         </div>
@@ -305,7 +342,7 @@ export default function Page() {
                                             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                                                 <div className="text-xs text-white/60">Lexaro</div>
                                                 <div className="mt-1 text-sm text-white/90">
-                                                    Here’s the simple version, plus a quick quiz. Want flashcards too?
+                                                    Here’s the simple version, plus a quick quiz. Want flashcards, essay feedback, or a study plan?
                                                 </div>
 
                                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -342,7 +379,7 @@ export default function Page() {
                 </div>
             </FluidGlassSection>
 
-            {/* Voice previews — ✅ StarBorder wraps Voice gallery already */}
+            {/* Voice previews */}
             <FluidGlassSection tone="violet">
                 <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
@@ -354,7 +391,6 @@ export default function Page() {
                     </FadeInSection>
 
                     <div className="mt-10 grid gap-6 lg:grid-cols-12">
-                        {/* ✅ Voice gallery stays StarBorderCard */}
                         <div className="lg:col-span-7">
                             <FadeInSection delay={0.08}>
                                 <StarBorderCard>
@@ -374,7 +410,6 @@ export default function Page() {
                             </FadeInSection>
                         </div>
 
-                        {/* ✅ Optional: star border on the 3 right cards too (requested: "voice preview") */}
                         <div className="lg:col-span-5 space-y-6">
                             <FadeInSection delay={0.12}>
                                 <StarBorderCard>

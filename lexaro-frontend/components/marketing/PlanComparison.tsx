@@ -1,3 +1,4 @@
+// components/marketing/PlanComparison.tsx
 import React from "react";
 
 type CellValue = boolean | string | undefined;
@@ -26,15 +27,8 @@ const Row = ({
     </div>
 );
 
-/* ✅ Crisp, centered icons */
 const Check = () => (
-    <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        className="text-emerald-400"
-        aria-hidden
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" className="text-emerald-400" aria-hidden>
         <path
             fill="none"
             stroke="currentColor"
@@ -47,13 +41,7 @@ const Check = () => (
 );
 
 const Cross = () => (
-    <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        className="text-red-400"
-        aria-hidden
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" className="text-red-400" aria-hidden>
         <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M6 6l12 12" />
             <path d="M18 6L6 18" />
@@ -66,9 +54,7 @@ function Cell({ value }: { value?: CellValue }) {
         <div className="flex min-h-[36px] items-center justify-center leading-none">
             {value === true && <Check />}
             {value === false && <Cross />}
-            {typeof value === "string" && (
-                <span className="text-gray-100 text-center px-2">{value}</span>
-            )}
+            {typeof value === "string" && <span className="text-gray-100 text-center px-2">{value}</span>}
             {value === undefined && <span className="text-white/35">—</span>}
         </div>
     );
@@ -77,27 +63,21 @@ function Cell({ value }: { value?: CellValue }) {
 export default function PlanComparison() {
     return (
         <section className="relative mt-24 overflow-hidden px-4">
-            {/* subtle background bloom so it feels premium but not “light” */}
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-10 h-[460px] w-[920px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-3xl" />
                 <div className="absolute left-1/3 top-44 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
             </div>
 
             <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_30px_120px_rgba(0,0,0,.7)]">
-                {/* top header */}
                 <div className="px-4 md:px-6 pt-8 pb-6">
                     <div className="mx-auto max-w-2xl text-center">
-                        <h2 className="text-3xl md:text-4xl font-semibold">
-                            Compare plans
-                        </h2>
+                        <h2 className="text-3xl md:text-4xl font-semibold">Compare plans</h2>
                         <p className="mt-3 text-white/65">
-                            Premium tiers unlock higher limits, faster responses, and better
-                            reliability.
+                            Premium tiers unlock higher limits, faster responses, and better reliability.
                         </p>
                     </div>
                 </div>
 
-                {/* column headers */}
                 <div className="grid grid-cols-4 items-center px-4 pb-4 text-sm font-semibold">
                     <div />
                     <div className="text-center">
@@ -117,9 +97,8 @@ export default function PlanComparison() {
                     </div>
                 </div>
 
-                {/* rows */}
                 <div className="px-0 pb-2">
-                    {/* Lexaro Learn (new) */}
+                    {/* Lexaro Learn */}
                     <Row
                         label="Study Copilot (Q&A with citations)"
                         hint="Answers include page links so you can verify quickly."
@@ -128,19 +107,41 @@ export default function PlanComparison() {
                         plus="Unlimited"
                     />
                     <Row
-                        label="Generate notes"
+                        label="Notes AI"
                         hint="Turn chapters into clean study notes."
                         free="Limited"
                         premium="Unlimited"
                         plus="Unlimited"
                     />
                     <Row
-                        label="Generate flashcards + quizzes"
-                        hint="Practice instantly from your material."
+                        label="Flashcards AI"
+                        hint="Generate decks instantly from your material."
                         free="Limited"
                         premium="Unlimited"
                         plus="Unlimited"
                     />
+                    <Row
+                        label="Quizzes AI (easy/medium/hard)"
+                        hint="Practice with difficulty options and instant grading."
+                        free="Limited"
+                        premium="Unlimited"
+                        plus="Unlimited"
+                    />
+                    <Row
+                        label="Essay grader (with analysis)"
+                        hint="Score breakdowns + structured feedback."
+                        free="Limited"
+                        premium="Unlimited"
+                        plus="Unlimited"
+                    />
+                    <Row
+                        label="Study calendar"
+                        hint="Generate a study plan and daily tasks."
+                        free="Limited"
+                        premium="Unlimited"
+                        plus="Unlimited"
+                    />
+
                     <Row
                         label="OCR + PDF extraction"
                         hint="Scanned pages and PDFs supported."
@@ -188,7 +189,7 @@ export default function PlanComparison() {
                         plus="Best"
                     />
 
-                    {/* Existing voice positioning (keep your marketing) */}
+                    {/* Existing voice positioning */}
                     <Row
                         label="Voices"
                         hint="Premium tiers unlock better voice quality."
@@ -196,24 +197,9 @@ export default function PlanComparison() {
                         premium="Natural (200+)"
                         plus="Studio & Pro"
                     />
-                    <Row
-                        label="Languages"
-                        free="Up to 5"
-                        premium="60+"
-                        plus="60+"
-                    />
-                    <Row
-                        label="Offline MP3 download"
-                        free={false}
-                        premium={true}
-                        plus={true}
-                    />
-                    <Row
-                        label="Max speed"
-                        free="1x"
-                        premium="3.5x"
-                        plus="10x"
-                    />
+                    <Row label="Languages" free="Up to 5" premium="60+" plus="60+" />
+                    <Row label="Offline MP3 download" free={false} premium={true} plus={true} />
+                    <Row label="Max speed" free="1x" premium="3.5x" plus="10x" />
 
                     {/* Support */}
                     <Row
@@ -225,7 +211,6 @@ export default function PlanComparison() {
                     />
                 </div>
 
-                {/* CTA buttons */}
                 <div className="px-4 md:px-6 py-7 border-t border-white/10">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <a
@@ -249,8 +234,8 @@ export default function PlanComparison() {
                     </div>
 
                     <p className="mt-3 text-center text-xs text-white/45">
-                        “Unlimited” means no monthly caps for normal use — protective rate &
-                        concurrency limits still apply to prevent abuse.
+                        “Unlimited” means no monthly caps for normal use — protective rate & concurrency limits
+                        still apply to prevent abuse.
                     </p>
                 </div>
             </div>

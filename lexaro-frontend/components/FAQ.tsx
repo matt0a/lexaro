@@ -1,37 +1,60 @@
-'use client';
+// components/FAQ.tsx
+"use client";
 
-import { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
-import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useState } from "react";
+import { Plus, Minus } from "lucide-react";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 
 type QA = { q: string; a: string };
 
 const ITEMS: QA[] = [
+    // ✅ Learn / Education
     {
-        q: 'What is TTS (text to speech)?',
-        a: 'Text to speech, sometimes called TTS, read aloud, or speech synthesis, is the term for using AI voices to turn any input text into speech.',
+        q: "What is Lexaro Learn?",
+        a: "Lexaro Learn is your document-based study area: chat with your PDFs beside the page, get answers with page links, and generate notes, flashcards, quizzes, essay feedback, and study plans.",
     },
     {
-        q: 'What is an AI voice?',
-        a: 'An AI voice refers to the synthesized or generated speech produced by artificial intelligence systems, enabling machines to communicate with human-like speech.',
+        q: "Do answers include citations / page links?",
+        a: "Yes — Lexaro is designed to point back to your materials so you can verify quickly and jump to the exact page.",
     },
     {
-        q: 'Who is Lexaro for?',
-        a: 'Lexaro is for everyone, including seniors, students, professionals, and anyone who benefits from listening to written content read aloud.',
+        q: "Can I choose quiz difficulty?",
+        a: "Yes — quizzes can be generated as Easy, Medium, or Hard depending on whether you want recall practice or deeper challenge questions.",
+    },
+    {
+        q: "What does the essay grader do?",
+        a: "You can paste or upload an essay and get structured feedback: strengths, weaknesses, score breakdowns, and specific improvements.",
+    },
+    {
+        q: "What is the study calendar?",
+        a: "It generates a study plan and daily tasks based on your exam date and availability, so you stay consistent instead of cramming.",
+    },
+
+    // ✅ Voice / TTS (your existing)
+    {
+        q: "What is TTS (text to speech)?",
+        a: "Text to speech, sometimes called TTS, read aloud, or speech synthesis, is the term for using AI voices to turn any input text into speech.",
+    },
+    {
+        q: "What is an AI voice?",
+        a: "An AI voice refers to the synthesized or generated speech produced by artificial intelligence systems, enabling machines to communicate with human-like speech.",
+    },
+    {
+        q: "Who is Lexaro for?",
+        a: "Lexaro is for everyone, including seniors, students, professionals, and anyone who benefits from listening to written content read aloud.",
     },
     {
         q: "Does Lexaro's voices sound natural?",
-        a: 'Yes. Lexaro’s text to speech reader has the most natural, human-sounding voice overs available on the market. The voices are now indistinguishable from human voices and available in several different languages including Spanish, Portuguese, German, French, and more.',
+        a: "Yes. Lexaro’s text to speech reader has natural, human-sounding voices available in multiple languages.",
     },
     {
-        q: 'Is Lexaro available in different languages?',
-        a: 'Yes, Lexaro has support for over 45 of the most frequently spoken languages around the world.',
+        q: "Is Lexaro available in different languages?",
+        a: "Yes, Lexaro supports many of the most frequently spoken languages around the world.",
     },
 ];
 
 export default function FAQ() {
-    // Open the first item by default. Set to -1 if you want all collapsed initially.
     const [open, setOpen] = useState<number>(0);
 
     return (
@@ -51,11 +74,10 @@ export default function FAQ() {
                                 >
                                     <span className="text-white/95">{item.q}</span>
 
-                                    {/* Plain + / – with a subtle rotate on toggle (no circle) */}
                                     <motion.span
                                         initial={false}
                                         animate={{ rotate: isOpen ? 180 : 0 }}
-                                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                                        transition={{ duration: 0.2, ease: "easeOut" }}
                                         className="h-5 w-5 text-white/70"
                                     >
                                         {isOpen ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
@@ -67,14 +89,17 @@ export default function FAQ() {
                                         <motion.div
                                             key="content"
                                             initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
+                                            animate={{ height: "auto", opacity: 1 }}
                                             exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.25, ease: 'easeOut' }}
+                                            transition={{ duration: 0.25, ease: "easeOut" }}
                                             className="overflow-hidden"
                                         >
                                             <div className="px-5 pb-6 pt-1">
                                                 <p className="text-white/80">{item.a}</p>
-                                                <div className="mt-4 flex justify-end">
+                                                <div className="mt-4 flex justify-end gap-2">
+                                                    <Link href="/about/features" className="btn-accent">
+                                                        Full feature list
+                                                    </Link>
                                                     <Link href="/get-started" className="btn-accent">
                                                         Try for Free
                                                     </Link>

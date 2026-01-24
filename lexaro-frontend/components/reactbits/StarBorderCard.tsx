@@ -7,27 +7,49 @@ type StarBorderProps<T extends React.ElementType> = React.ComponentPropsWithoutR
     as?: T;
     className?: string;
     children?: React.ReactNode;
+
     /** Defaults to your theme accent */
     color?: string;
-    speed?: React.CSSProperties['animationDuration'];
+
+    /** seconds (number) OR CSS duration string like "16s" / "600ms" */
+    speed?: number | React.CSSProperties['animationDuration'];
+
     thickness?: number;
+
+    /** If false, border animation runs only on hover */
+    alwaysAnimate?: boolean;
 };
 
-const StarBorder = <T extends React.ElementType = 'div'>({
-                                                             as,
-                                                             className = '',
-                                                             color = 'var(--accent)',
-                                                             speed = '6s',
-                                                             thickness = 1,
-                                                             children,
-                                                             ...rest
-                                                         }: StarBorderProps<T>) => {
+const StarBorderCard = <T extends React.ElementType = 'div'>({
+                                                                 as,
+                                                                 className = '',
+                                                                 color = 'var(--accent)',
+                                                                 speed = '6s',
+                                                                 thickness = 1,
+                                                                 alwaysAnimate = true,
+                                                                 children,
+                                                                 ...rest
+                                                             }: StarBorderProps<T>) => {
     const Component = as || 'div';
+
+    const normalizedSpeed =
+        typeof speed === 'number' ? `${speed}s` : speed;
+
+    const [hovered, setHovered] = React.useState(false);
+    const shouldAnimate = alwaysAnimate || hovered;
 
     return (
         <Component
             {...(rest as any)}
             className={`${styles.container} ${className}`}
+            onMouseEnter={(e: any) => {
+                setHovered(true);
+                rest.onMouseEnter?.(e);
+            }}
+            onMouseLeave={(e: any) => {
+                setHovered(false);
+                rest.onMouseLeave?.(e);
+            }}
             style={{
                 padding: `${thickness}px`,
                 ...(rest as any).style,
@@ -37,14 +59,16 @@ const StarBorder = <T extends React.ElementType = 'div'>({
                 className={styles.borderGradientBottom}
                 style={{
                     background: `radial-gradient(circle, ${color}, transparent 12%)`,
-                    animationDuration: speed,
+                    animationDuration: normalizedSpeed,
+                    animationPlayState: shouldAnimate ? 'running' : 'paused',
                 }}
             />
             <div
                 className={styles.borderGradientTop}
                 style={{
                     background: `radial-gradient(circle, ${color}, transparent 12%)`,
-                    animationDuration: speed,
+                    animationDuration: normalizedSpeed,
+                    animationPlayState: shouldAnimate ? 'running' : 'paused',
                 }}
             />
             <div className={styles.inner}>{children}</div>
@@ -52,4 +76,4 @@ const StarBorder = <T extends React.ElementType = 'div'>({
     );
 };
 
-export default StarBorder;
+export default StarBorderCard;

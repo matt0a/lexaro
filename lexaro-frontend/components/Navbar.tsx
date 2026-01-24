@@ -1,79 +1,179 @@
-// components/Navbar.tsx
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import React, { useEffect, useRef, useState } from "react";
+import { ChevronDown, Menu, X } from "lucide-react";
+
+function cn(...classes: Array<string | undefined | false | null>) {
+    return classes.filter(Boolean).join(" ");
+}
+
+// ✅ Your screenshot shows: public/logo.png
+const LOGO_SRC = "/logo.png";
 
 export default function Navbar() {
-    const [open, setOpen] = useState(false);
-    const btnRef = useRef<HTMLButtonElement>(null);
-    const menuRef = useRef<HTMLDivElement>(null);
+    const [mobileOpen, setMobileOpen] = React.useState(false);
+    const [aboutOpen, setAboutOpen] = React.useState(false);
 
-    useEffect(() => {
-        function onDocClick(e: MouseEvent) {
-            if (!open) return;
-            const t = e.target as Node;
-            if (!btnRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
+    const aboutRef = React.useRef<HTMLDivElement | null>(null);
+
+    // close dropdown on outside click + esc
+    React.useEffect(() => {
+        function onDown(e: MouseEvent) {
+            if (!aboutRef.current) return;
+            if (!aboutRef.current.contains(e.target as Node)) setAboutOpen(false);
         }
-        function onEsc(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
-        document.addEventListener("mousedown", onDocClick);
-        document.addEventListener("keydown", onEsc);
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") setAboutOpen(false);
+        }
+        document.addEventListener("mousedown", onDown);
+        document.addEventListener("keydown", onKey);
         return () => {
-            document.removeEventListener("mousedown", onDocClick);
-            document.removeEventListener("keydown", onEsc);
+            document.removeEventListener("mousedown", onDown);
+            document.removeEventListener("keydown", onKey);
         };
-    }, [open]);
+    }, []);
+
+    React.useEffect(() => {
+        if (!mobileOpen) setAboutOpen(false);
+    }, [mobileOpen]);
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/70 backdrop-blur-md">
-            <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-                {/* Left: brand */}
-                <Link href="/" className="flex items-center gap-2">
-                    <Image src="/logo.png" alt="Lexaro" width={22} height={22} className="h-5 w-5" />
-                    <span className="text-sm font-semibold text-white">Lexaro</span>
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur-md">
+            <div className="mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between">
+                {/* Brand */}
+                <Link href="/" className="inline-flex items-center gap-2">
+          <span className="relative h-7 w-7">
+            <Image
+                src={LOGO_SRC}
+                alt="Lexaro logo"
+                fill
+                priority
+                className="object-contain"
+            />
+          </span>
+                    <span className="font-semibold tracking-tight text-white">Lexaro</span>
                 </Link>
 
-                {/* Center: About dropdown */}
-                <div className="relative">
-                    <button
-                        ref={btnRef}
-                        aria-expanded={open}
-                        aria-haspopup="menu"
-                        onClick={() => setOpen(v => !v)}
-                        onMouseEnter={() => setOpen(true)}
-                        className="rounded-md px-3 py-1.5 text-sm font-medium text-white/90 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20"
-                    >
-                        About
-                        <svg aria-hidden className="ml-1 inline h-3 w-3 translate-y-px opacity-80" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z" />
-                        </svg>
-                    </button>
+                {/* Desktop nav */}
+                <nav className="hidden md:flex items-center gap-6 text-sm">
+                    <Link href="/get-started" className="text-white/75 hover:text-white">
+                        Get started
+                    </Link>
 
-                    <div
-                        ref={menuRef}
-                        onMouseLeave={() => setOpen(false)}
-                        className={`absolute left-1/2 -translate-x-1/2 pt-2 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-                    >
+                    {/* ✅ About dropdown (hover + click, stable hover to menu) */}
+                    <div ref={aboutRef} className="relative group">
+                        <button
+                            type="button"
+                            onClick={() => setAboutOpen((v) => !v)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/85 hover:text-white hover:bg-white/10 transition"
+                            aria-haspopup="menu"
+                            aria-expanded={aboutOpen}
+                        >
+                            About{" "}
+                            <ChevronDown
+                                className={cn(
+                                    "h-4 w-4 transition",
+                                    (aboutOpen ? "rotate-180" : ""),
+                                    "group-hover:rotate-180"
+                                )}
+                            />
+                        </button>
+
                         <div
                             role="menu"
-                            className={`min-w-[180px] overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] shadow-xl transition-all ${open ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"}`}
+                            className={cn(
+                                "absolute right-0 mt-2 w-44 overflow-hidden rounded-2xl border border-white/10 bg-black/90 shadow-[0_20px_80px_rgba(0,0,0,.8)] backdrop-blur-md",
+                                "transition",
+                                // ✅ show if either state open OR hover on group
+                                (aboutOpen
+                                    ? "opacity-100 translate-y-0 pointer-events-auto"
+                                    : "opacity-0 -translate-y-1 pointer-events-none"),
+                                "group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto"
+                            )}
                         >
-                            <Link href="/plans" onClick={() => setOpen(false)} role="menuitem" className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5">
+                            <Link
+                                role="menuitem"
+                                href="/about/features"
+                                className="block px-4 py-3 text-white/80 hover:text-white hover:bg-white/10"
+                                onClick={() => setAboutOpen(false)}
+                            >
+                                Features
+                            </Link>
+
+                            <Link
+                                role="menuitem"
+                                href="/plans"
+                                className="block px-4 py-3 text-white/80 hover:text-white hover:bg-white/10"
+                                onClick={() => setAboutOpen(false)}
+                            >
                                 Pricing
                             </Link>
                         </div>
                     </div>
-                </div>
+                </nav>
 
-                {/* Right: actions */}
-                <div className="flex items-center gap-2">
-                    <Link href="/login" className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 hover:bg-white/5">Login</Link>
-                    <Link href="/get-started" className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
-                        Try for Free
+                {/* Mobile toggle */}
+                <button
+                    type="button"
+                    className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 text-white/85 hover:text-white hover:bg-white/10 transition"
+                    onClick={() => setMobileOpen((v) => !v)}
+                    aria-label="Toggle menu"
+                    aria-expanded={mobileOpen}
+                >
+                    {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </button>
+            </div>
+
+            {/* Mobile panel */}
+            <div
+                className={cn(
+                    "md:hidden border-t border-white/10 bg-black/70 backdrop-blur-md",
+                    mobileOpen ? "block" : "hidden"
+                )}
+            >
+                <div className="mx-auto max-w-6xl px-4 py-4 space-y-2">
+                    <Link
+                        href="/get-started"
+                        className="block rounded-xl px-3 py-2 text-white/80 hover:text-white hover:bg-white/10"
+                        onClick={() => setMobileOpen(false)}
+                    >
+                        Get started
                     </Link>
+
+                    {/* Mobile About accordion */}
+                    <button
+                        type="button"
+                        onClick={() => setAboutOpen((v) => !v)}
+                        className="w-full inline-flex items-center justify-between rounded-xl px-3 py-2 text-white/80 hover:text-white hover:bg-white/10"
+                        aria-expanded={aboutOpen}
+                    >
+                        <span>About</span>
+                        <ChevronDown className={cn("h-4 w-4 transition", aboutOpen && "rotate-180")} />
+                    </button>
+
+                    {aboutOpen ? (
+                        <div className="pl-3 space-y-1">
+                            <Link
+                                href="/about/features"
+                                className="block rounded-xl px-3 py-2 text-white/75 hover:text-white hover:bg-white/10"
+                                onClick={() => setMobileOpen(false)}
+                            >
+                                Features
+                            </Link>
+
+                            <Link
+                                href="/plans"
+                                className="block rounded-xl px-3 py-2 text-white/75 hover:text-white hover:bg-white/10"
+                                onClick={() => setMobileOpen(false)}
+                            >
+                                Pricing
+                            </Link>
+                        </div>
+                    ) : null}
                 </div>
-            </nav>
+            </div>
         </header>
     );
 }

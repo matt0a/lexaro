@@ -1,3 +1,4 @@
+// app/plans/page.tsx
 "use client";
 
 import React from "react";
@@ -28,26 +29,13 @@ export default function PlansPage() {
 
     const DISCOUNT_LABEL = "Save 19%";
 
-    // Base prices
-    const monthly = {
-        premium: 14.99,
-        plus: 29.99,
-    };
+    const monthly = { premium: 14.99, plus: 29.99 };
+    const yearly = { premium: 119.99, plus: 239.99 };
 
-    const yearly = {
-        premium: 119.99,
-        plus: 239.99,
-    };
-
-    // For yearly cycle: show monthly price as the "big sell", but billed annually.
     const price = {
         premium:
             cycle === "monthly"
-                ? {
-                    big: `${fmtUSD(monthly.premium)}/month`,
-                    sub: "",
-                    badge: undefined as string | undefined,
-                }
+                ? { big: `${fmtUSD(monthly.premium)}/month`, sub: "", badge: undefined as string | undefined }
                 : {
                     big: `${fmtUSD(yearly.premium / 12)}/mo`,
                     sub: `Billed annually: ${fmtUSD(yearly.premium)}/yr`,
@@ -55,11 +43,7 @@ export default function PlansPage() {
                 },
         plus:
             cycle === "monthly"
-                ? {
-                    big: `${fmtUSD(monthly.plus)}/month`,
-                    sub: "",
-                    badge: undefined as string | undefined,
-                }
+                ? { big: `${fmtUSD(monthly.plus)}/month`, sub: "", badge: undefined as string | undefined }
                 : {
                     big: `${fmtUSD(yearly.plus / 12)}/mo`,
                     sub: `Billed annually: ${fmtUSD(yearly.plus)}/yr`,
@@ -67,20 +51,15 @@ export default function PlansPage() {
                 },
     };
 
-    const cycleHint =
-        cycle === "monthly"
-            ? "Billed monthly. Cancel anytime."
-            : "Billed yearly. Save vs monthly.";
+    const cycleHint = cycle === "monthly" ? "Billed monthly. Cancel anytime." : "Billed yearly. Save vs monthly.";
 
     return (
         <main className="bg-black text-white">
             <Navbar />
 
-            {/* HERO + PLANS */}
             <section className="relative overflow-hidden">
                 <FloatingLinesBackground />
 
-                {/* subtle glow behind section */}
                 <div className="pointer-events-none absolute inset-0">
                     <div className="absolute left-1/2 top-10 h-[520px] w-[980px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
                     <div className="absolute left-1/3 top-44 h-[420px] w-[840px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
@@ -88,20 +67,19 @@ export default function PlansPage() {
 
                 <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-10">
                     <FadeInSection>
-                        <p className="text-xs tracking-[0.25em] text-white/60 uppercase">
-                            Pricing
-                        </p>
-                        <h1 className="mt-3 text-4xl md:text-5xl font-semibold">
-                            Find your plan
-                        </h1>
+                        <p className="text-xs tracking-[0.25em] text-white/60 uppercase">Pricing</p>
+                        <h1 className="mt-3 text-4xl md:text-5xl font-semibold">Find your plan</h1>
                         <p className="mt-4 text-white/70 max-w-2xl">
-                            Upload PDFs, ask questions with page links, generate notes + practice,
-                            and use voice + translation. Free is intentionally limited; Premium
-                            tiers feel unlimited in normal use.
+                            Upload PDFs, ask questions with page links, generate{" "}
+                            <span className="text-white font-semibold">notes</span>,{" "}
+                            <span className="text-white font-semibold">flashcards</span>,{" "}
+                            <span className="text-white font-semibold">quizzes</span>, use the{" "}
+                            <span className="text-white font-semibold">essay grader</span>, build a{" "}
+                            <span className="text-white font-semibold">study calendar</span>, and listen with voice + translation.
+                            Free is intentionally limited; Premium tiers feel unlimited in normal use.
                         </p>
                     </FadeInSection>
 
-                    {/* Billing toggle */}
                     <FadeInSection delay={0.06}>
                         <div className="mt-8 flex items-center justify-center">
                             <div className="relative inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/55 backdrop-blur-md p-1">
@@ -109,9 +87,7 @@ export default function PlansPage() {
                                     onClick={() => setCycle("monthly")}
                                     className={cn(
                                         "rounded-full px-4 py-2 text-sm font-semibold transition",
-                                        cycle === "monthly"
-                                            ? "bg-white text-black"
-                                            : "text-white/70 hover:text-white"
+                                        cycle === "monthly" ? "bg-white text-black" : "text-white/70 hover:text-white"
                                     )}
                                 >
                                     Monthly
@@ -122,15 +98,12 @@ export default function PlansPage() {
                                         onClick={() => setCycle("yearly")}
                                         className={cn(
                                             "rounded-full px-4 py-2 text-sm font-semibold transition",
-                                            cycle === "yearly"
-                                                ? "bg-white text-black"
-                                                : "text-white/70 hover:text-white"
+                                            cycle === "yearly" ? "bg-white text-black" : "text-white/70 hover:text-white"
                                         )}
                                     >
                                         Yearly
                                     </button>
 
-                                    {/* pop badge next to yearly */}
                                     <span className="absolute -right-5 -top-3 rounded-full bg-emerald-500/20 border border-emerald-400/25 px-2 py-1 text-[10px] font-semibold text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,.22)]">
                     {DISCOUNT_LABEL}
                   </span>
@@ -138,12 +111,9 @@ export default function PlansPage() {
                             </div>
                         </div>
 
-                        <div className="mt-2 text-center text-xs text-white/45">
-                            {cycleHint}
-                        </div>
+                        <div className="mt-2 text-center text-xs text-white/45">{cycleHint}</div>
                     </FadeInSection>
 
-                    {/* Pricing cards */}
                     <div id="plans" className="mt-10 grid gap-6 lg:grid-cols-3">
                         <FadeInSection delay={0.08}>
                             <PlanCard
@@ -160,9 +130,10 @@ export default function PlansPage() {
                                 ]}
                                 bullets={[
                                     "Study Copilot with citations (limited)",
+                                    "Notes / flashcards / quizzes (limited)",
+                                    "Essay grader + study calendar (limited)",
                                     "OCR + PDF extraction included",
                                     "Voice + translation included",
-                                    "Notes + quizzes (limited)",
                                 ]}
                                 footnote="Paid plans have no monthly caps for normal use, with protective rate & concurrency limits to prevent abuse."
                                 ctaLabel="Try for Free"
@@ -173,9 +144,8 @@ export default function PlansPage() {
                         </FadeInSection>
 
                         <FadeInSection delay={0.11}>
-                            {/* Premium uses StarBorder */}
-                            <StarBorderCard alwaysAnimate speed={16}>
-                                <PlanCard
+                            <StarBorderCard alwaysAnimate speed="16s">
+                            <PlanCard
                                     name="Premium"
                                     subtitle="Study without limits — built for daily use."
                                     priceLabel={price.premium.big}
@@ -192,8 +162,9 @@ export default function PlansPage() {
                                         { label: "Text-to-speech", value: "150,000", sub: "words/mo" },
                                     ]}
                                     bullets={[
-                                        "Unlimited Study chat + generators",
-                                        "Generate notes, flashcards, quizzes",
+                                        "Unlimited Study Copilot + generators",
+                                        "Notes, flashcards, quizzes (easy/medium/hard)",
+                                        "Essay grader + study calendar included",
                                         "Faster streaming + higher concurrency",
                                         "Stronger reliability safeguards",
                                     ]}
@@ -226,8 +197,8 @@ export default function PlansPage() {
                                 ]}
                                 bullets={[
                                     "Everything in Premium",
-                                    "Bigger context + more speed",
                                     "Best for long projects + large materials",
+                                    "Highest speed + concurrency limits",
                                     "Highest priority safeguards",
                                 ]}
                                 footnote="Paid plans have no monthly caps for normal use, with protective rate & concurrency limits to prevent abuse."
@@ -241,27 +212,23 @@ export default function PlansPage() {
                 </div>
             </section>
 
-            {/* Comparison */}
             <PlanComparison />
 
-            {/* Small CTA section at bottom */}
             <FluidGlassSection tone="violet">
                 <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md p-8 text-center">
-                            <h3 className="text-2xl md:text-3xl font-semibold">
-                                Ready to try Lexaro Learn?
-                            </h3>
+                            <h3 className="text-2xl md:text-3xl font-semibold">Ready to try Lexaro Learn?</h3>
                             <p className="mt-3 text-white/70 max-w-2xl mx-auto">
-                                Upload a PDF, ask questions with page links, generate notes + quizzes,
-                                and listen with voice previews.
+                                Upload a PDF, ask questions with page links, generate notes + quizzes, get essay feedback,
+                                build a study plan, and listen with voice previews.
                             </p>
                             <div className="mt-6 flex flex-wrap justify-center gap-3">
                                 <ShimmerButton href="/get-started" variant="primary">
                                     Try it free
                                 </ShimmerButton>
-                                <ShimmerButton href="/get-started" variant="ghost">
-                                    Upload a PDF
+                                <ShimmerButton href="/about/features" variant="ghost">
+                                    Full feature list
                                 </ShimmerButton>
                             </div>
                             <p className="mt-3 text-xs text-white/45">Free is limited.</p>
@@ -274,10 +241,6 @@ export default function PlansPage() {
         </main>
     );
 }
-
-/* -----------------------------
-   Local plan card component
------------------------------- */
 
 type Metric = { label: string; value: string; sub?: string };
 
@@ -328,25 +291,20 @@ function PlanCard({
             )}
         >
             <div className="p-7">
-                {/* Top row */}
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <div className="text-xl font-semibold">{name}</div>
                         <p className="mt-2 text-sm text-white/70">{subtitle}</p>
                     </div>
 
-                    {/* ✅ FIX: badges inline like “Best value” */}
                     <div className="flex flex-wrap justify-end gap-2">
                         {badgeTop ? (
                             <span
                                 className={cn(
                                     "rounded-full px-3 py-1 text-xs font-semibold border",
-                                    badgeTone === "blue" &&
-                                    "bg-sky-500/15 text-sky-200 border-sky-400/25",
-                                    badgeTone === "pink" &&
-                                    "bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-400/25",
-                                    badgeTone === "gray" &&
-                                    "bg-white/5 text-white/70 border-white/10"
+                                    badgeTone === "blue" && "bg-sky-500/15 text-sky-200 border-sky-400/25",
+                                    badgeTone === "pink" && "bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-400/25",
+                                    badgeTone === "gray" && "bg-white/5 text-white/70 border-white/10"
                                 )}
                             >
                 {badgeTop}
@@ -361,11 +319,9 @@ function PlanCard({
                     </div>
                 </div>
 
-                {/* Price */}
                 <div className="mt-5">
                     <div className="flex items-center justify-between gap-3">
                         <div className="text-2xl font-semibold">{priceLabel}</div>
-
                         {yearlyBadge ? (
                             <span className="rounded-full bg-emerald-500/15 border border-emerald-400/25 px-3 py-1 text-xs font-semibold text-emerald-200">
                 {yearlyBadge}
@@ -373,28 +329,19 @@ function PlanCard({
                         ) : null}
                     </div>
 
-                    {subPriceLabel ? (
-                        <div className="mt-2 text-sm text-white/60">{subPriceLabel}</div>
-                    ) : null}
+                    {subPriceLabel ? <div className="mt-2 text-sm text-white/60">{subPriceLabel}</div> : null}
                 </div>
 
-                {/* Metrics */}
                 <div className="mt-6 grid grid-cols-2 gap-3">
                     {metrics.map((m) => (
-                        <div
-                            key={m.label}
-                            className="rounded-2xl border border-white/10 bg-black/55 p-4"
-                        >
-                            <div className="text-[11px] uppercase tracking-wider text-white/55">
-                                {m.label}
-                            </div>
+                        <div key={m.label} className="rounded-2xl border border-white/10 bg-black/55 p-4">
+                            <div className="text-[11px] uppercase tracking-wider text-white/55">{m.label}</div>
                             <div className="mt-1 text-lg font-semibold">{m.value}</div>
                             {m.sub ? <div className="text-xs text-white/55">{m.sub}</div> : null}
                         </div>
                     ))}
                 </div>
 
-                {/* Bullets */}
                 <ul className="mt-6 space-y-2 text-sm text-white/75">
                     {bullets.map((b) => (
                         <li key={b} className="flex gap-2">
@@ -404,27 +351,18 @@ function PlanCard({
                     ))}
                 </ul>
 
-                {/* Footnote */}
                 {footnote ? (
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/55 p-4 text-xs text-white/65">
-                        <span className="font-semibold text-white/80">Unlimited:</span>{" "}
-                        {footnote}
+                        <span className="font-semibold text-white/80">Unlimited:</span> {footnote}
                     </div>
                 ) : null}
 
-                {/* CTA */}
                 <div className="mt-6">
-                    <ShimmerButton
-                        href={ctaHref}
-                        variant={ctaVariant}
-                        className="w-full justify-center"
-                    >
+                    <ShimmerButton href={ctaHref} variant={ctaVariant} className="w-full justify-center">
                         {ctaLabel}
                     </ShimmerButton>
 
-                    <div className="mt-3 text-center text-xs text-white/55">
-                        {note ?? (featured ? "Cancel anytime" : "")}
-                    </div>
+                    <div className="mt-3 text-center text-xs text-white/55">{note ?? (featured ? "Cancel anytime" : "")}</div>
                 </div>
             </div>
         </div>
