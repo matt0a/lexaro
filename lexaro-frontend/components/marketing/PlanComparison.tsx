@@ -1,4 +1,3 @@
-// components/marketing/PlanComparison.tsx
 import React from "react";
 
 type CellValue = boolean | string | undefined;
@@ -27,6 +26,7 @@ const Row = ({
     </div>
 );
 
+/* Crisp, centered icons */
 const Check = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" className="text-emerald-400" aria-hidden>
         <path
@@ -63,12 +63,14 @@ function Cell({ value }: { value?: CellValue }) {
 export default function PlanComparison() {
     return (
         <section className="relative mt-24 overflow-hidden px-4">
+            {/* subtle background bloom */}
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-10 h-[460px] w-[920px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-3xl" />
                 <div className="absolute left-1/3 top-44 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
             </div>
 
             <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_30px_120px_rgba(0,0,0,.7)]">
+                {/* header */}
                 <div className="px-4 md:px-6 pt-8 pb-6">
                     <div className="mx-auto max-w-2xl text-center">
                         <h2 className="text-3xl md:text-4xl font-semibold">Compare plans</h2>
@@ -78,6 +80,7 @@ export default function PlanComparison() {
                     </div>
                 </div>
 
+                {/* column headers */}
                 <div className="grid grid-cols-4 items-center px-4 pb-4 text-sm font-semibold">
                     <div />
                     <div className="text-center">
@@ -97,6 +100,7 @@ export default function PlanComparison() {
                     </div>
                 </div>
 
+                {/* rows */}
                 <div className="px-0 pb-2">
                     {/* Lexaro Learn */}
                     <Row
@@ -107,41 +111,19 @@ export default function PlanComparison() {
                         plus="Unlimited"
                     />
                     <Row
-                        label="Notes AI"
+                        label="Generate notes"
                         hint="Turn chapters into clean study notes."
                         free="Limited"
                         premium="Unlimited"
                         plus="Unlimited"
                     />
                     <Row
-                        label="Flashcards AI"
-                        hint="Generate decks instantly from your material."
+                        label="Generate flashcards + quizzes"
+                        hint="Practice instantly from your material."
                         free="Limited"
                         premium="Unlimited"
                         plus="Unlimited"
                     />
-                    <Row
-                        label="Quizzes AI (easy/medium/hard)"
-                        hint="Practice with difficulty options and instant grading."
-                        free="Limited"
-                        premium="Unlimited"
-                        plus="Unlimited"
-                    />
-                    <Row
-                        label="Essay grader (with analysis)"
-                        hint="Score breakdowns + structured feedback."
-                        free="Limited"
-                        premium="Unlimited"
-                        plus="Unlimited"
-                    />
-                    <Row
-                        label="Study calendar"
-                        hint="Generate a study plan and daily tasks."
-                        free="Limited"
-                        premium="Unlimited"
-                        plus="Unlimited"
-                    />
-
                     <Row
                         label="OCR + PDF extraction"
                         hint="Scanned pages and PDFs supported."
@@ -157,7 +139,7 @@ export default function PlanComparison() {
                         plus="Unlimited"
                     />
 
-                    {/* Voice + translation */}
+                    {/* Voice */}
                     <Row
                         label="Text-to-speech (monthly words)"
                         hint="Listen to notes, chapters, and outputs."
@@ -165,15 +147,12 @@ export default function PlanComparison() {
                         premium="150,000"
                         plus="350,000"
                     />
-                    <Row
-                        label="Translation"
-                        hint="Translate then listen — great for bilingual learners."
-                        free={true}
-                        premium={true}
-                        plus={true}
-                    />
+                    <Row label="Voices" hint="Paid tiers unlock better voice quality." free="Basic" premium="Natural (200+)" plus="Studio & Pro" />
+                    <Row label="Languages" free="Up to 5" premium="60+" plus="60+" />
+                    <Row label="Offline MP3 download" free={false} premium={true} plus={true} />
+                    <Row label="Max speed" free="1x" premium="3.5x" plus="10x" />
 
-                    {/* Quality / speed */}
+                    {/* Reliability / support */}
                     <Row
                         label="Speed + concurrency"
                         hint="How fast it feels when you’re studying daily."
@@ -188,29 +167,10 @@ export default function PlanComparison() {
                         premium="Strong"
                         plus="Best"
                     />
-
-                    {/* Existing voice positioning */}
-                    <Row
-                        label="Voices"
-                        hint="Premium tiers unlock better voice quality."
-                        free="Robotic/basic"
-                        premium="Natural (200+)"
-                        plus="Studio & Pro"
-                    />
-                    <Row label="Languages" free="Up to 5" premium="60+" plus="60+" />
-                    <Row label="Offline MP3 download" free={false} premium={true} plus={true} />
-                    <Row label="Max speed" free="1x" premium="3.5x" plus="10x" />
-
-                    {/* Support */}
-                    <Row
-                        label="Priority support"
-                        hint="Faster help on paid tiers."
-                        free="Email"
-                        premium="Priority"
-                        plus="VIP"
-                    />
+                    <Row label="Priority support" hint="Faster help on paid tiers." free="Email" premium="Priority" plus="VIP" />
                 </div>
 
+                {/* CTA */}
                 <div className="px-4 md:px-6 py-7 border-t border-white/10">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <a
@@ -234,8 +194,7 @@ export default function PlanComparison() {
                     </div>
 
                     <p className="mt-3 text-center text-xs text-white/45">
-                        “Unlimited” means no monthly caps for normal use — protective rate & concurrency limits
-                        still apply to prevent abuse.
+                        “Unlimited” means no monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse.
                     </p>
                 </div>
             </div>

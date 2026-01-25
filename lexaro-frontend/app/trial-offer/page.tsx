@@ -1,84 +1,119 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Sidebar from '@/components/dashboard/Sidebar';
+import { useMemo, useState } from 'react';
 import api from '@/lib/api';
-import UploadSection from '@/components/upload/UploadSection';
 
-type MeUsage = {
-    plan: 'FREE' | 'PREMIUM' | 'PREMIUM_PLUS' | string;
-    monthlyUsed: number;
-    dailyUsed: number;
-};
+type PlanKey = 'PREMIUM' | 'PREMIUM_PLUS' | 'PREMIUM_YEARLY' | 'PREMIUM_PLUS_YEARLY';
 
-export default function Dashboard() {
-    const router = useRouter();
-    const [me, setMe] = useState<MeUsage | null>(null);
-    const [loading, setLoading] = useState(true);
+type CheckoutResponse =
+    | { url: string; sessionId?: never }
+    | { sessionId: string; url?: never };
 
-    useEffect(() => {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        if (!token) { router.replace('/login'); return; }
+export default function TrialOfferPage() {
+    const [plan, setPlan] = useState<PlanKey>('PREMIUM');
+    const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-        (async () => {
-            try {
-                const res = await api.get<MeUsage>('/me/usage');
-                setMe(res.data);
-            } catch {
-                router.replace('/login');
-            } finally {
-                setLoading(false);
+    const canStart = useMemo(() => true, []);
+
+    const startCheckout = async (planKey: PlanKey) => {
+        setError(null);
+        setLoadingPlan(planKey);
+
+        try {
+            const res = await api.post<CheckoutResponse>('/billing/checkout', { plan: planKey });
+
+            // ✅ Stripe-hosted Checkout: redirect to the session URL returned by the backend
+            if ('url' in res.data && res.data.url) {
+                window.location.assign(res.data.url);
+                return;
             }
-        })();
-    }, [router]);
 
-    if (loading) return <div className="min-h-screen grid place-items-center">Loading…</div>;
-    if (!me) return null;
+            // ❗ If your backend only returns sessionId, update it to return `url`.
+            // Stripe’s docs recommend redirecting to the URL returned when creating the Checkout Session. :contentReference[oaicite:1]{index=1}
+            if ('sessionId' in res.data && res.data.sessionId) {
+                throw new Error(
+                    'Backend returned sessionId only. Please return Checkout Session `url` instead (Stripe.js v8 no longer supports redirectToCheckout).'
+                );
+            }
 
-    const isFree = me.plan?.toUpperCase() === 'FREE';
+            throw new Error('Backend did not return url or sessionId');
+        } catch (e: any) {
+            setError(e?.response?.data?.message ?? e?.message ?? 'Checkout failed');
+        } finally {
+            setLoadingPlan(null);
+        }
+    };
 
     return (
-        <div className="min-h-screen bg-black text-white">
-            <Sidebar />
+        <main className="min-h-screen bg-black text-white grid place-items-center px-6">
+            <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                <h1 className="text-2xl font-semibold">Start your free trial</h1>
+                <p className="text-white/70 mt-2">Choose a plan to begin your 3-day trial. Cancel anytime.</p>
 
-            <main className="md:ml-56 px-4 md:px-6 py-10">
-                <header className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Library</h1>
-                        <p className="text-white/60 mt-1">
-                            {isFree ? 'Free plan — some features are limited.'
-                                : 'Premium — enjoy cloud imports and faster voices.'}
-                        </p>
-                    </div>
-
-                    {/* plan pill */}
-                    <div className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-xs">
-                        Plan: <span className="font-medium">{me.plan}</span>
-                    </div>
-                </header>
-
-                {/* usage summary */}
-                <section className="mt-6 grid sm:grid-cols-3 gap-4">
-                    <Card label="Plan" value={me.plan} />
-                    <Card label="Monthly Used" value={me.monthlyUsed.toLocaleString()} />
-                    <Card label="Daily Used" value={me.dailyUsed.toLocaleString()} />
-                </section>
-
-                {/* upload section */}
-                <div className="mt-8">
-                    <UploadSection plan={me.plan} />
+                <div className="mt-6 grid gap-3">
+                    <PlanRow
+                        active={plan === 'PREMIUM'}
+                        title="Premium (Monthly)"
+                        subtitle="Best for personal use"
+                        onClick={() => setPlan('PREMIUM')}
+                    />
+                    <PlanRow
+                        active={plan === 'PREMIUM_PLUS'}
+                        title="Premium Plus (Monthly)"
+                        subtitle="More limits + faster workflow"
+                        onClick={() => setPlan('PREMIUM_PLUS')}
+                    />
+                    <PlanRow
+                        active={plan === 'PREMIUM_YEARLY'}
+                        title="Premium (Yearly)"
+                        subtitle="Save with annual billing"
+                        onClick={() => setPlan('PREMIUM_YEARLY')}
+                    />
+                    <PlanRow
+                        active={plan === 'PREMIUM_PLUS_YEARLY'}
+                        title="Premium Plus (Yearly)"
+                        subtitle="Max value annual option"
+                        onClick={() => setPlan('PREMIUM_PLUS_YEARLY')}
+                    />
                 </div>
-            </main>
-        </div>
+
+                {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+
+                <button
+                    disabled={!canStart || loadingPlan !== null}
+                    onClick={() => startCheckout(plan)}
+                    className="mt-6 w-full rounded-xl bg-white text-black font-semibold py-3 disabled:opacity-50"
+                >
+                    {loadingPlan ? 'Redirecting…' : 'Continue to checkout'}
+                </button>
+            </div>
+        </main>
     );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+function PlanRow({
+                     active,
+                     title,
+                     subtitle,
+                     onClick,
+                 }: {
+    active: boolean;
+    title: string;
+    subtitle: string;
+    onClick: () => void;
+}) {
     return (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-sm text-white/60">{label}</div>
-            <div className="text-xl font-semibold mt-1">{value}</div>
-        </div>
+        <button
+            type="button"
+            onClick={onClick}
+            className={[
+                'text-left rounded-2xl border p-4 transition-colors',
+                active ? 'border-white/30 bg-white/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]',
+            ].join(' ')}
+        >
+            <div className="font-semibold text-white/90">{title}</div>
+            <div className="text-sm text-white/60 mt-1">{subtitle}</div>
+        </button>
     );
 }

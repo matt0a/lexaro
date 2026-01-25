@@ -1,33 +1,30 @@
-"use client";
-
 import React from "react";
 
-type Props = {
-    children: React.ReactNode;
-    className?: string;
-    tone?: "blue" | "violet";
-};
+type Tone = "violet" | "blue" | "aqua";
 
-export default function FluidGlassSection({ children, className, tone = "blue" }: Props) {
-    const bg =
+export default function FluidGlassSection({
+                                              children,
+                                              tone = "violet",
+                                          }: {
+    children: React.ReactNode;
+    tone?: Tone;
+}) {
+    const toneClass =
         tone === "blue"
-            ? "bg-[radial-gradient(1200px_500px_at_50%_0%,rgba(56,189,248,.22),transparent_60%),radial-gradient(900px_500px_at_10%_80%,rgba(34,211,238,.14),transparent_60%)]"
-            : "bg-[radial-gradient(1200px_500px_at_50%_0%,rgba(168,85,247,.22),transparent_60%),radial-gradient(900px_500px_at_90%_80%,rgba(56,189,248,.12),transparent_60%)]";
+            ? "bg-[radial-gradient(60%_60%_at_50%_0%,rgba(0,159,253,0.18)_0%,rgba(0,0,0,0)_70%)]"
+            : tone === "aqua"
+                ? "bg-[radial-gradient(60%_60%_at_50%_0%,rgba(42,252,152,0.16)_0%,rgba(0,0,0,0)_70%)]"
+                : "bg-[radial-gradient(60%_60%_at_50%_0%,rgba(147,51,234,0.18)_0%,rgba(0,0,0,0)_70%)]";
 
     return (
-        <section className={["relative", className ?? ""].join(" ")}>
-            {/* black behind */}
-            <div className="absolute inset-0 bg-black" />
+        <section className="relative overflow-hidden">
+            {/* glow */}
+            <div className={`pointer-events-none absolute inset-0 ${toneClass}`} />
 
-            {/* colored glass band */}
-            <div className={["absolute inset-0", bg].join(" ")} />
+            {/* soft noise-ish overlay */}
+            <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:radial-gradient(rgba(255,255,255,0.35)_1px,transparent_1px)] [background-size:22px_22px]" />
 
-            {/* glass overlay */}
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-xl" />
-
-            {/* border edges */}
-            <div className="absolute inset-0 border-y border-white/10" />
-
+            {/* content */}
             <div className="relative z-10">{children}</div>
         </section>
     );

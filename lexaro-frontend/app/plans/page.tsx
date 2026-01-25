@@ -1,4 +1,3 @@
-// app/plans/page.tsx
 "use client";
 
 import React from "react";
@@ -13,6 +12,9 @@ import StarBorderCard from "@/components/reactbits/StarBorderCard";
 import ShimmerButton from "@/components/reactbits/ShimmerButton";
 
 import PlanComparison from "@/components/marketing/PlanComparison";
+
+import { ArrowRight } from "lucide-react";
+import { IconSparkles, IconShieldCheck, IconBolt } from "@tabler/icons-react";
 
 type BillingCycle = "monthly" | "yearly";
 
@@ -29,26 +31,27 @@ export default function PlansPage() {
 
     const DISCOUNT_LABEL = "Save 19%";
 
-    const monthly = { premium: 14.99, plus: 29.99 };
-    const yearly = { premium: 119.99, plus: 239.99 };
+    // Base prices
+    const monthly = {
+        premium: 14.99,
+        plus: 29.99,
+    };
 
+    const yearly = {
+        premium: 119.99,
+        plus: 239.99,
+    };
+
+    // For yearly cycle: show monthly price as the "big sell", but billed annually.
     const price = {
         premium:
             cycle === "monthly"
                 ? { big: `${fmtUSD(monthly.premium)}/month`, sub: "", badge: undefined as string | undefined }
-                : {
-                    big: `${fmtUSD(yearly.premium / 12)}/mo`,
-                    sub: `Billed annually: ${fmtUSD(yearly.premium)}/yr`,
-                    badge: DISCOUNT_LABEL,
-                },
+                : { big: `${fmtUSD(yearly.premium / 12)}/mo`, sub: `Billed annually: ${fmtUSD(yearly.premium)}/yr`, badge: DISCOUNT_LABEL },
         plus:
             cycle === "monthly"
                 ? { big: `${fmtUSD(monthly.plus)}/month`, sub: "", badge: undefined as string | undefined }
-                : {
-                    big: `${fmtUSD(yearly.plus / 12)}/mo`,
-                    sub: `Billed annually: ${fmtUSD(yearly.plus)}/yr`,
-                    badge: DISCOUNT_LABEL,
-                },
+                : { big: `${fmtUSD(yearly.plus / 12)}/mo`, sub: `Billed annually: ${fmtUSD(yearly.plus)}/yr`, badge: DISCOUNT_LABEL },
     };
 
     const cycleHint = cycle === "monthly" ? "Billed monthly. Cancel anytime." : "Billed yearly. Save vs monthly.";
@@ -57,31 +60,39 @@ export default function PlansPage() {
         <main className="bg-black text-white">
             <Navbar />
 
+            {/* HERO */}
             <section className="relative overflow-hidden">
                 <FloatingLinesBackground />
 
+                {/* glow */}
                 <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-1/2 top-10 h-[520px] w-[980px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
-                    <div className="absolute left-1/3 top-44 h-[420px] w-[840px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-sky-900/10 to-black/35" />
+                    <div className="absolute left-1/2 top-10 h-[540px] w-[980px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
+                    <div className="absolute left-1/3 top-52 h-[420px] w-[840px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-10">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-24 pb-10">
                     <FadeInSection>
                         <p className="text-xs tracking-[0.25em] text-white/60 uppercase">Pricing</p>
-                        <h1 className="mt-3 text-4xl md:text-5xl font-semibold">Find your plan</h1>
+                        <h1 className="mt-3 text-4xl md:text-5xl font-semibold">Pick your plan</h1>
                         <p className="mt-4 text-white/70 max-w-2xl">
-                            Upload PDFs, ask questions with page links, generate{" "}
-                            <span className="text-white font-semibold">notes</span>,{" "}
-                            <span className="text-white font-semibold">flashcards</span>,{" "}
-                            <span className="text-white font-semibold">quizzes</span>, use the{" "}
-                            <span className="text-white font-semibold">essay grader</span>, build a{" "}
-                            <span className="text-white font-semibold">study calendar</span>, and listen with voice + translation.
-                            Free is intentionally limited; Premium tiers feel unlimited in normal use.
+                            Study with citations, generate practice instantly, and listen with premium voice. Free is intentionally limited;
+                            paid tiers are built for daily use.
                         </p>
                     </FadeInSection>
 
+                    {/* value chips */}
                     <FadeInSection delay={0.06}>
-                        <div className="mt-8 flex items-center justify-center">
+                        <div className="mt-6 grid gap-3 md:grid-cols-3">
+                            <ValueChip icon={<IconSparkles size={18} />} title="Built for daily studying" desc="Limits tuned for real usage." />
+                            <ValueChip icon={<IconBolt size={18} />} title="Faster + higher concurrency" desc="Feels snappy under load." />
+                            <ValueChip icon={<IconShieldCheck size={18} />} title="More reliable outputs" desc="Better safeguards and formatting." />
+                        </div>
+                    </FadeInSection>
+
+                    {/* billing toggle */}
+                    <FadeInSection delay={0.09}>
+                        <div className="mt-10 flex items-center justify-center">
                             <div className="relative inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/55 backdrop-blur-md p-1">
                                 <button
                                     onClick={() => setCycle("monthly")}
@@ -114,6 +125,7 @@ export default function PlansPage() {
                         <div className="mt-2 text-center text-xs text-white/45">{cycleHint}</div>
                     </FadeInSection>
 
+                    {/* cards */}
                     <div id="plans" className="mt-10 grid gap-6 lg:grid-cols-3">
                         <FadeInSection delay={0.08}>
                             <PlanCard
@@ -130,12 +142,11 @@ export default function PlansPage() {
                                 ]}
                                 bullets={[
                                     "Study Copilot with citations (limited)",
-                                    "Notes / flashcards / quizzes (limited)",
-                                    "Essay grader + study calendar (limited)",
                                     "OCR + PDF extraction included",
-                                    "Voice + translation included",
+                                    "Notes + quizzes (limited)",
+                                    "Voice included (monthly cap)",
                                 ]}
-                                footnote="Paid plans have no monthly caps for normal use, with protective rate & concurrency limits to prevent abuse."
+                                footnote="Paid plans remove monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse."
                                 ctaLabel="Try for Free"
                                 ctaHref="/get-started"
                                 ctaVariant="ghost"
@@ -144,10 +155,10 @@ export default function PlansPage() {
                         </FadeInSection>
 
                         <FadeInSection delay={0.11}>
-                            <StarBorderCard alwaysAnimate speed="16s">
-                            <PlanCard
+                            <StarBorderCard alwaysAnimate speed={16}>
+                                <PlanCard
                                     name="Premium"
-                                    subtitle="Study without limits — built for daily use."
+                                    subtitle="Daily studying with higher limits and speed."
                                     priceLabel={price.premium.big}
                                     subPriceLabel={price.premium.sub}
                                     yearlyBadge={price.premium.badge}
@@ -162,13 +173,12 @@ export default function PlansPage() {
                                         { label: "Text-to-speech", value: "150,000", sub: "words/mo" },
                                     ]}
                                     bullets={[
-                                        "Unlimited Study Copilot + generators",
-                                        "Notes, flashcards, quizzes (easy/medium/hard)",
-                                        "Essay grader + study calendar included",
+                                        "Unlimited Study chat + generators",
+                                        "Generate notes, flashcards, quizzes",
                                         "Faster streaming + higher concurrency",
                                         "Stronger reliability safeguards",
                                     ]}
-                                    footnote="Paid plans have no monthly caps for normal use, with protective rate & concurrency limits to prevent abuse."
+                                    footnote="Paid plans remove monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse."
                                     ctaLabel="Upgrade"
                                     ctaHref="/billing"
                                     ctaVariant="primary"
@@ -181,7 +191,7 @@ export default function PlansPage() {
                         <FadeInSection delay={0.14}>
                             <PlanCard
                                 name="Premium+"
-                                subtitle="Faster, bigger, best experience."
+                                subtitle="Fastest experience + higher voice limits."
                                 priceLabel={price.plus.big}
                                 subPriceLabel={price.plus.sub}
                                 yearlyBadge={price.plus.badge}
@@ -197,11 +207,11 @@ export default function PlansPage() {
                                 ]}
                                 bullets={[
                                     "Everything in Premium",
+                                    "Bigger context + more speed",
                                     "Best for long projects + large materials",
-                                    "Highest speed + concurrency limits",
                                     "Highest priority safeguards",
                                 ]}
-                                footnote="Paid plans have no monthly caps for normal use, with protective rate & concurrency limits to prevent abuse."
+                                footnote="Paid plans remove monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse."
                                 ctaLabel="Upgrade"
                                 ctaHref="/billing"
                                 ctaVariant="ghost"
@@ -212,23 +222,24 @@ export default function PlansPage() {
                 </div>
             </section>
 
+            {/* Comparison */}
             <PlanComparison />
 
+            {/* Bottom CTA */}
             <FluidGlassSection tone="violet">
                 <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
                     <FadeInSection>
                         <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md p-8 text-center">
-                            <h3 className="text-2xl md:text-3xl font-semibold">Ready to try Lexaro Learn?</h3>
+                            <h3 className="text-2xl md:text-3xl font-semibold">Ready when you are.</h3>
                             <p className="mt-3 text-white/70 max-w-2xl mx-auto">
-                                Upload a PDF, ask questions with page links, generate notes + quizzes, get essay feedback,
-                                build a study plan, and listen with voice previews.
+                                Upload a PDF, ask questions with page links, generate practice, and listen with voice.
                             </p>
                             <div className="mt-6 flex flex-wrap justify-center gap-3">
                                 <ShimmerButton href="/get-started" variant="primary">
-                                    Try it free
+                                    Get started
                                 </ShimmerButton>
-                                <ShimmerButton href="/about/features" variant="ghost">
-                                    Full feature list
+                                <ShimmerButton href="/get-started" variant="ghost">
+                                    Upload a PDF <ArrowRight className="h-4 w-4" />
                                 </ShimmerButton>
                             </div>
                             <p className="mt-3 text-xs text-white/45">Free is limited.</p>
@@ -241,6 +252,28 @@ export default function PlansPage() {
         </main>
     );
 }
+
+/* -----------------------------
+   Small UI bits
+------------------------------ */
+
+function ValueChip({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+    return (
+        <div className="rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md p-4">
+            <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10">
+                    {icon}
+                </div>
+                <div className="font-semibold">{title}</div>
+            </div>
+            <div className="mt-2 text-sm text-white/65">{desc}</div>
+        </div>
+    );
+}
+
+/* -----------------------------
+   Local plan card component
+------------------------------ */
 
 type Metric = { label: string; value: string; sub?: string };
 
@@ -285,12 +318,11 @@ function PlanCard({
         <div
             className={cn(
                 "h-full",
-                noOuterShell
-                    ? ""
-                    : "rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_26px_90px_rgba(0,0,0,.7)]"
+                noOuterShell ? "" : "rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_26px_90px_rgba(0,0,0,.7)]"
             )}
         >
             <div className="p-7">
+                {/* top row */}
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <div className="text-xl font-semibold">{name}</div>
@@ -319,6 +351,7 @@ function PlanCard({
                     </div>
                 </div>
 
+                {/* price */}
                 <div className="mt-5">
                     <div className="flex items-center justify-between gap-3">
                         <div className="text-2xl font-semibold">{priceLabel}</div>
@@ -332,6 +365,7 @@ function PlanCard({
                     {subPriceLabel ? <div className="mt-2 text-sm text-white/60">{subPriceLabel}</div> : null}
                 </div>
 
+                {/* metrics */}
                 <div className="mt-6 grid grid-cols-2 gap-3">
                     {metrics.map((m) => (
                         <div key={m.label} className="rounded-2xl border border-white/10 bg-black/55 p-4">
@@ -342,6 +376,7 @@ function PlanCard({
                     ))}
                 </div>
 
+                {/* bullets */}
                 <ul className="mt-6 space-y-2 text-sm text-white/75">
                     {bullets.map((b) => (
                         <li key={b} className="flex gap-2">
@@ -351,17 +386,18 @@ function PlanCard({
                     ))}
                 </ul>
 
+                {/* footnote */}
                 {footnote ? (
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/55 p-4 text-xs text-white/65">
                         <span className="font-semibold text-white/80">Unlimited:</span> {footnote}
                     </div>
                 ) : null}
 
+                {/* CTA */}
                 <div className="mt-6">
                     <ShimmerButton href={ctaHref} variant={ctaVariant} className="w-full justify-center">
                         {ctaLabel}
                     </ShimmerButton>
-
                     <div className="mt-3 text-center text-xs text-white/55">{note ?? (featured ? "Cancel anytime" : "")}</div>
                 </div>
             </div>

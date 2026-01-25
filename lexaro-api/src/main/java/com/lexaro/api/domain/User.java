@@ -33,4 +33,14 @@ public class User {
     private String verificationToken;
     private Instant verificationSentAt;
     private Instant verifiedAt;
+
+    // ✅ Trial enforcement (server-side)
+    private Instant trialUsedAt;
+
+    @Column(name = "trial_cooldown_until")
+    private Instant trialCooldownUntil;
+
+    // (optional but recommended later when Stripe is wired)
+    private String stripeCustomerId;
+    private String stripeSubscriptionId;
 }

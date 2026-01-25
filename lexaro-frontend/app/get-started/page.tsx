@@ -1,82 +1,124 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     // content
-    BookOpen, FileText, Newspaper, Mail, GraduationCap, PenLine, Bot, Plus,
+    BookOpen,
+    FileText,
+    Newspaper,
+    Mail,
+    GraduationCap,
+    PenLine,
+    Bot,
+    Plus,
     // goals
-    Rocket, Headphones, Target, Brain, Lightbulb,
+    Rocket,
+    Headphones,
+    Target,
+    Brain,
+    Lightbulb,
     // devices
-    Smartphone, Tablet, Monitor,
+    Smartphone,
+    Tablet,
+    Monitor,
     // times
-    Briefcase, Car, Sparkles, Dumbbell, Moon,
+    Briefcase,
+    Car,
+    Sparkles,
+    Dumbbell,
+    Moon,
     // misc
     Check,
-} from 'lucide-react';
+} from "lucide-react";
 
-import VoiceStep, { VoiceId } from '@/components/onboarding/VoiceStep'; // ⬅️ add this import
+import VoiceStep, { VoiceId } from "@/components/onboarding/VoiceStep";
 
 type Choice = { id: string; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
 
-const STEP_KEYS = ['content', 'goals', 'devices', 'times', 'voice'] as const;
+const STEP_KEYS = ["content", "goals", "devices", "times", "voice"] as const;
 const TOTAL_STEPS = STEP_KEYS.length;
 
 const CONTENT_CHOICES: Choice[] = [
-    { id: 'books',      label: 'Books',                Icon: BookOpen },
-    { id: 'documents',  label: 'Documents',            Icon: FileText },
-    { id: 'articles',   label: 'Articles & stories',   Icon: Newspaper },
-    { id: 'emails',     label: 'Emails',               Icon: Mail },
-    { id: 'academic',   label: 'Academic materials',   Icon: GraduationCap },
-    { id: 'writing',    label: 'My own writing',       Icon: PenLine },
-    { id: 'chatbots',   label: 'AI chatbots',          Icon: Bot },
-    { id: 'other',      label: 'Other',                Icon: Plus },
+    { id: "books", label: "Books", Icon: BookOpen },
+    { id: "documents", label: "Documents", Icon: FileText },
+    { id: "articles", label: "Articles & stories", Icon: Newspaper },
+    { id: "emails", label: "Emails", Icon: Mail },
+    { id: "academic", label: "Academic materials", Icon: GraduationCap },
+    { id: "writing", label: "My own writing", Icon: PenLine },
+    { id: "chatbots", label: "AI chatbots", Icon: Bot },
+    { id: "other", label: "Other", Icon: Plus },
 ];
 
 const GOAL_CHOICES: Choice[] = [
-    { id: 'productive', label: 'Be more productive',       Icon: Rocket },
-    { id: 'on-the-go',  label: 'Listen on the go',          Icon: Headphones },
-    { id: 'focused',    label: 'Stay focused and engaged',  Icon: Target },
-    { id: 'easier',     label: 'Make reading easier',       Icon: Brain },
-    { id: 'learn',      label: 'Learn something new',       Icon: Lightbulb },
-    { id: 'other',      label: 'Other',                     Icon: Plus },
+    { id: "productive", label: "Be more productive", Icon: Rocket },
+    { id: "on-the-go", label: "Listen on the go", Icon: Headphones },
+    { id: "focused", label: "Stay focused and engaged", Icon: Target },
+    { id: "easier", label: "Make studying easier", Icon: Brain },
+    { id: "learn", label: "Learn something new", Icon: Lightbulb },
+    { id: "other", label: "Other", Icon: Plus },
 ];
 
 const DEVICE_CHOICES: Choice[] = [
-    { id: 'phone',   label: 'Smartphone',     Icon: Smartphone },
-    { id: 'tablet',  label: 'Tablet',         Icon: Tablet },
-    { id: 'desktop', label: 'Desktop/Laptop', Icon: Monitor },
-    { id: 'other',   label: 'Other',          Icon: Plus },
+    { id: "phone", label: "Smartphone", Icon: Smartphone },
+    { id: "tablet", label: "Tablet", Icon: Tablet },
+    { id: "desktop", label: "Desktop/Laptop", Icon: Monitor },
+    { id: "other", label: "Other", Icon: Plus },
 ];
 
 const TIME_CHOICES: Choice[] = [
-    { id: 'work',     label: 'While working or studying',  Icon: Briefcase },
-    { id: 'commute',  label: 'During commute',             Icon: Car },
-    { id: 'chores',   label: 'While doing chores/cleaning',Icon: Sparkles },
-    { id: 'exercise', label: 'While exercising',           Icon: Dumbbell },
-    { id: 'relax',    label: 'To relax before bed',        Icon: Moon },
-    { id: 'other',    label: 'Other',                      Icon: Plus },
+    { id: "work", label: "While working or studying", Icon: Briefcase },
+    { id: "commute", label: "During commute", Icon: Car },
+    { id: "chores", label: "While doing chores/cleaning", Icon: Sparkles },
+    { id: "exercise", label: "While exercising", Icon: Dumbbell },
+    { id: "relax", label: "To relax before bed", Icon: Moon },
+    { id: "other", label: "Other", Icon: Plus },
 ];
 
 function stepTitle(step: number) {
     switch (STEP_KEYS[step]) {
-        case 'content': return 'What do you want to listen to?';
-        case 'goals':   return 'What would you like to achieve with Lexaro?';
-        case 'devices': return 'What device will you use to listen?';
-        case 'times':   return 'When do you want to listen?';
-        case 'voice':   return 'Choose a starting voice';
+        case "content":
+            return "What are you studying with Lexaro?";
+        case "goals":
+            return "What do you want Lexaro to help you improve?";
+        case "devices":
+            return "What device will you use most?";
+        case "times":
+            return "When do you usually study?";
+        case "voice":
+            return "A few quick picks (optional)";
+    }
+}
+
+function stepSubtitle(step: number) {
+    switch (STEP_KEYS[step]) {
+        case "content":
+            return "This helps Lexaro adapt the way it explains and structures study material.";
+        case "goals":
+            return "We’ll emphasize the tools that match your goals: notes, quizzes, flashcards, and voice.";
+        case "devices":
+            return "So the experience feels smooth on what you actually use.";
+        case "times":
+            return "So sessions can match your schedule and attention window.";
+        case "voice":
+            return "Choose what matters most to you so your first experience feels tailored.";
     }
 }
 
 function choicesFor(step: number): Choice[] {
     switch (STEP_KEYS[step]) {
-        case 'content': return CONTENT_CHOICES;
-        case 'goals':   return GOAL_CHOICES;
-        case 'devices': return DEVICE_CHOICES;
-        case 'times':   return TIME_CHOICES;
-        case 'voice':   return []; // custom UI handled by <VoiceStep/>
+        case "content":
+            return CONTENT_CHOICES;
+        case "goals":
+            return GOAL_CHOICES;
+        case "devices":
+            return DEVICE_CHOICES;
+        case "times":
+            return TIME_CHOICES;
+        case "voice":
+            return []; // custom UI handled by <VoiceStep/>
     }
 }
 
@@ -87,15 +129,16 @@ export default function GetStartedPage() {
     const [shake, setShake] = useState(false);
     const [selected, setSelected] = useState<Record<string, Set<string>>>({
         content: new Set(),
-        goals:   new Set(),
+        goals: new Set(),
         devices: new Set(),
-        times:   new Set(),
-        voice:   new Set(), // will hold 'v1' | 'v2' | 'v3' | 'v4'
+        times: new Set(),
+        voice: new Set(), // used by VoiceStep (optional)
     });
 
-    const title  = stepTitle(step);
-    const items  = useMemo(() => choicesFor(step), [step]);
-    const key    = STEP_KEYS[step];
+    const title = stepTitle(step);
+    const subtitle = stepSubtitle(step);
+    const items = useMemo(() => choicesFor(step), [step]);
+    const key = STEP_KEYS[step];
     const isLast = step === TOTAL_STEPS - 1;
 
     const toggle = (id: string) => {
@@ -104,8 +147,8 @@ export default function GetStartedPage() {
         setSelected((s) => ({ ...s, [key]: next }));
     };
 
-    // Voice step is optional → allow continuing without selection on step 5
-    const hasSelection = key === 'voice' ? true : selected[key].size > 0;
+    // last step optional
+    const hasSelection = key === "voice" ? true : selected[key].size > 0;
 
     const onContinue = () => {
         if (!hasSelection) {
@@ -113,29 +156,34 @@ export default function GetStartedPage() {
             setTimeout(() => setShake(false), 420);
             return;
         }
-        if (isLast) {
-            router.push('/trial-offer');
-        } else {
-            setStep((s) => s + 1);
-        }
+        if (isLast) router.push("/trial-offer");
+        else setStep((s) => s + 1);
     };
 
-    // QoL: Enter key continues
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter') onContinue(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onContinue, hasSelection, isLast]);
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Enter") onContinue();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, hasSelection]);
 
-    const progress = ((step + 1) / TOTAL_STEPS) * 100;
-    const continueLabel = isLast ? 'Start trial' : 'Continue';
+    const continueLabel = isLast ? "Start trial" : "Continue";
 
     return (
         <main className="min-h-screen bg-black text-white pb-28">
             {/* Centered brand (no navbar) */}
             <header className="pt-6">
                 <div className="mx-auto flex items-center justify-center gap-3">
-                    <Image src="/logo.png" alt="Lexaro" width={28} height={28} className="h-8 w-8" priority />
+                    <Image
+                        src="/logo.png"
+                        alt="Lexaro"
+                        width={28}
+                        height={28}
+                        className="h-8 w-8"
+                        priority
+                    />
                     <span className="text-lg font-semibold">Lexaro</span>
                 </div>
             </header>
@@ -145,13 +193,13 @@ export default function GetStartedPage() {
                 <p className="kicker text-white/60 text-center">LET’S TAILOR LEXARO</p>
                 <h1 className="h1 mt-2 text-center">{title}</h1>
                 <p className="p mt-3 text-white/70 text-center">
-                    Your choices won’t limit your experience. <span className="text-white/80">Choose all that apply.</span>
+                    {subtitle} <span className="text-white/80">Choose all that apply.</span>
                 </p>
 
                 {/* Step content */}
                 <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <AnimatePresence mode="wait">
-                        {key !== 'voice' ? (
+                        {key !== "voice" ? (
                             <motion.div
                                 key={`grid-${step}`}
                                 initial={{ opacity: 0, y: 8 }}
@@ -168,12 +216,12 @@ export default function GetStartedPage() {
                                             onClick={() => toggle(id)}
                                             whileTap={{ scale: 0.985 }}
                                             className={[
-                                                'group relative flex items-center justify-between gap-4',
-                                                'rounded-[1.25rem] border border-white/10 bg-[var(--card)]/95',
-                                                'px-5 py-5 min-h-[92px]',
-                                                'transition-colors hover:bg-white/[0.06] focus:outline-none',
-                                                active ? 'ring-1 ring-accent/50' : '',
-                                            ].join(' ')}
+                                                "group relative flex items-center justify-between gap-4",
+                                                "rounded-[1.25rem] border border-white/10 bg-[var(--card)]/95",
+                                                "px-5 py-5 min-h-[92px]",
+                                                "transition-colors hover:bg-white/[0.06] focus:outline-none",
+                                                active ? "ring-1 ring-accent/50" : "",
+                                            ].join(" ")}
                                         >
                                             <div className="flex items-center gap-4">
                         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
@@ -184,9 +232,9 @@ export default function GetStartedPage() {
 
                                             <span
                                                 className={[
-                                                    'inline-flex h-6 w-6 items-center justify-center rounded-md border transition',
-                                                    active ? 'border-accent bg-accent text-white' : 'border-white/25 text-white/40',
-                                                ].join(' ')}
+                                                    "inline-flex h-6 w-6 items-center justify-center rounded-md border transition",
+                                                    active ? "border-accent bg-accent text-white" : "border-white/25 text-white/40",
+                                                ].join(" ")}
                                                 aria-hidden
                                             >
                         {active ? <Check className="h-4 w-4" /> : null}
@@ -221,9 +269,9 @@ export default function GetStartedPage() {
                         onClick={onContinue}
                         aria-disabled={!hasSelection}
                         className={[
-                            'btn-accent',
-                            !hasSelection ? 'opacity-40 cursor-not-allowed hover:shadow-none active:scale-100' : '',
-                        ].join(' ')}
+                            "btn-accent",
+                            !hasSelection ? "opacity-40 cursor-not-allowed hover:shadow-none active:scale-100" : "",
+                        ].join(" ")}
                         animate={shake ? { x: [-7, 7, -5, 5, -2, 0] } : { x: 0 }}
                         transition={{ duration: 0.42 }}
                     >
@@ -237,15 +285,15 @@ export default function GetStartedPage() {
                 © {new Date().getFullYear()} Lexaro. All rights reserved.
             </footer>
 
-            {/* Fixed bottom progress (animated) */}
+            {/* Fixed bottom progress */}
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/60 backdrop-blur-sm">
                 <div className="section py-3">
                     <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
                         <motion.div
                             className="absolute inset-y-0 left-0 rounded-full bg-accent"
-                            initial={{ width: '0%' }}
+                            initial={{ width: "0%" }}
                             animate={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
-                            transition={{ type: 'spring', stiffness: 220, damping: 28, mass: 0.4 }}
+                            transition={{ type: "spring", stiffness: 220, damping: 28, mass: 0.4 }}
                         />
                     </div>
                     <div className="mt-2 text-center text-xs text-white/60">
