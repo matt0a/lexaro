@@ -143,7 +143,7 @@ export default function PricingGrid({ apiPlans, currentPlanKey, mode = "full" }:
                                     value={fmtLimit(p.docPagesProcessedMonthly)}
                                     suffix={suffix(p.docPagesProcessedMonthly, "pages/mo")}
                                 />
-                                <Stat label="Text-to-speech" value={fmtInt(p.monthlyWords)} suffix="words/mo" />
+                                <Stat label="Text-to-speech" value={fmtInt(p.monthlyWords)} suffix="chars/mo" />
                             </div>
 
                             {/* Bullets */}

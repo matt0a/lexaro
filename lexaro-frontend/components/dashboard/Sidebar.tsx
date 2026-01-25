@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Library, Mic, Settings, Menu, X } from 'lucide-react';
+import { Library, Mic, Settings, Menu, X, ArrowUpCircle } from 'lucide-react';
 import api from '@/lib/api';
 import AccountSheet from '@/components/settings/AccountSheet';
 
@@ -45,7 +45,7 @@ function formatPlan(p?: string) {
     const up = p.toUpperCase();
     if (up === 'FREE') return 'Free';
     if (up === 'PREMIUM') return 'Premium';
-    if (up === 'BUSINESS_PLUS' || up === 'PREMIUM_PLUS') return 'Premium Plus';
+    if (up === 'BUSINESS_PLUS' || up === 'PREMIUM_PLUS' || up === 'BUSINESS') return 'Premium Plus';
     return p;
 }
 
@@ -94,21 +94,38 @@ export default function Sidebar() {
         const e = emailFromClaims(claims);
         if (e) setEmail(e);
 
-        // fetch plan
-        loadPlan().then((p) => {
+        const refreshPlan = async () => {
+            const p = await loadPlan();
             if (p) {
                 setPlan(p.plan);
                 setPlanRaw(p.planRaw);
             }
-        });
+        };
+
+        // initial load
+        refreshPlan();
+
+        // ✅ refresh after billing sync
+        const onBillingUpdated = () => {
+            refreshPlan();
+        };
+        window.addEventListener('lexaro:billing-updated', onBillingUpdated);
+
+        return () => {
+            window.removeEventListener('lexaro:billing-updated', onBillingUpdated);
+        };
     }, []);
 
     const NAV = useMemo(
         () => [
             { href: '/dashboard', label: 'Library', Icon: Library },
+            // ✅ Upgrade link ONLY on free accounts
+            ...(planRaw?.toUpperCase() === 'FREE'
+                ? [{ href: '/billing', label: 'Upgrade', Icon: ArrowUpCircle } as const]
+                : []),
             { href: '/saved-audio', label: 'Saved Audio', Icon: Mic },
         ],
-        []
+        [planRaw]
     );
 
     const initial = (email?.[0] || 'U').toUpperCase();
@@ -197,7 +214,11 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            <AccountSheet open={openSettings} onClose={() => setOpenSettings(false)} me={{ email: email || '—', plan, planRaw }} />
+            <AccountSheet
+                open={openSettings}
+                onClose={() => setOpenSettings(false)}
+                me={{ email: email || '—', plan, planRaw }}
+            />
         </>
     );
 }

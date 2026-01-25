@@ -40,10 +40,10 @@ public class DocumentAudioService {
         return WS.matcher(t).replaceAll(" ");
     }
 
-    private static int countWords(String s) {
+    private static int countChars(String s) {
         String t = normalizeWhitespace(s);
         if (t.isEmpty()) return 0;
-        return t.split(" ").length;
+        return t.length();
     }
 
     @Transactional
@@ -99,10 +99,9 @@ public class DocumentAudioService {
             log.debug("Skipping Polly validation for non-Polly voice '{}'", reqVoice);
         }
 
-        // ---------------- Peek planned words (pre-translate) ----------------
-        // NOTE: we reuse the plan's "chars" methods but interpret their values as WORDS now.
-        int perDocCapWords = plans.ttsMaxCharsForPlan(plan);
-        int plannedWords;
+        // ---------------- Peek planned chars (pre-translate) ----------------
+        int perDocCapChars = plans.ttsMaxCharsForPlan(plan);
+        int plannedChars;
         try {
             byte[] bytes = storage.getBytes(doc.getObjectKey());
             String raw = extractor.extract(doc.getMime(), bytes, 0);
@@ -111,16 +110,17 @@ public class DocumentAudioService {
             if (text.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No extractable text in file");
             }
-            int baseWords = Math.min(countWords(text), perDocCapWords);
+
+            int baseChars = Math.min(countChars(text), perDocCapChars);
 
             boolean willTranslate = targetLang != null
                     && !targetLang.isBlank()
                     && !"auto".equalsIgnoreCase(targetLang)
                     && !"same".equalsIgnoreCase(targetLang);
 
-            plannedWords = willTranslate
-                    ? Math.min((int) Math.ceil(baseWords * translateMultiplier), perDocCapWords)
-                    : baseWords;
+            plannedChars = willTranslate
+                    ? Math.min((int) Math.ceil(baseChars * translateMultiplier), perDocCapChars)
+                    : baseChars;
 
         } catch (ResponseStatusException e) {
             throw e;
@@ -129,8 +129,8 @@ public class DocumentAudioService {
         }
 
         if (!unlimited) {
-            quota.ensureWithinDailyCap(userId, plan, plannedWords);   // interpret as words
-            quota.ensureWithinMonthlyCap(userId, plan, plannedWords); // interpret as words
+            quota.ensureWithinDailyCap(userId, plan, plannedChars);
+            quota.ensureWithinMonthlyCap(userId, plan, plannedChars);
         }
 
         // ---------------- Mark & dispatch ----------------

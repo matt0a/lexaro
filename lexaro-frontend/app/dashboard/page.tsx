@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import UploadSection from '@/components/upload/UploadSection';
@@ -23,6 +23,9 @@ export default function DashboardPage() {
     const [me, setMe] = useState<MeUsage | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Prevent double-running sync in React 18 Strict Mode dev
+    const hasHandledStripeReturn = useRef(false);
+
     const shouldOpenUpload = params.get('open') === 'upload';
 
     useEffect(() => {
@@ -32,17 +35,44 @@ export default function DashboardPage() {
             return;
         }
 
+        const checkout = params.get('checkout');
+        const sessionId = params.get('session_id');
+
+        const fetchUsage = async () => {
+            const res = await api.get<MeUsage>('/me/usage');
+            setMe(res.data);
+        };
+
         (async () => {
             try {
-                const res = await api.get<MeUsage>('/me/usage');
-                setMe(res.data);
+                // ✅ If Stripe redirected back with a session_id, finalize on backend
+                if (!hasHandledStripeReturn.current && checkout && (checkout === 'success' || checkout === 'cancel')) {
+                    hasHandledStripeReturn.current = true;
+
+                    if (checkout === 'success' && sessionId) {
+                        try {
+                            await api.post('/billing/sync', { sessionId });
+                            // tell Sidebar (and anything else) to refresh billing/plan info
+                            window.dispatchEvent(new Event('lexaro:billing-updated'));
+                        } finally {
+                            // ✅ clean URL so refresh doesn't re-trigger sync
+                            router.replace('/dashboard');
+                        }
+                    } else {
+                        // cancel case
+                        router.replace('/dashboard');
+                    }
+                }
+
+                await fetchUsage();
             } catch {
                 router.replace('/login');
             } finally {
                 setLoading(false);
             }
         })();
-    }, [router]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [router, params]);
 
     if (loading) {
         return (

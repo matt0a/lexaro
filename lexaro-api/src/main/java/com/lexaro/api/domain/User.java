@@ -2,6 +2,7 @@ package com.lexaro.api.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.Instant;
 
 @Entity
@@ -11,7 +12,9 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class User {
-    @Id @GeneratedValue(strategy=GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable=false, unique=true)
@@ -20,7 +23,8 @@ public class User {
     @Column(name="password_hash", nullable=false)
     private String passwordHash;
 
-    @Enumerated(EnumType.STRING) @Column(nullable=false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
     private Plan plan;
 
     @Column(name="retention_days", nullable=false)
@@ -29,7 +33,9 @@ public class User {
     @Column(name="created_at", nullable=false)
     private Instant createdAt;
 
-    @Column(nullable = false) private boolean verified = false;
+    @Column(nullable = false)
+    private boolean verified = false;
+
     private String verificationToken;
     private Instant verificationSentAt;
     private Instant verifiedAt;
@@ -40,7 +46,13 @@ public class User {
     @Column(name = "trial_cooldown_until")
     private Instant trialCooldownUntil;
 
-    // (optional but recommended later when Stripe is wired)
+    // Stripe
+    @Column(name = "stripe_customer_id")
     private String stripeCustomerId;
+
+    @Column(name = "stripe_subscription_id")
     private String stripeSubscriptionId;
+
+    @Column(name = "stripe_subscription_status")
+    private String stripeSubscriptionStatus; // trialing, active, canceled, past_due, etc.
 }

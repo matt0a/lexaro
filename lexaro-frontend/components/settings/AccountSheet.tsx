@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Gauge, ShieldCheck, CreditCard, Eye, EyeOff, LogOut } from 'lucide-react';
+import { X, Gauge, ShieldCheck, CreditCard, Eye, EyeOff, LogOut, ArrowRight, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type Props = {
     open: boolean;
@@ -40,7 +40,10 @@ function formatWords(n: number) {
 function useCountUp(target: number, durationMs = 600) {
     const [val, setVal] = useState(0);
     useEffect(() => {
-        if (!Number.isFinite(target)) { setVal(0); return; }
+        if (!Number.isFinite(target)) {
+            setVal(0);
+            return;
+        }
         let raf: number | null = null;
         let start: number | null = null;
         const from = val;
@@ -52,19 +55,17 @@ function useCountUp(target: number, durationMs = 600) {
             if (p < 1) raf = requestAnimationFrame(step);
         };
         raf = requestAnimationFrame(step);
-        return () => { if (raf) cancelAnimationFrame(raf); };
-    }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target]);
     return val;
 }
 
-const PLAN_CATALOG = [
-    { key: 'FREE', name: 'Free',         monthlyCap: 3_000 },
-    { key: 'PREMIUM', name: 'Premium',      monthlyCap: 120_000 },
-    { key: 'PREMIUM_PLUS', name: 'Premium Plus', monthlyCap: 300_000 },
-    { key: 'BUSINESS_PLUS', name: 'Premium Plus', monthlyCap: 300_000 },
-];
-
 export default function AccountSheet({ open, onClose, me }: Props) {
+    const router = useRouter();
+
     const [tab, setTab] = useState<'usage' | 'plan' | 'security'>('usage');
     const [usage, setUsage] = useState<Usage | null>(null);
 
@@ -78,6 +79,9 @@ export default function AccountSheet({ open, onClose, me }: Props) {
     const [secBusy, setSecBusy] = useState(false);
     const [secMsg, setSecMsg] = useState<string>('');
     const [secErr, setSecErr] = useState<string>('');
+
+    const [billingBusy, setBillingBusy] = useState(false);
+    const [billingErr, setBillingErr] = useState<string>('');
 
     useEffect(() => {
         if (!open) return;
@@ -99,6 +103,9 @@ export default function AccountSheet({ open, onClose, me }: Props) {
             setSecBusy(false);
             setSecMsg('');
             setSecErr('');
+            setBillingBusy(false);
+            setBillingErr('');
+            setTab('usage');
         }
     }, [open]);
 
@@ -144,39 +151,54 @@ export default function AccountSheet({ open, onClose, me }: Props) {
         }
     };
 
-    // NEW: logout handler
     const handleLogout = () => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('token');
-            // if you store other auth stuff, clear here too
             window.location.href = '/login';
         }
     };
 
     const friendlyPlan = formatPlan(me?.planRaw || usage?.plan);
+    const planRaw = (me?.planRaw || usage?.plan || 'FREE').toUpperCase();
+    const isFree = planRaw === 'FREE';
+
     const isUnlimited = !!usage?.unlimited || (usage?.monthlyCap ?? 0) > 1e15;
     const monthlyCap = usage?.monthlyCap ?? Number.POSITIVE_INFINITY;
     const monthlyUsed = usage?.monthlyUsed ?? 0;
-    const monthlyPct = !usage || isUnlimited || monthlyCap === 0
-        ? 0
-        : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
+    const monthlyPct =
+        !usage || isUnlimited || monthlyCap === 0 ? 0 : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
     const animMonthly = useCountUp(monthlyUsed);
-    const currentPlanKey = (me?.planRaw || usage?.plan || 'FREE').toUpperCase();
+
+    const goToSwitchPlans = () => {
+        onClose();
+        router.push('/billing');
+    };
+
+    const openBillingPortal = async () => {
+        setBillingErr('');
+        setBillingBusy(true);
+        try {
+            const { data } = await api.post<{ url?: string }>('/billing/portal', {});
+            if (data?.url) {
+                window.location.href = data.url;
+                return;
+            }
+            setBillingErr('Could not open subscription manager.');
+        } catch (e: any) {
+            setBillingErr(e?.response?.data?.message || e?.message || 'Could not open subscription manager.');
+        } finally {
+            setBillingBusy(false);
+        }
+    };
 
     return (
         <div
-            className={[
-                'fixed inset-0 z-50 transition',
-                open ? 'pointer-events-auto' : 'pointer-events-none',
-            ].join(' ')}
+            className={['fixed inset-0 z-50 transition', open ? 'pointer-events-auto' : 'pointer-events-none'].join(' ')}
             aria-hidden={!open}
         >
             {/* Background dim */}
             <div
-                className={[
-                    'absolute inset-0 bg-black/50 transition-opacity',
-                    open ? 'opacity-100' : 'opacity-0',
-                ].join(' ')}
+                className={['absolute inset-0 bg-black/50 transition-opacity', open ? 'opacity-100' : 'opacity-0'].join(' ')}
                 onClick={onClose}
             />
             {/* Slide-over sheet */}
@@ -201,9 +223,23 @@ export default function AccountSheet({ open, onClose, me }: Props) {
 
                 {/* Tabs */}
                 <div className="flex gap-2 px-5 pt-4">
-                    <TabButton active={tab==='usage'} onClick={() => setTab('usage')} icon={<Gauge className="h-4 w-4" />}>Usage</TabButton>
-                    <TabButton active={tab==='plan'} onClick={() => setTab('plan')} icon={<CreditCard className="h-4 w-4" />}>Plan</TabButton>
-                    <TabButton active={tab==='security'} onClick={() => setTab('security')} icon={<ShieldCheck className="h-4 w-4" />}>Security</TabButton>
+                    <TabButton active={tab === 'usage'} onClick={() => setTab('usage')} icon={<Gauge className="h-4 w-4" />}>
+                        Usage
+                    </TabButton>
+                    <TabButton
+                        active={tab === 'plan'}
+                        onClick={() => setTab('plan')}
+                        icon={<CreditCard className="h-4 w-4" />}
+                    >
+                        Plan
+                    </TabButton>
+                    <TabButton
+                        active={tab === 'security'}
+                        onClick={() => setTab('security')}
+                        icon={<ShieldCheck className="h-4 w-4" />}
+                    >
+                        Security
+                    </TabButton>
                 </div>
 
                 {/* Content + logout at bottom */}
@@ -236,9 +272,7 @@ export default function AccountSheet({ open, onClose, me }: Props) {
                                 )}
 
                                 {isUnlimited && (
-                                    <div className="text-sm text-white/60">
-                                        Your plan is unlimited. Usage is tracked for your reference.
-                                    </div>
+                                    <div className="text-sm text-white/60">Your plan is unlimited. Usage is tracked for your reference.</div>
                                 )}
                             </div>
                         )}
@@ -246,41 +280,37 @@ export default function AccountSheet({ open, onClose, me }: Props) {
                         {tab === 'plan' && (
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Plan & Billing</h3>
-                                <p className="text-white/70 text-sm">
-                                    You’re currently on <span className="font-medium">{friendlyPlan}</span>.
-                                </p>
 
-                                <div className="grid grid-cols-1 gap-3">
-                                    {PLAN_CATALOG.map((p) => {
-                                        const active = p.key === currentPlanKey || (p.key === 'PREMIUM_PLUS' && currentPlanKey === 'BUSINESS_PLUS');
-                                        return (
-                                            <div
-                                                key={p.key}
-                                                className={[
-                                                    'rounded-2xl border p-4 flex items-center justify-between',
-                                                    active ? 'border-white/20 bg-white/[0.06]' : 'border-white/10 bg-white/[0.03]',
-                                                ].join(' ')}
-                                            >
-                                                <div>
-                                                    <div className="text-sm font-medium">{p.name}</div>
-                                                    <div className="text-xs text-white/60">
-                                                        {formatWords(p.monthlyCap)} words / month
-                                                    </div>
-                                                </div>
-                                                {active ? (
-                                                    <span className="text-xs text-white/70">Current</span>
-                                                ) : (
-                                                    <Link
-                                                        href="/pricing"
-                                                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
-                                                    >
-                                                        View options
-                                                    </Link>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                    <div className="text-xs text-white/60">Current plan</div>
+                                    <div className="mt-1 text-lg font-semibold">{friendlyPlan}</div>
                                 </div>
+
+                                {isFree ? (
+                                    <button
+                                        onClick={goToSwitchPlans}
+                                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+                                    >
+                                        Switch plan <ArrowRight className="h-4 w-4" />
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={openBillingPortal}
+                                            disabled={billingBusy}
+                                            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+                                        >
+                                            {billingBusy ? 'Opening…' : 'Manage subscription'}
+                                            <ExternalLink className="h-4 w-4" />
+                                        </button>
+
+                                        {!!billingErr && <div className="text-sm text-red-300">{billingErr}</div>}
+
+                                        <div className="text-xs text-white/55">
+                                            Manage subscription lets you change plan or cancel.
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
 
@@ -340,7 +370,17 @@ export default function AccountSheet({ open, onClose, me }: Props) {
     );
 }
 
-function TabButton({ active, onClick, children, icon }: { active: boolean; onClick: () => void; children: React.ReactNode; icon: React.ReactNode }) {
+function TabButton({
+                       active,
+                       onClick,
+                       children,
+                       icon,
+                   }: {
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+    icon: React.ReactNode;
+}) {
     return (
         <button
             onClick={onClick}
@@ -349,7 +389,8 @@ function TabButton({ active, onClick, children, icon }: { active: boolean; onCli
                 active ? 'bg-white/10 border-white/20' : 'bg-transparent border-white/10 hover:bg-white/5',
             ].join(' ')}
         >
-            {icon}{children}
+            {icon}
+            {children}
         </button>
     );
 }
@@ -364,7 +405,11 @@ function Card({ label, value }: { label: string; value: string | number }) {
 }
 
 function PasswordField({
-                           label, value, onChange, visible, onToggle,
+                           label,
+                           value,
+                           onChange,
+                           visible,
+                           onToggle,
                        }: {
     label: string;
     value: string;

@@ -1,13 +1,16 @@
 package com.lexaro.api.web;
 
+import com.lexaro.api.domain.User;
+import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.service.BillingService;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
-import com.stripe.model.StripeObject;
+import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -18,17 +21,49 @@ import java.util.Map;
 public class BillingController {
 
     private final BillingService billingService;
+    private final UserRepository userRepository;
 
     @PostMapping("/checkout")
-    public ResponseEntity<?> checkout(@RequestBody CheckoutReq req) throws StripeException {
-
-        // ✅ TEMP for testing (replace with JWT-derived user id)
-        Long userId = 1L;
+    public ResponseEntity<?> checkout(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody CheckoutReq req
+    ) throws StripeException {
 
         Session session = billingService.createCheckoutSession(userId, req.plan);
 
-        // ✅ Return ONLY url (your frontend redirects via url)
-        return ResponseEntity.ok(Map.of("url", session.getUrl()));
+        return ResponseEntity.ok(Map.of(
+                "sessionId", session.getId(),
+                "url", session.getUrl()
+        ));
+    }
+
+    @PostMapping("/sync")
+    public ResponseEntity<?> sync(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody SyncReq req
+    ) throws StripeException {
+        billingService.syncFromCheckoutSession(req.sessionId, userId);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /**
+     * ✅ Stripe Billing Portal session (for paid users to cancel/change plan)
+     */
+    @PostMapping("/portal")
+    public ResponseEntity<?> portal(@AuthenticationPrincipal Long userId) throws StripeException {
+        var portal = billingService.createPortalSession(userId);
+        return ResponseEntity.ok(Map.of("url", portal.getUrl()));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> me(@AuthenticationPrincipal Long userId) {
+        User u = userRepository.findById(userId).orElseThrow();
+        return ResponseEntity.ok(Map.of(
+                "plan", u.getPlan(),
+                "stripeCustomerId", u.getStripeCustomerId(),
+                "stripeSubscriptionId", u.getStripeSubscriptionId(),
+                "stripeSubscriptionStatus", u.getStripeSubscriptionStatus()
+        ));
     }
 
     @PostMapping("/webhook")
@@ -43,10 +78,25 @@ public class BillingController {
 
         Event event = billingService.verifyAndConstructEvent(payload, sig);
 
-        if ("checkout.session.completed".equals(event.getType())) {
-            StripeObject obj = event.getDataObjectDeserializer().getObject().orElse(null);
-            if (obj instanceof Session session) {
-                billingService.handleCheckoutCompleted(session);
+        switch (event.getType()) {
+            case "checkout.session.completed" -> {
+                Session session = (Session) event.getDataObjectDeserializer()
+                        .getObject()
+                        .orElse(null);
+                if (session != null) billingService.handleCheckoutCompleted(session);
+            }
+            case "customer.subscription.created",
+                 "customer.subscription.updated",
+                 "customer.subscription.deleted" -> {
+
+                Subscription sub = (Subscription) event.getDataObjectDeserializer()
+                        .getObject()
+                        .orElse(null);
+
+                if (sub != null) billingService.handleSubscriptionEvent(sub.getId());
+            }
+            default -> {
+                // ignore
             }
         }
 
@@ -56,5 +106,10 @@ public class BillingController {
     @Data
     public static class CheckoutReq {
         public String plan;
+    }
+
+    @Data
+    public static class SyncReq {
+        public String sessionId;
     }
 }

@@ -141,14 +141,14 @@ export default function PlanComparison() {
 
                     {/* Voice */}
                     <Row
-                        label="Text-to-speech (monthly words)"
+                        label="Text-to-speech (monthly characters)"
                         hint="Listen to notes, chapters, and outputs."
                         free="10,000"
-                        premium="150,000"
-                        plus="350,000"
+                        premium="900,000"
+                        plus="2,000,000"
                     />
                     <Row label="Voices" hint="Paid tiers unlock better voice quality." free="Basic" premium="Natural (200+)" plus="Studio & Pro" />
-                    <Row label="Languages" free="Up to 5" premium="60+" plus="60+" />
+                    <Row label="Languages" free="1" premium="15+" plus="15+" />
                     <Row label="Offline MP3 download" free={false} premium={true} plus={true} />
                     <Row label="Max speed" free="1x" premium="3.5x" plus="10x" />
 

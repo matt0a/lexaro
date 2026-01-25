@@ -40,10 +40,10 @@ public class PlanService {
     @Value("${app.tts.caps.businessPlus.perDocChars:15000000}") private int businessPlusPerDocChars;
 
     // --- Monthly caps (used by TtsQuotaService) ---
-    @Value("${app.tts.monthly.free:3000}")            private long monthFree;
-    @Value("${app.tts.monthly.premium:120000}")        private long monthPremium;
-    @Value("${app.tts.monthly.business:5000000}")       private long monthBusiness;
-    @Value("${app.tts.monthly.businessPlus:300000}")  private long monthBusinessPlus;
+    @Value("${app.tts.monthly.free:10000}")            private long monthFree;
+    @Value("${app.tts.monthly.premium:900000}")        private long monthPremium;
+    @Value("${app.tts.monthly.business:2000000}")      private long monthBusiness;
+    @Value("${app.tts.monthly.businessPlus:2000000}")  private long monthBusinessPlus;
 
     // --- Daily caps (0/<=0 means unlimited daily) ---
     @Value("${app.tts.daily.free:10000}")       private long dailyFree;

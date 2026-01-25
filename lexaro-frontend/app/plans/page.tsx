@@ -138,7 +138,7 @@ export default function PlansPage() {
                                     { label: "Study chat", value: "40", sub: "/mo" },
                                     { label: "Generate", value: "10", sub: "/mo" },
                                     { label: "Docs processed", value: "300", sub: "pages/mo" },
-                                    { label: "Text-to-speech", value: "10,000", sub: "words/mo" },
+                                    { label: "Text-to-speech", value: "10,000", sub: "chars/mo" },
                                 ]}
                                 bullets={[
                                     "Study Copilot with citations (limited)",
@@ -170,7 +170,7 @@ export default function PlansPage() {
                                         { label: "Study chat", value: "Unlimited" },
                                         { label: "Generate", value: "Unlimited" },
                                         { label: "Docs processed", value: "Unlimited" },
-                                        { label: "Text-to-speech", value: "150,000", sub: "words/mo" },
+                                        { label: "Text-to-speech", value: "900,000", sub: "chars/mo" },
                                     ]}
                                     bullets={[
                                         "Unlimited Study chat + generators",
@@ -203,7 +203,7 @@ export default function PlansPage() {
                                     { label: "Study chat", value: "Unlimited" },
                                     { label: "Generate", value: "Unlimited" },
                                     { label: "Docs processed", value: "Unlimited" },
-                                    { label: "Text-to-speech", value: "350,000", sub: "words/mo" },
+                                    { label: "Text-to-speech", value: "2,000,000", sub: "chars/mo" },
                                 ]}
                                 bullets={[
                                     "Everything in Premium",

@@ -6,15 +6,17 @@ import com.lexaro.api.domain.User;
 import com.lexaro.api.repo.UserRepository;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 @Service
@@ -24,161 +26,154 @@ public class BillingService {
     private final StripeConfig stripeConfig;
     private final UserRepository userRepository;
 
-    @Value("${app.url}")
+    @Value("${app.url:http://localhost:3000}")
     private String appUrl;
 
-    public Session createCheckoutSession(Long userId, String plan) throws StripeException {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    /**
+     * IMPORTANT:
+     * This must point to the page that runs the "checkout success -> /billing/sync" logic.
+     * If your UI page is /upgrade instead of /billing, change this constant to "/upgrade".
+     */
+    private static final String BILLING_RETURN_PATH = "/billing";
 
-        String normalized = (plan == null ? "FREE" : plan.trim().toUpperCase());
+    public Session createCheckoutSession(Long userId, String planKey) throws StripeException {
+        User user = userRepository.findById(userId).orElseThrow();
 
-        if ("FREE".equals(normalized)) {
-            throw new IllegalArgumentException("FREE plan does not require checkout");
-        }
+        String priceId = resolvePriceId(planKey);
 
-        // Map frontend plan key -> (Stripe priceId, backend Plan enum)
-        PlanSelection sel = selectPlan(normalized);
+        // ✅ Return to billing page so frontend can call /billing/sync using session_id
+        String successUrl = appUrl + BILLING_RETURN_PATH + "?checkout=success&session_id={CHECKOUT_SESSION_ID}";
+        String cancelUrl = appUrl + BILLING_RETURN_PATH + "?checkout=cancel";
 
-        boolean eligibleForTrial = isTrialEligible(user);
-
-        String successUrl = appUrl + "/dashboard?checkout=success";
-        String cancelUrl  = appUrl + "/signup?checkout=cancel";
-
-        SessionCreateParams.SubscriptionData.Builder subData =
-                SessionCreateParams.SubscriptionData.builder();
-
-        // 3-day trial only if eligible
-        if (eligibleForTrial) {
-            subData.setTrialPeriodDays(3L);
-        }
-
-        // Put metadata on BOTH subscription + session (makes webhook handling reliable)
-        subData.putMetadata("userId", String.valueOf(userId));
-        subData.putMetadata("plan", normalized);
-        subData.putMetadata("trialGranted", String.valueOf(eligibleForTrial));
-
-        SessionCreateParams params = SessionCreateParams.builder()
+        SessionCreateParams.Builder builder = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                .setCustomerEmail(user.getEmail())
-                .addLineItem(
-                        SessionCreateParams.LineItem.builder()
-                                .setPrice(sel.priceId())
-                                .setQuantity(1L)
-                                .build()
-                )
-                .setSubscriptionData(subData.build())
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
-                .putMetadata("userId", String.valueOf(userId))
-                .putMetadata("plan", normalized)
-                .putMetadata("trialGranted", String.valueOf(eligibleForTrial))
-                .build();
+                .setClientReferenceId(String.valueOf(userId))
+                .addLineItem(SessionCreateParams.LineItem.builder()
+                        .setPrice(priceId)
+                        .setQuantity(1L)
+                        .build())
+                .setSubscriptionData(SessionCreateParams.SubscriptionData.builder()
+                        .setTrialPeriodDays(stripeConfig.getTrialDays())
+                        .putMetadata("userId", String.valueOf(userId))
+                        .putMetadata("planKey", planKey)
+                        .build());
 
-        return Session.create(params);
-    }
-
-    public Event verifyAndConstructEvent(String payload, String sigHeader) throws Exception {
-        return Webhook.constructEvent(payload, sigHeader, stripeConfig.getWebhookSecret());
-    }
-
-    public void handleCheckoutCompleted(Session session) {
-        Map<String, String> meta = session.getMetadata();
-        if (meta == null) return;
-
-        String userIdStr = meta.get("userId");
-        String planKey = meta.get("plan");
-        String trialGrantedStr = meta.get("trialGranted");
-
-        if (userIdStr == null || planKey == null) return;
-
-        Long userId;
-        try {
-            userId = Long.valueOf(userIdStr);
-        } catch (Exception e) {
-            return;
+        // Reuse existing Stripe customer if we have one
+        if (user.getStripeCustomerId() != null && !user.getStripeCustomerId().isBlank()) {
+            builder.setCustomer(user.getStripeCustomerId());
+        } else if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            builder.setCustomerEmail(user.getEmail());
         }
 
-        User user = userRepository.findById(userId).orElse(null);
+        return Session.create(builder.build());
+    }
+
+    public Event verifyAndConstructEvent(String payload, String signature) throws StripeException {
+        return Webhook.constructEvent(payload, signature, stripeConfig.getWebhookSecret());
+    }
+
+    public void handleCheckoutCompleted(Session session) throws StripeException {
+        if (session.getSubscription() == null) return;
+        handleSubscriptionEvent(session.getSubscription());
+    }
+
+    public void handleSubscriptionEvent(String subscriptionId) throws StripeException {
+        Subscription sub = Subscription.retrieve(
+                subscriptionId,
+                SubscriptionRetrieveParams.builder()
+                        .addExpand("items.data.price")
+                        .build(),
+                null
+        );
+
+        Map<String, String> md = sub.getMetadata();
+        Long userId = null;
+
+        if (md != null && md.get("userId") != null) {
+            try { userId = Long.valueOf(md.get("userId")); }
+            catch (NumberFormatException ignored) {}
+        }
+
+        User user = null;
+
+        if (userId != null) user = userRepository.findById(userId).orElse(null);
+        if (user == null && sub.getCustomer() != null) user = userRepository.findByStripeCustomerId(sub.getCustomer()).orElse(null);
+        if (user == null) user = userRepository.findByStripeSubscriptionId(subscriptionId).orElse(null);
         if (user == null) return;
 
-        // Save Stripe IDs (safe even if null)
-        user.setStripeCustomerId(session.getCustomer());
-        user.setStripeSubscriptionId(session.getSubscription());
+        String planKey = md != null ? md.get("planKey") : null;
 
-        // ✅ FIX: plan is an enum, not a String
-        Plan mappedPlan = mapPlanKeyToEnum(planKey);
-        user.setPlan(mappedPlan);
-
-        // ✅ Trial enforcement: only mark if trial was actually granted at checkout
-        boolean trialGranted = "true".equalsIgnoreCase(trialGrantedStr);
-        if (trialGranted) {
-            if (user.getTrialUsedAt() == null) {
-                user.setTrialUsedAt(Instant.now());
-            }
-            if (user.getTrialCooldownUntil() == null || user.getTrialCooldownUntil().isBefore(Instant.now())) {
-                user.setTrialCooldownUntil(Instant.now().plus(6, ChronoUnit.MONTHS));
-            }
-        }
-
+        user.setPlan(mapPlanKeyToPlan(planKey));
+        user.setStripeCustomerId(sub.getCustomer());
+        user.setStripeSubscriptionId(sub.getId());
+        user.setStripeSubscriptionStatus(sub.getStatus());
         userRepository.save(user);
     }
 
-    private boolean isTrialEligible(User user) {
-        Instant now = Instant.now();
+    public void syncFromCheckoutSession(String sessionId, Long userId) throws StripeException {
+        Session session = Session.retrieve(sessionId);
 
-        // If you’re using a hard cooldown timestamp, this is the strongest check:
-        if (user.getTrialCooldownUntil() != null && user.getTrialCooldownUntil().isAfter(now)) {
-            return false;
+        // Safety: make sure this session belongs to this user (client_reference_id)
+        String clientRef = session.getClientReferenceId();
+        if (clientRef != null && !clientRef.isBlank()) {
+            try {
+                long ref = Long.parseLong(clientRef);
+                if (ref != userId) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Session does not belong to authenticated user");
+                }
+            } catch (NumberFormatException ignored) {}
         }
 
-        // Fallback: allow if never used, or used more than 6 months ago
-        if (user.getTrialUsedAt() == null) return true;
+        if (session.getSubscription() == null) return;
 
-        Instant sixMonthsAgo = now.minus(6, ChronoUnit.MONTHS);
-        return user.getTrialUsedAt().isBefore(sixMonthsAgo);
-    }
+        // Link customer/subscription to user
+        User user = userRepository.findById(userId).orElseThrow();
+        if (session.getCustomer() != null) user.setStripeCustomerId(session.getCustomer());
+        if (session.getSubscription() != null) user.setStripeSubscriptionId(session.getSubscription());
+        userRepository.save(user);
 
-    // ---- helpers ----
-
-    private PlanSelection selectPlan(String normalized) {
-        return switch (normalized) {
-            // Monthly
-            case "PREMIUM" -> new PlanSelection(stripeConfig.getPrice().getPremium(), Plan.PREMIUM);
-            case "PREMIUM_PLUS" -> new PlanSelection(stripeConfig.getPrice().getPremiumPlus(), Plan.BUSINESS);
-
-            // Yearly (your new ones)
-            case "PREMIUM_YEARLY", "PREMIUM_ANNUAL" ->
-                    new PlanSelection(stripeConfig.getPrice().getPremiumYearly(), Plan.PREMIUM);
-
-            case "PREMIUM_PLUS_YEARLY", "PREMIUM_PLUS_ANNUAL" ->
-                    new PlanSelection(stripeConfig.getPrice().getPremiumPlusYearly(), Plan.BUSINESS);
-
-            default -> throw new IllegalArgumentException("Unknown plan: " + normalized);
-        };
+        // Pull latest subscription -> updates plan + status
+        handleSubscriptionEvent(session.getSubscription());
     }
 
     /**
-     * Converts the plan key saved in Stripe metadata into your backend enum.
-     * NOTE: You currently have Plan.FREE, PREMIUM, BUSINESS, BUSINESS_PLUS.
-     * This maps PREMIUM_PLUS -> BUSINESS so your existing enum works without changing it.
+     * ✅ Stripe Billing Portal (manage / cancel / update payment method)
      */
-    private Plan mapPlanKeyToEnum(String planKey) {
-        if (planKey == null) return Plan.FREE;
+    public com.stripe.model.billingportal.Session createPortalSession(Long userId) throws StripeException {
+        User user = userRepository.findById(userId).orElseThrow();
 
-        String p = planKey.trim().toUpperCase();
-
-        // Yearly keys should map to the same plan tier
-        if (p.endsWith("_YEARLY") || p.endsWith("_ANNUAL")) {
-            p = p.replace("_YEARLY", "").replace("_ANNUAL", "");
+        if (user.getStripeCustomerId() == null || user.getStripeCustomerId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No Stripe customer found for this account");
         }
 
-        return switch (p) {
-            case "PREMIUM" -> Plan.PREMIUM;
-            case "PREMIUM_PLUS" -> Plan.BUSINESS; // maps to your current enum
+        // ✅ MUST use billingportal SessionCreateParams (not checkout SessionCreateParams)
+        com.stripe.param.billingportal.SessionCreateParams portalParams =
+                com.stripe.param.billingportal.SessionCreateParams.builder()
+                        .setCustomer(user.getStripeCustomerId())
+                        .setReturnUrl(appUrl + "/dashboard")
+                        .build();
+
+        return com.stripe.model.billingportal.Session.create(portalParams);
+    }
+
+    private String resolvePriceId(String planKey) {
+        return switch (planKey) {
+            case "PREMIUM" -> stripeConfig.getPrice().getPremium();
+            case "PREMIUM_PLUS" -> stripeConfig.getPrice().getPremiumPlus();
+            case "PREMIUM_YEARLY" -> stripeConfig.getPrice().getPremiumYearly();
+            case "PREMIUM_PLUS_YEARLY" -> stripeConfig.getPrice().getPremiumPlusYearly();
             default -> throw new IllegalArgumentException("Unknown plan: " + planKey);
         };
     }
 
-    private record PlanSelection(String priceId, Plan plan) {}
+    private Plan mapPlanKeyToPlan(String planKey) {
+        if (planKey == null) return Plan.FREE;
+        return switch (planKey) {
+            case "PREMIUM", "PREMIUM_YEARLY" -> Plan.PREMIUM;
+            case "PREMIUM_PLUS", "PREMIUM_PLUS_YEARLY" -> Plan.BUSINESS_PLUS;
+            default -> Plan.FREE;
+        };
+    }
 }

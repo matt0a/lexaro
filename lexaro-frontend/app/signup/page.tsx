@@ -14,11 +14,7 @@ function EyeIcon({ open }: { open: boolean }) {
                 stroke="currentColor"
                 strokeWidth="1.8"
             />
-            <path
-                d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
-                stroke="currentColor"
-                strokeWidth="1.8"
-            />
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="1.8" />
         </svg>
     ) : (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="opacity-90">
@@ -45,10 +41,7 @@ function EyeIcon({ open }: { open: boolean }) {
     );
 }
 
-type Strength = {
-    score: number; // 0..4
-    label: string;
-};
+type Strength = { score: number; label: string };
 
 function getPasswordStrength(pw: string): Strength {
     const p = pw ?? '';
@@ -60,19 +53,14 @@ function getPasswordStrength(pw: string): Strength {
     if (/[0-9]/.test(p)) score++;
     if (/[^A-Za-z0-9]/.test(p)) score++;
 
-    const label =
-        score <= 1 ? 'Weak' :
-            score === 2 ? 'Okay' :
-                score === 3 ? 'Good' :
-                    'Strong';
-
-    // If length < 8, keep it in weak bucket visually
+    const label = score <= 1 ? 'Weak' : score === 2 ? 'Okay' : score === 3 ? 'Good' : 'Strong';
     if (p.length < 8) return { score: 1, label: 'Too short' };
-
     return { score, label };
 }
 
 export default function SignupPage() {
+    const router = useRouter();
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -80,14 +68,15 @@ export default function SignupPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
+    const [agree, setAgree] = useState(false);
+
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const router = useRouter();
-
     const strength = useMemo(() => getPasswordStrength(password), [password]);
+
     const passwordsMatch = useMemo(() => {
-        if (!confirmPassword) return true; // don’t show mismatch too early
+        if (!confirmPassword) return true;
         return password === confirmPassword;
     }, [password, confirmPassword]);
 
@@ -96,12 +85,18 @@ export default function SignupPage() {
         if (password.length < 8) return false;
         if (!confirmPassword) return false;
         if (password !== confirmPassword) return false;
+        if (!agree) return false;
         return true;
-    }, [email, password, confirmPassword]);
+    }, [email, password, confirmPassword, agree]);
 
     const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
+
+        if (!agree) {
+            setError('You must agree to the Terms of Service and Privacy Policy.');
+            return;
+        }
 
         if (password.length < 8) {
             setError('Password must be at least 8 characters.');
@@ -123,9 +118,7 @@ export default function SignupPage() {
         }
     };
 
-    // Bar fill 0..100%
     const fillPct = useMemo(() => {
-        // Map score (0..4) to percentage
         const score = strength.score;
         if (score <= 0) return 0;
         return Math.min(100, (score / 4) * 100);
@@ -134,7 +127,7 @@ export default function SignupPage() {
     return (
         <AuthShell
             title="Create your account"
-            subtitle="Start listening and translating your documents in seconds."
+            subtitle="Start listening in minutes."
             footer={
                 <>
                     Already have an account?{' '}
@@ -218,9 +211,28 @@ export default function SignupPage() {
                     </button>
                 </div>
 
-                {!passwordsMatch && (
-                    <p className="text-xs text-red-300">Passwords don’t match.</p>
-                )}
+                {!passwordsMatch && <p className="text-xs text-red-300">Passwords don’t match.</p>}
+
+                {/* Terms gate */}
+                <label className="flex items-start gap-2 text-xs text-white/70 select-none">
+                    <input
+                        type="checkbox"
+                        checked={agree}
+                        onChange={(e) => setAgree(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/10"
+                    />
+                    <span>
+            I agree to the{' '}
+                        <Link href="/terms" className="underline decoration-white/40 hover:decoration-white/80">
+              Terms of Service
+            </Link>{' '}
+                        and{' '}
+                        <Link href="/privacy" className="underline decoration-white/40 hover:decoration-white/80">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+                </label>
 
                 {error && <p className="form-error">{error}</p>}
 

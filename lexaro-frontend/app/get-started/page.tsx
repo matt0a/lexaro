@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    // content
     BookOpen,
     FileText,
     Newspaper,
@@ -14,23 +13,19 @@ import {
     PenLine,
     Bot,
     Plus,
-    // goals
     Rocket,
     Headphones,
     Target,
     Brain,
     Lightbulb,
-    // devices
     Smartphone,
     Tablet,
     Monitor,
-    // times
     Briefcase,
     Car,
     Sparkles,
     Dumbbell,
     Moon,
-    // misc
     Check,
 } from "lucide-react";
 
@@ -39,6 +34,7 @@ import VoiceStep, { VoiceId } from "@/components/onboarding/VoiceStep";
 type Choice = { id: string; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
 
 const STEP_KEYS = ["content", "goals", "devices", "times", "voice"] as const;
+type StepKey = (typeof STEP_KEYS)[number];
 const TOTAL_STEPS = STEP_KEYS.length;
 
 const CONTENT_CHOICES: Choice[] = [
@@ -118,7 +114,7 @@ function choicesFor(step: number): Choice[] {
         case "times":
             return TIME_CHOICES;
         case "voice":
-            return []; // custom UI handled by <VoiceStep/>
+            return [];
     }
 }
 
@@ -127,27 +123,34 @@ export default function GetStartedPage() {
 
     const [step, setStep] = useState(0);
     const [shake, setShake] = useState(false);
-    const [selected, setSelected] = useState<Record<string, Set<string>>>({
+
+    const [selected, setSelected] = useState<{
+        content: Set<string>;
+        goals: Set<string>;
+        devices: Set<string>;
+        times: Set<string>;
+        voice: Set<VoiceId>;
+    }>({
         content: new Set(),
         goals: new Set(),
         devices: new Set(),
         times: new Set(),
-        voice: new Set(), // used by VoiceStep (optional)
+        voice: new Set(),
     });
 
     const title = stepTitle(step);
     const subtitle = stepSubtitle(step);
     const items = useMemo(() => choicesFor(step), [step]);
-    const key = STEP_KEYS[step];
+    const key: StepKey = STEP_KEYS[step];
     const isLast = step === TOTAL_STEPS - 1;
 
     const toggle = (id: string) => {
+        if (key === "voice") return; // handled by VoiceStep
         const next = new Set(selected[key]);
         next.has(id) ? next.delete(id) : next.add(id);
         setSelected((s) => ({ ...s, [key]: next }));
     };
 
-    // last step optional
     const hasSelection = key === "voice" ? true : selected[key].size > 0;
 
     const onContinue = () => {
@@ -156,8 +159,24 @@ export default function GetStartedPage() {
             setTimeout(() => setShake(false), 420);
             return;
         }
-        if (isLast) router.push("/trial-offer");
-        else setStep((s) => s + 1);
+
+        if (isLast) {
+            try {
+                const payload = {
+                    content: Array.from(selected.content),
+                    goals: Array.from(selected.goals),
+                    devices: Array.from(selected.devices),
+                    times: Array.from(selected.times),
+                    picks: Array.from(selected.voice),
+                    completedAt: new Date().toISOString(),
+                };
+                localStorage.setItem("lexaro:onboarding", JSON.stringify(payload));
+            } catch {}
+
+            router.push("/signup?from=onboarding");
+        } else {
+            setStep((s) => s + 1);
+        }
     };
 
     useEffect(() => {
@@ -169,26 +188,17 @@ export default function GetStartedPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, hasSelection]);
 
-    const continueLabel = isLast ? "Start trial" : "Continue";
+    const continueLabel = isLast ? "Create account" : "Continue";
 
     return (
         <main className="min-h-screen bg-black text-white pb-28">
-            {/* Centered brand (no navbar) */}
             <header className="pt-6">
                 <div className="mx-auto flex items-center justify-center gap-3">
-                    <Image
-                        src="/logo.png"
-                        alt="Lexaro"
-                        width={28}
-                        height={28}
-                        className="h-8 w-8"
-                        priority
-                    />
+                    <Image src="/logo.png" alt="Lexaro" width={28} height={28} className="h-8 w-8" priority />
                     <span className="text-lg font-semibold">Lexaro</span>
                 </div>
             </header>
 
-            {/* Body */}
             <section className="section mt-10 max-w-4xl">
                 <p className="kicker text-white/60 text-center">LET’S TAILOR LEXARO</p>
                 <h1 className="h1 mt-2 text-center">{title}</h1>
@@ -196,7 +206,6 @@ export default function GetStartedPage() {
                     {subtitle} <span className="text-white/80">Choose all that apply.</span>
                 </p>
 
-                {/* Step content */}
                 <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <AnimatePresence mode="wait">
                         {key !== "voice" ? (
@@ -247,14 +256,13 @@ export default function GetStartedPage() {
                             </motion.div>
                         ) : (
                             <VoiceStep
-                                selected={selected.voice as Set<VoiceId>}
+                                selected={selected.voice}
                                 onChange={(next) => setSelected((s) => ({ ...s, voice: next }))}
                             />
                         )}
                     </AnimatePresence>
                 </div>
 
-                {/* Actions */}
                 <div className="mt-8 flex items-center justify-center gap-3">
                     {step > 0 && (
                         <button
@@ -280,12 +288,10 @@ export default function GetStartedPage() {
                 </div>
             </section>
 
-            {/* Centered footer */}
             <footer className="mt-16 py-10 text-center text-sm text-white/60">
                 © {new Date().getFullYear()} Lexaro. All rights reserved.
             </footer>
 
-            {/* Fixed bottom progress */}
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/60 backdrop-blur-sm">
                 <div className="section py-3">
                     <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
