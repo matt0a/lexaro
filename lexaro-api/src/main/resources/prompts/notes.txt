@@ -1,0 +1,2 @@
+Generate study notes from the provided content.
+Output must be clear headings + bullet points, and end with a short "Key Takeaways" list.

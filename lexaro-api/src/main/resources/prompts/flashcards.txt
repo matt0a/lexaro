@@ -1,0 +1,8 @@
+Create flashcards from the provided content.
+Return JSON ONLY with this shape:
+{
+  "cards": [
+    {"front": "...", "back": "...", "topic": "..."}
+  ]
+}
+Keep cards short and testable.

@@ -1,0 +1,13 @@
+Create a quiz from the provided content.
+Return JSON ONLY with this shape:
+{
+  "questions": [
+    {
+      "type": "mcq",
+      "prompt": "...",
+      "choices": ["A","B","C","D"],
+      "answerIndex": 0,
+      "explanation": "..."
+    }
+  ]
+}

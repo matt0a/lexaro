@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Library, Mic, Settings, Menu, X, ArrowUpCircle } from 'lucide-react';
+import {
+    Library,
+    Mic,
+    Settings,
+    Menu,
+    X,
+    ArrowUpCircle,
+    GraduationCap,
+    BarChart3,
+} from 'lucide-react';
 import api from '@/lib/api';
 import AccountSheet from '@/components/settings/AccountSheet';
 
@@ -105,7 +114,7 @@ export default function Sidebar() {
         // initial load
         refreshPlan();
 
-        // ✅ refresh after billing sync
+        // refresh after billing sync
         const onBillingUpdated = () => {
             refreshPlan();
         };
@@ -119,10 +128,14 @@ export default function Sidebar() {
     const NAV = useMemo(
         () => [
             { href: '/dashboard', label: 'Library', Icon: Library },
-            // ✅ Upgrade link ONLY on free accounts
+            { href: '/education', label: 'Education', Icon: GraduationCap },
+            { href: '/education/progress', label: 'Progress', Icon: BarChart3 },
+
+            // Upgrade link ONLY on free accounts
             ...(planRaw?.toUpperCase() === 'FREE'
                 ? [{ href: '/billing', label: 'Upgrade', Icon: ArrowUpCircle } as const]
                 : []),
+
             { href: '/saved-audio', label: 'Saved Audio', Icon: Mic },
         ],
         [planRaw]
@@ -146,10 +159,7 @@ export default function Sidebar() {
 
             {/* Mobile overlay */}
             {mobileOpen ? (
-                <div
-                    className="md:hidden fixed inset-0 z-[110] bg-black/45"
-                    onClick={() => setMobileOpen(false)}
-                />
+                <div className="md:hidden fixed inset-0 z-[110] bg-black/45" onClick={() => setMobileOpen(false)} />
             ) : null}
 
             {/* Sidebar */}
@@ -214,11 +224,7 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            <AccountSheet
-                open={openSettings}
-                onClose={() => setOpenSettings(false)}
-                me={{ email: email || '—', plan, planRaw }}
-            />
+            <AccountSheet open={openSettings} onClose={() => setOpenSettings(false)} me={{ email: email || '—', plan, planRaw }} />
         </>
     );
 }
