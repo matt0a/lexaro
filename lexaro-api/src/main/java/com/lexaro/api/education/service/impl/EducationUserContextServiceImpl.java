@@ -20,12 +20,13 @@ public class EducationUserContextServiceImpl implements EducationUserContextServ
     @Override
     public User requireCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
             throw new ResponseStatusException(UNAUTHORIZED, "Unauthorized");
         }
 
-        String email = auth.getName(); // your JWT typically sets this to email
-        return userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "User not found"));
+        // Same pattern as MeController.userId() - cast principal to Long directly
+        Long userId = (Long) auth.getPrincipal();
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "User not found: " + userId));
     }
 }

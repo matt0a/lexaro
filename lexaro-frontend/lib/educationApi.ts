@@ -48,6 +48,58 @@ export async function searchEducationChunks(
 }
 
 /** =========================
+ *  AI Chat API
+ *  ========================= */
+
+/**
+ * A single chat turn for conversation history.
+ * role: "user" | "assistant"
+ */
+export type ChatMessage = {
+    role: 'user' | 'assistant';
+    content: string;
+};
+
+/**
+ * A source reference (chunk) used to ground an answer with citations.
+ */
+export type ChatSource = {
+    chunkId: number;
+    pageStart?: number | null;
+    pageEnd?: number | null;
+    score?: number | null;
+    snippet: string;
+    chunkIndex: number;
+};
+
+/**
+ * Request payload for education chat.
+ */
+export type ChatRequest = {
+    message: string;
+    docId?: number | null;
+    history?: ChatMessage[];
+};
+
+/**
+ * Response from education chat endpoint.
+ */
+export type ChatResponse = {
+    answer: string;
+    docId?: number | null;
+    sources: ChatSource[];
+};
+
+/**
+ * Send a message to the AI tutor with optional document context and conversation history.
+ * Returns the AI response with source citations.
+ */
+export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
+    const { data } = await api.post<ChatResponse>('/education/chat', request);
+    return data;
+}
+
+/** =========================
  *  Progress Hub API
  *  ========================= */
 
@@ -107,4 +159,241 @@ export async function getEducationWeakTopics(days = 30, limit = 10) {
 export async function recordEducationAttempt(payload: EducationAttemptCreateRequest) {
     const { data } = await api.post<EducationAttemptEvent>(`/education/progress/attempts`, payload);
     return data;
+}
+
+/** =========================
+ *  Quiz API
+ *  ========================= */
+
+/**
+ * A quiz question with choices.
+ */
+export type QuizQuestion = {
+    id: number;
+    questionIndex: number;
+    questionType: string;
+    prompt: string;
+    choices: string[];
+    answerIndex?: number | null;    // null when taking quiz
+    explanation?: string | null;     // null when taking quiz
+};
+
+/**
+ * A complete quiz with questions.
+ */
+export type Quiz = {
+    id: number;
+    docId: number;
+    title: string;
+    questionCount: number;
+    questions: QuizQuestion[];
+    createdAt: string;
+};
+
+/**
+ * Request to generate a quiz.
+ */
+export type GenerateQuizRequest = {
+    questionCount?: number;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    pageStart?: number;
+    pageEnd?: number;
+};
+
+/**
+ * Result for a single graded question.
+ */
+export type QuestionResult = {
+    questionId: number;
+    questionIndex: number;
+    prompt: string;
+    choices: string[];
+    correctAnswerIndex: number;
+    userAnswerIndex?: number | null;
+    correct: boolean;
+    explanation: string;
+};
+
+/**
+ * Response after grading a quiz.
+ */
+export type QuizGradeResponse = {
+    quizId: number;
+    totalQuestions: number;
+    correctCount: number;
+    incorrectCount: number;
+    scorePercent: number;
+    results: QuestionResult[];
+    weakTopics: string[];
+};
+
+/**
+ * Generate a new quiz from document content.
+ */
+export async function generateQuiz(docId: number, options?: GenerateQuizRequest): Promise<Quiz> {
+    const { data } = await api.post<Quiz>(`/education/documents/${docId}/quizzes/generate`, options || {});
+    return data;
+}
+
+/**
+ * Get all quizzes for a document.
+ */
+export async function getQuizzesForDocument(docId: number): Promise<Quiz[]> {
+    const { data } = await api.get<Quiz[]>(`/education/documents/${docId}/quizzes`);
+    return data;
+}
+
+/**
+ * Get a specific quiz by ID.
+ */
+export async function getQuiz(quizId: number): Promise<Quiz> {
+    const { data } = await api.get<Quiz>(`/education/quizzes/${quizId}`);
+    return data;
+}
+
+/**
+ * Grade a quiz attempt.
+ * @param quizId The quiz ID
+ * @param answers Map of questionId -> selected answer index
+ */
+export async function gradeQuiz(quizId: number, answers: Record<number, number>): Promise<QuizGradeResponse> {
+    const { data } = await api.post<QuizGradeResponse>(`/education/quizzes/${quizId}/grade`, { answers });
+    return data;
+}
+
+/**
+ * Delete a quiz.
+ */
+export async function deleteQuiz(quizId: number): Promise<void> {
+    await api.delete(`/education/quizzes/${quizId}`);
+}
+
+/** =========================
+ *  Notes API
+ *  ========================= */
+
+/**
+ * Note style options.
+ */
+export type NoteStyle = 'outline' | 'cornell' | 'detailed' | 'summary';
+
+/**
+ * A generated note.
+ */
+export type Note = {
+    id: number;
+    docId: number;
+    title: string;
+    style: NoteStyle;
+    content: string;
+    pageStart?: number | null;
+    pageEnd?: number | null;
+    createdAt: string;
+};
+
+/**
+ * Request to generate notes.
+ */
+export type GenerateNotesRequest = {
+    style?: NoteStyle;
+    pageStart?: number;
+    pageEnd?: number;
+};
+
+/**
+ * Generate notes from document content.
+ * Supports styles: outline, cornell, detailed, summary
+ */
+export async function generateNotes(docId: number, options?: GenerateNotesRequest): Promise<Note> {
+    const { data } = await api.post<Note>(`/education/documents/${docId}/notes/generate`, options || {});
+    return data;
+}
+
+/**
+ * Get all notes for a document.
+ */
+export async function getNotesForDocument(docId: number): Promise<Note[]> {
+    const { data } = await api.get<Note[]>(`/education/documents/${docId}/notes`);
+    return data;
+}
+
+/**
+ * Get a specific note by ID.
+ */
+export async function getNote(noteId: number): Promise<Note> {
+    const { data } = await api.get<Note>(`/education/notes/${noteId}`);
+    return data;
+}
+
+/**
+ * Delete a note.
+ */
+export async function deleteNote(noteId: number): Promise<void> {
+    await api.delete(`/education/notes/${noteId}`);
+}
+
+/** =========================
+ *  Flashcards API
+ *  ========================= */
+
+/**
+ * A single flashcard with front and back content.
+ */
+export type Flashcard = {
+    id: number;
+    cardIndex: number;
+    front: string;
+    back: string;
+};
+
+/**
+ * A flashcard deck containing multiple cards.
+ */
+export type FlashcardDeck = {
+    id: number;
+    docId: number;
+    title: string;
+    cardCount: number;
+    cards: Flashcard[];
+    createdAt: string;
+};
+
+/**
+ * Request to generate flashcards.
+ */
+export type GenerateFlashcardsRequest = {
+    cardCount?: number;
+    pageStart?: number;
+    pageEnd?: number;
+};
+
+/**
+ * Generate flashcards from document content.
+ */
+export async function generateFlashcards(docId: number, options?: GenerateFlashcardsRequest): Promise<FlashcardDeck> {
+    const { data } = await api.post<FlashcardDeck>(`/education/documents/${docId}/flashcards/generate`, options || {});
+    return data;
+}
+
+/**
+ * Get all flashcard decks for a document.
+ */
+export async function getFlashcardDecks(docId: number): Promise<FlashcardDeck[]> {
+    const { data } = await api.get<FlashcardDeck[]>(`/education/documents/${docId}/flashcards`);
+    return data;
+}
+
+/**
+ * Get a specific flashcard deck by ID.
+ */
+export async function getFlashcardDeck(deckId: number): Promise<FlashcardDeck> {
+    const { data } = await api.get<FlashcardDeck>(`/education/flashcards/${deckId}`);
+    return data;
+}
+
+/**
+ * Delete a flashcard deck.
+ */
+export async function deleteFlashcardDeck(deckId: number): Promise<void> {
+    await api.delete(`/education/flashcards/${deckId}`);
 }

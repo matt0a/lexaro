@@ -381,7 +381,8 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
 
             setBusy(true);
             try {
-                const { id } = await uploadDocument(file, (p) => setProgress(p));
+                // Voice Library always uploads as AUDIO (education uses EducationDocumentCreateModal)
+                const { id } = await uploadDocument(file, (p) => setProgress(p), 'AUDIO');
 
                 setLastDocName(file.name);
                 setPendingDocId(id);

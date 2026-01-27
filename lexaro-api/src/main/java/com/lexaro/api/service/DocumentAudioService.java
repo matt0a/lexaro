@@ -2,6 +2,7 @@ package com.lexaro.api.service;
 
 import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.DocStatus;
+import com.lexaro.api.domain.DocumentPurpose;
 import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
@@ -134,6 +135,16 @@ public class DocumentAudioService {
         }
 
         // ---------------- Mark & dispatch ----------------
+
+        // If a user generates audio from an EDUCATION document, make it visible in Saved Audio
+        // without removing it from the Education library.
+        if (doc.getPurpose() == DocumentPurpose.EDUCATION) {
+            doc.setPurpose(DocumentPurpose.BOTH);
+        } else if (doc.getPurpose() == null) {
+            // keep legacy docs sane: if no purpose, treat audio generation as AUDIO
+            doc.setPurpose(DocumentPurpose.AUDIO);
+        }
+
         doc.setAudioStatus(AudioStatus.PROCESSING);
         doc.setAudioObjectKey(null);
         doc.setAudioFormat(null);

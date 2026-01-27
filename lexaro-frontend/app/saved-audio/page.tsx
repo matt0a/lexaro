@@ -107,7 +107,8 @@ export default function SavedAudioPage() {
 
                 const fetchDocs = async (p: number) => {
                     const { data } = await api.get<PageResp<DocumentResponse>>('/documents', {
-                        params: { page: p, size: backendChunkSize, sort: 'uploadedAt,DESC' },
+                        // ✅ only AUDIO docs here
+                        params: { page: p, size: backendChunkSize, sort: 'uploadedAt,DESC', purpose: 'AUDIO' },
                     });
 
                     totalDocPages = data.totalPages || 1;
@@ -313,8 +314,8 @@ export default function SavedAudioPage() {
                                                                     <span className="chip">{fmtBytes(doc.sizeBytes)}</span>
                                                                     <span className="chip">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                                                                     <span className={status === 'Ready' ? 'chip-accent' : 'chip'}>
-                                    {status}
-                                  </span>
+                                                                        {status}
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                         </div>

@@ -3,6 +3,7 @@ package com.lexaro.api.service;
 import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.DocStatus;
 import com.lexaro.api.domain.Document;
+import com.lexaro.api.domain.DocumentPurpose;
 import com.lexaro.api.domain.User;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.repo.UserRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -51,6 +53,8 @@ public class DocumentService {
             enforcePlanLimits(user, r.sizeBytes(), r.pages());
         }
 
+        DocumentPurpose purpose = DocumentPurpose.fromNullable(r.purpose());
+
         var now = Instant.now();
         var doc = Document.builder()
                 .user(user)
@@ -59,6 +63,7 @@ public class DocumentService {
                 .sizeBytes(r.sizeBytes())
                 .sha256(r.sha256())
                 .pages(r.pages())
+                .purpose(purpose)
                 .status(DocStatus.READY)
                 .uploadedAt(now)
                 .expiresAt(null)
@@ -72,6 +77,23 @@ public class DocumentService {
         return docs.findByUserIdAndDeletedAtIsNull(userId, pageable).map(this::toDto);
     }
 
+    // ✅ purpose-filtered list
+    public Page<DocumentResponse> list(Long userId, Pageable pageable, String purposeRaw) {
+        if (purposeRaw == null || purposeRaw.isBlank()) {
+            return list(userId, pageable);
+        }
+
+        DocumentPurpose p = DocumentPurpose.fromNullable(purposeRaw);
+
+        List<DocumentPurpose> allowed = switch (p) {
+            case AUDIO -> List.of(DocumentPurpose.AUDIO, DocumentPurpose.BOTH);
+            case EDUCATION -> List.of(DocumentPurpose.EDUCATION, DocumentPurpose.BOTH);
+            case BOTH -> List.of(DocumentPurpose.BOTH);
+        };
+
+        return docs.findByUserIdAndDeletedAtIsNullAndPurposeIn(userId, allowed, pageable).map(this::toDto);
+    }
+
     // -------- PREMIUM path ----------
 
     @Transactional
@@ -82,6 +104,8 @@ public class DocumentService {
         if (!plans.isUnlimited(user)) {
             enforcePlanLimits(user, r.sizeBytes(), r.pages());
         }
+
+        DocumentPurpose purpose = DocumentPurpose.fromNullable(r.purpose());
 
         int ttl = Math.max(60, Math.min(presignTtlSeconds, 3600));
 
@@ -94,6 +118,7 @@ public class DocumentService {
                 .mime(r.mime())
                 .sizeBytes(r.sizeBytes())
                 .pages(r.pages())
+                .purpose(purpose)
                 .status(DocStatus.UPLOADED)
                 .uploadedAt(now)
                 .planAtUpload(plans.effectivePlan(user))

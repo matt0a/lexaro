@@ -1,11 +1,14 @@
 // lib/documents.ts
 import api from './api';
 
+export type DocumentPurpose = 'AUDIO' | 'EDUCATION' | 'BOTH';
+
 export type PresignUploadRequest = {
     filename: string;
     mime: string;
     sizeBytes: number;
     pages?: number | null;
+    purpose?: DocumentPurpose; // ✅ added
 };
 
 export type RawPresignResponse = {
@@ -124,7 +127,8 @@ export async function completeUpload(
 
 export async function uploadDocument(
     file: File,
-    onProgress?: (pct: number) => void
+    onProgress?: (pct: number) => void,
+    purpose: DocumentPurpose = 'AUDIO' // ✅ added (default AUDIO)
 ): Promise<UploadedDoc> {
     const mime = file.type || guessMime(file.name) || 'application/octet-stream';
 
@@ -133,6 +137,7 @@ export async function uploadDocument(
         filename: file.name,
         mime,
         sizeBytes: file.size,
+        purpose, // ✅ added
     });
 
     // 2) upload to storage — honor ONLY signed headers/fields

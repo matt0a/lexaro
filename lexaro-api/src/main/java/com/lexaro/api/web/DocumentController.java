@@ -23,7 +23,6 @@ public class DocumentController {
     @Value("${app.download.presignTtlSeconds:300}")
     private int defaultDownloadTtl;
 
-
     private Long userId() {
         return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
@@ -35,10 +34,11 @@ public class DocumentController {
     }
 
     @GetMapping
-    public Page<DocumentResponse> list(@RequestParam(defaultValue="0") int page,
-                                       @RequestParam(defaultValue="20") int size) {
+    public Page<DocumentResponse> list(@RequestParam(defaultValue = "0") int page,
+                                       @RequestParam(defaultValue = "20") int size,
+                                       @RequestParam(required = false) String purpose) {
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "uploadedAt"));
-        return docs.list(userId(), pageable);
+        return docs.list(userId(), pageable, purpose);
     }
 
     @PostMapping("/presign")
@@ -65,5 +65,4 @@ public class DocumentController {
     public void delete(@PathVariable Long id) {
         docs.delete(userId(), id);
     }
-
 }

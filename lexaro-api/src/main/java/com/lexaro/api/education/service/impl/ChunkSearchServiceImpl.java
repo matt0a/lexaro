@@ -7,6 +7,7 @@ import com.lexaro.api.education.repo.DocumentTextChunkRepository;
 import com.lexaro.api.education.service.ChunkSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,6 +19,7 @@ public class ChunkSearchServiceImpl implements ChunkSearchService {
     private final DocumentTextChunkRepository chunkRepo;
 
     @Override
+    @Transactional(readOnly = true)
     public ChunkSearchResponse search(Long docId, String query, Integer pageStart, Integer pageEnd, Integer limit) {
         int lim = (limit == null || limit <= 0) ? 6 : Math.min(limit, 25);
 

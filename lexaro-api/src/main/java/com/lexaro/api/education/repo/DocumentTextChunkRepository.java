@@ -14,4 +14,6 @@ public interface DocumentTextChunkRepository extends JpaRepository<DocumentTextC
     );
 
     long deleteByDocId(Long docId);
+    boolean existsByDocId(Long docId);
+
 }

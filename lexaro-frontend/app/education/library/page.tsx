@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
 import Sidebar from '@/components/dashboard/Sidebar';
 import api from '@/lib/api';
 import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
+import EducationDocumentCreateModal from '@/components/education/EducationDocumentCreateModal';
 
 type PageResp<T> = {
     content: T[];
@@ -25,8 +27,23 @@ type DocumentResponse = {
 
 export default function EducationLibraryPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [docs, setDocs] = useState<DocumentResponse[]>([]);
     const [loading, setLoading] = useState(true);
+    const [openCreate, setOpenCreate] = useState(false);
+
+    async function loadDocs() {
+        setLoading(true);
+        try {
+            const { data } = await api.get<PageResp<DocumentResponse>>('/documents', {
+                params: { page: 0, size: 50, sort: 'uploadedAt,DESC', purpose: 'EDUCATION' },
+            });
+            setDocs(data.content || []);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -35,17 +52,17 @@ export default function EducationLibraryPage() {
             return;
         }
 
-        (async () => {
-            try {
-                const { data } = await api.get<PageResp<DocumentResponse>>('/documents', {
-                    params: { page: 0, size: 50, sort: 'uploadedAt,DESC' },
-                });
-                setDocs(data.content || []);
-            } finally {
-                setLoading(false);
-            }
-        })();
+        loadDocs();
     }, [router]);
+
+    useEffect(() => {
+        // Optional: /education/library?create=1 opens the modal
+        if (searchParams.get('create') === '1') {
+            setOpenCreate(true);
+            router.replace('/education/library');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     return (
         <div className="min-h-screen bg-black text-white">
@@ -61,25 +78,24 @@ export default function EducationLibraryPage() {
                     <div className="px-4 md:px-6 py-10 max-w-6xl mx-auto">
                         <div className="flex items-start justify-between gap-6">
                             <div>
-                                <h1 className="text-3xl font-semibold">Library</h1>
-                                <p className="text-white/70 mt-2">
-                                    Pick a document to index and test chunk search.
-                                </p>
+                                <h1 className="text-3xl font-semibold">Education Library</h1>
+                                <p className="text-white/70 mt-2">Documents uploaded for Education.</p>
                             </div>
 
-                            <Link
-                                href="/dashboard?open=upload"
+                            <button
+                                type="button"
+                                onClick={() => setOpenCreate(true)}
                                 className="px-4 py-2 rounded-xl bg-[#009FFD] text-black font-semibold hover:opacity-90 transition"
                             >
-                                Upload Document
-                            </Link>
+                                Add Document
+                            </button>
                         </div>
 
                         {loading ? (
                             <div className="mt-8 text-white/70">Loading…</div>
                         ) : docs.length === 0 ? (
                             <div className="mt-8 rounded-2xl bg-white/5 border border-white/10 p-6 text-white/70">
-                                No documents yet. Upload one from the dashboard.
+                                No Education documents yet. Click <span className="text-white">Add Document</span>.
                             </div>
                         ) : (
                             <div className="grid md:grid-cols-2 gap-4 mt-8">
@@ -99,6 +115,15 @@ export default function EducationLibraryPage() {
                             </div>
                         )}
                     </div>
+
+                    <EducationDocumentCreateModal
+                        open={openCreate}
+                        onClose={() => setOpenCreate(false)}
+                        onCreated={(id) => {
+                            loadDocs();
+                            router.push(`/education/doc/${id}`);
+                        }}
+                    />
                 </div>
             </main>
         </div>

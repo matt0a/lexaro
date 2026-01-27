@@ -2,6 +2,7 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
 import EducationAuthGuard from '@/components/education/EducationAuthGuard';
 import EducationDocTabs from '@/components/education/EducationDocTabs';
+import EducationDocAudioButton from '@/components/education/EducationDocAudioButton';
 
 export default function EducationDocLayout({
                                                children,
@@ -33,6 +34,9 @@ export default function EducationDocLayout({
                                         Chat / Notes / Flashcards / Quizzes — plus Sources (index + chunk search).
                                     </p>
                                 </div>
+
+                                {/* ✅ Audio only visible once you’re inside the doc */}
+                                <EducationDocAudioButton docId={docId} docName={`Education Document ${docId}`} />
                             </div>
 
                             <div className="mt-6">

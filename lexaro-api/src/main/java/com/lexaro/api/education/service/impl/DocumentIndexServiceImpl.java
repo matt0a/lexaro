@@ -5,7 +5,10 @@ import com.lexaro.api.education.domain.DocumentTextChunk;
 import com.lexaro.api.education.repo.dto.IndexDocumentResponse;
 import com.lexaro.api.education.repo.DocumentTextChunkRepository;
 import com.lexaro.api.education.service.DocumentIndexService;
+import com.lexaro.api.service.DocumentTextService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +20,7 @@ import java.util.List;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocumentIndexServiceImpl implements DocumentIndexService {
@@ -24,12 +28,36 @@ public class DocumentIndexServiceImpl implements DocumentIndexService {
     private final JdbcTemplate jdbcTemplate;
     private final DocumentTextChunkRepository chunkRepo;
     private final EducationProperties props;
+    private final DocumentTextService textService;
+    private final EntityManager entityManager;
 
     private record DocText(String text, Integer pageCount) {}
 
     @Override
     @Transactional
     public IndexDocumentResponse indexDocument(Long docId) {
+        return indexDocument(docId, null);
+    }
+
+    @Override
+    @Transactional
+    public IndexDocumentResponse indexDocument(Long docId, Long userId) {
+        // If userId is provided and text doesn't exist, trigger extraction first
+        if (userId != null) {
+            DocText existing = loadExtractedTextOrNull(docId);
+            if (existing == null || existing.text() == null || existing.text().isBlank()) {
+                log.info("Triggering text extraction for document {} by user {}", docId, userId);
+                try {
+                    textService.getOrExtract(userId, docId, 0);
+                    // Flush JPA changes so JDBC query can see them
+                    entityManager.flush();
+                } catch (Exception e) {
+                    log.warn("Text extraction failed for document {}: {}", docId, e.getMessage());
+                    throw new ResponseStatusException(BAD_REQUEST, "Failed to extract text: " + e.getMessage());
+                }
+            }
+        }
+
         DocText dt = loadExtractedText(docId);
 
         String text = dt.text();
@@ -56,9 +84,32 @@ public class DocumentIndexServiceImpl implements DocumentIndexService {
                 .build();
     }
 
+    private DocText loadExtractedTextOrNull(Long docId) {
+        List<DocText> rows = jdbcTemplate.query(
+                """
+                SELECT dt.text, d.pages
+                FROM public.documents d
+                LEFT JOIN public.document_texts dt ON dt.doc_id = d.id
+                WHERE d.id = ?
+                """,
+                (rs, i) -> new DocText(rs.getString(1), (Integer) rs.getObject(2)),
+                docId
+        );
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * Loads extracted text from document_texts table and page count from documents table.
+     * The text is stored in document_texts.text (joined via doc_id), and page count is documents.pages.
+     */
     private DocText loadExtractedText(Long docId) {
         List<DocText> rows = jdbcTemplate.query(
-                "select extracted_text, page_count from public.documents where id = ?",
+                """
+                SELECT dt.text, d.pages
+                FROM public.documents d
+                LEFT JOIN public.document_texts dt ON dt.doc_id = d.id
+                WHERE d.id = ?
+                """,
                 (rs, i) -> new DocText(rs.getString(1), (Integer) rs.getObject(2)),
                 docId
         );
@@ -67,7 +118,7 @@ public class DocumentIndexServiceImpl implements DocumentIndexService {
 
         DocText dt = rows.get(0);
         if (dt.text() == null || dt.text().isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Document has no extracted_text yet (complete extraction first).");
+            throw new ResponseStatusException(BAD_REQUEST, "Document has no extracted text yet (complete extraction first).");
         }
         return dt;
     }

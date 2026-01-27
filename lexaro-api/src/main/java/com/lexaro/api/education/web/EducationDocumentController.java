@@ -6,6 +6,7 @@ import com.lexaro.api.education.service.ChunkSearchService;
 import com.lexaro.api.education.service.DocumentIndexService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,9 +17,14 @@ public class EducationDocumentController {
     private final DocumentIndexService documentIndexService;
     private final ChunkSearchService chunkSearchService;
 
+    private Long userId() {
+        return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    }
+
     @PostMapping("/documents/{docId}/index")
     public IndexDocumentResponse index(@PathVariable Long docId) {
-        return documentIndexService.indexDocument(docId);
+        // Pass userId to enable automatic text extraction if needed
+        return documentIndexService.indexDocument(docId, userId());
     }
 
     /**

@@ -4,5 +4,6 @@ public record PresignUploadRequest(
         String filename,
         String mime,
         long sizeBytes,
-        Integer pages
+        Integer pages,
+        String purpose // "AUDIO" | "EDUCATION" | "BOTH"
 ) {}

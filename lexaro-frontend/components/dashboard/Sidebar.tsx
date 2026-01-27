@@ -9,15 +9,16 @@ import {
     Menu,
     X,
     ArrowUpCircle,
-    GraduationCap,
+    BookOpen,
     BarChart3,
+    FolderOpen,
+    MessageSquare,
 } from 'lucide-react';
 import api from '@/lib/api';
 import AccountSheet from '@/components/settings/AccountSheet';
 
 type UsageResp = { plan: string };
 
-/** Base64URL decode with padding fix */
 function b64urlDecode(str: string) {
     try {
         const pad = str.length % 4 === 2 ? '==' : str.length % 4 === 3 ? '=' : '';
@@ -28,7 +29,6 @@ function b64urlDecode(str: string) {
     }
 }
 
-/** Extracts the JWT payload safely (or null) */
 function parseJwtPayload(token: string | null): Record<string, any> | null {
     if (!token) return null;
     const parts = token.split('.');
@@ -41,7 +41,6 @@ function parseJwtPayload(token: string | null): Record<string, any> | null {
     }
 }
 
-/** Heuristic for email-like value from common claims */
 function emailFromClaims(claims: Record<string, any> | null): string | null {
     if (!claims) return null;
     const candidates = [claims.email, claims.preferred_username, claims.upn, claims.username, claims.sub];
@@ -73,11 +72,8 @@ export default function Sidebar() {
     const [planRaw, setPlanRaw] = useState<string>('FREE');
 
     const [openSettings, setOpenSettings] = useState(false);
-
-    // mobile drawer state
     const [mobileOpen, setMobileOpen] = useState(false);
 
-    // close drawer on resize to desktop
     useEffect(() => {
         function onResize() {
             if (window.innerWidth >= 768) setMobileOpen(false);
@@ -86,7 +82,6 @@ export default function Sidebar() {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    // lock background scroll when mobile drawer open
     useEffect(() => {
         if (typeof document === 'undefined') return;
         if (mobileOpen) document.body.style.overflow = 'hidden';
@@ -97,7 +92,6 @@ export default function Sidebar() {
     }, [mobileOpen]);
 
     useEffect(() => {
-        // read email from token
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const claims = parseJwtPayload(token);
         const e = emailFromClaims(claims);
@@ -111,13 +105,9 @@ export default function Sidebar() {
             }
         };
 
-        // initial load
         refreshPlan();
 
-        // refresh after billing sync
-        const onBillingUpdated = () => {
-            refreshPlan();
-        };
+        const onBillingUpdated = () => refreshPlan();
         window.addEventListener('lexaro:billing-updated', onBillingUpdated);
 
         return () => {
@@ -125,27 +115,31 @@ export default function Sidebar() {
         };
     }, []);
 
-    const NAV = useMemo(
+    const VOICE_NAV = useMemo(
         () => [
             { href: '/dashboard', label: 'Library', Icon: Library },
-            { href: '/education', label: 'Education', Icon: GraduationCap },
-            { href: '/education/progress', label: 'Progress', Icon: BarChart3 },
-
-            // Upgrade link ONLY on free accounts
+            { href: '/saved-audio', label: 'Saved Audio', Icon: Mic },
             ...(planRaw?.toUpperCase() === 'FREE'
                 ? [{ href: '/billing', label: 'Upgrade', Icon: ArrowUpCircle } as const]
                 : []),
-
-            { href: '/saved-audio', label: 'Saved Audio', Icon: Mic },
         ],
         [planRaw]
+    );
+
+    const LEARN_NAV = useMemo(
+        () => [
+            { href: '/education', label: 'Education', Icon: BookOpen },
+            { href: '/education/library', label: 'Education Library', Icon: FolderOpen },
+            { href: '/education/progress', label: 'Progress', Icon: BarChart3 },
+            { href: '/education/chat', label: 'AI Tutor', Icon: MessageSquare },
+        ],
+        []
     );
 
     const initial = (email?.[0] || 'U').toUpperCase();
 
     return (
         <>
-            {/* Mobile hamburger (ONLY when drawer is closed) */}
             {!mobileOpen ? (
                 <button
                     type="button"
@@ -157,27 +151,24 @@ export default function Sidebar() {
                 </button>
             ) : null}
 
-            {/* Mobile overlay */}
             {mobileOpen ? (
-                <div className="md:hidden fixed inset-0 z-[110] bg-black/45" onClick={() => setMobileOpen(false)} />
+                <div
+                    className="md:hidden fixed inset-0 z-[110] bg-black/45"
+                    onClick={() => setMobileOpen(false)}
+                />
             ) : null}
 
-            {/* Sidebar */}
             <aside
                 className={[
                     'fixed inset-y-0 left-0 z-[115] w-56 border-r border-white/10 bg-black/70 backdrop-blur-sm text-white flex flex-col',
-                    // Desktop: always visible
                     'md:translate-x-0',
-                    // Mobile: slide
                     mobileOpen ? 'translate-x-0' : '-translate-x-full',
                     'transition-transform duration-300 ease-out',
                 ].join(' ')}
             >
-                {/* Top bar */}
                 <div className="px-4 py-4 flex items-center justify-between">
                     <div className="text-lg font-semibold tracking-wide">Lexaro</div>
 
-                    {/* Mobile close button */}
                     <button
                         type="button"
                         aria-label="Close menu"
@@ -189,7 +180,29 @@ export default function Sidebar() {
                 </div>
 
                 <nav className="flex-1 px-2">
-                    {NAV.map(({ href, label, Icon }) => (
+                    <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wider text-white/45">
+                        Lexaro Voice
+                    </div>
+
+                    {VOICE_NAV.map(({ href, label, Icon }) => (
+                        <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setMobileOpen(false)}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/85 hover:bg-white/5"
+                        >
+                            <Icon className="h-4 w-4" />
+                            {label}
+                        </Link>
+                    ))}
+
+                    <div className="my-3 mx-3 h-px bg-white/10" />
+
+                    <div className="px-3 pt-1 pb-1 text-[11px] uppercase tracking-wider text-white/45">
+                        Lexaro Learn
+                    </div>
+
+                    {LEARN_NAV.map(({ href, label, Icon }) => (
                         <Link
                             key={href}
                             href={href}
@@ -202,7 +215,6 @@ export default function Sidebar() {
                     ))}
                 </nav>
 
-                {/* Bottom account/settings (no big box) */}
                 <div className="mt-auto border-t border-white/10 px-4 py-4">
                     <button
                         onClick={() => setOpenSettings(true)}
@@ -224,7 +236,11 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            <AccountSheet open={openSettings} onClose={() => setOpenSettings(false)} me={{ email: email || '—', plan, planRaw }} />
+            <AccountSheet
+                open={openSettings}
+                onClose={() => setOpenSettings(false)}
+                me={{ email: email || '—', plan, planRaw }}
+            />
         </>
     );
 }

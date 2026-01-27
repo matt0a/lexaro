@@ -42,10 +42,10 @@ export default function EducationHomePage() {
                                     Open Library
                                 </Link>
                                 <Link
-                                    href="/dashboard?open=upload"
+                                    href="/education/library?create=1"
                                     className="px-4 py-2 rounded-xl bg-[#009FFD] text-black font-semibold hover:opacity-90 transition"
                                 >
-                                    Upload Document
+                                    Add Document
                                 </Link>
                             </div>
                         </div>

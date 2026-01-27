@@ -5,5 +5,6 @@ public record CreateMetadataRequest(
         String mime,
         long sizeBytes,
         Integer pages,
-        String sha256
+        String sha256,
+        String purpose // "AUDIO" | "EDUCATION" | "BOTH"
 ) {}

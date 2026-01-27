@@ -61,5 +61,8 @@ public class Document {
     @Column(name="audio_error", length = 256)
     private String audioError;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DocumentPurpose purpose = DocumentPurpose.AUDIO;
 
 }

@@ -53,9 +53,6 @@ const KNOWN_LANGS = ["Spanish", "French", "German", "Portuguese"] as const;
 /**
  * English “popular-first” order + MUST include Kristy/June/Mason.
  * Matched against BOTH id and title (loosely).
- *
- * Note: We can’t reliably “look up” per-language popularity lists publicly,
- * so for English we use a curated name list + fallbacks.
  */
 const MUST_HAVE_ENGLISH = ["kristy", "june", "mason"] as const;
 
@@ -103,7 +100,6 @@ function normalizeLang(raw?: string | null) {
     if (lower.includes("portuguese")) return "Portuguese";
     if (lower.includes("german")) return "German";
 
-    // otherwise keep as-is (Japanese, Arabic, Hindi, etc.)
     return s;
 }
 
@@ -119,7 +115,7 @@ function keyify(s: string) {
 }
 
 function stableVoiceSort(a: VoiceMeta, b: VoiceMeta) {
-    // preview first (these are the ones that feel “featured”)
+    // preview first
     const ap = a.preview ? 1 : 0;
     const bp = b.preview ? 1 : 0;
     if (ap !== bp) return bp - ap;
@@ -225,10 +221,8 @@ function pickEnglish30(all: VoiceMeta[]) {
     const us = english.filter((v) => (v.region ?? "").toUpperCase() === "US");
     const nonUs = english.filter((v) => (v.region ?? "").toUpperCase() !== "US");
 
-    // US 15: popular-first + forced names
     const us15 = pickByNameOrder(us, POPULAR_ENGLISH_ORDER, 15, MUST_HAVE_ENGLISH);
 
-    // non-US 15: bucket by region, take best-first round robin
     const buckets = new Map<string, VoiceMeta[]>();
     for (const v of nonUs) {
         const r = (v.region ?? "OTHER").toUpperCase();
@@ -238,7 +232,6 @@ function pickEnglish30(all: VoiceMeta[]) {
     }
     for (const arr of buckets.values()) arr.sort(stableVoiceSort);
 
-    // prefer some common accent regions first
     const preferredRegions = ["GB", "UK", "AU", "CA", "IN", "IE", "NZ", "ZA", "SG", "PH", "NG", "KE"];
 
     const regionOrder = [
@@ -249,7 +242,6 @@ function pickEnglish30(all: VoiceMeta[]) {
     const nonUsPicked: VoiceMeta[] = [];
     const usedNonUs = new Set<string>();
 
-    // round robin
     while (nonUsPicked.length < 15) {
         let progressed = false;
         for (const r of regionOrder) {
@@ -265,13 +257,11 @@ function pickEnglish30(all: VoiceMeta[]) {
         if (!progressed) break;
     }
 
-    // fill if still short
     if (nonUsPicked.length < 15) {
         const rest = nonUs.filter((v) => !usedNonUs.has(v.id)).sort(stableVoiceSort);
         nonUsPicked.push(...rest.slice(0, 15 - nonUsPicked.length));
     }
 
-    // final dedupe
     const seen = new Set<string>();
     const out: VoiceMeta[] = [];
     for (const v of [...us15, ...nonUsPicked]) {
@@ -282,12 +272,6 @@ function pickEnglish30(all: VoiceMeta[]) {
     return out.slice(0, 30);
 }
 
-/**
- * Main curator:
- * - English: 30 (15 US + 15 other accents)
- * - Known langs: 10 each
- * - All other langs: 6 each
- */
 function curateVoices(all: VoiceMeta[]) {
     const byLang = new Map<string, VoiceMeta[]>();
     for (const v of all) {
@@ -297,18 +281,14 @@ function curateVoices(all: VoiceMeta[]) {
         byLang.set(lang, arr);
     }
 
-    // English first
     const result: VoiceMeta[] = [];
-    const english = byLang.get("English") ?? [];
     result.push(...pickEnglish30(all));
 
-    // Known languages next (10 each)
     for (const lang of KNOWN_LANGS) {
         const list = (byLang.get(lang) ?? []).sort(stableVoiceSort);
         result.push(...pickByGender(list, 10));
     }
 
-    // Everything else (except English + known) => 6 each
     const skip = new Set<string>(["English", ...KNOWN_LANGS]);
     const othersLangs = Array.from(byLang.keys())
         .filter((l) => !skip.has(l))
@@ -319,7 +299,6 @@ function curateVoices(all: VoiceMeta[]) {
         result.push(...pickByGender(list, 6));
     }
 
-    // final dedupe + stable order by (lang group, then stable sort)
     const seen = new Set<string>();
     const deduped: VoiceMeta[] = [];
     for (const v of result) {
@@ -328,8 +307,6 @@ function curateVoices(all: VoiceMeta[]) {
         deduped.push(v);
     }
 
-    // Keep the grouped ordering we built, but within groups keep stable sorting
-    // (English already curated; others already picked + sorted).
     return deduped;
 }
 
@@ -445,8 +422,10 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
 
         setBusy(true);
         try {
-            const { id } = await uploadDocument(file);
+            // ✅ ONLY change: tag this upload as AUDIO
+            const { id } = await uploadDocument(file, undefined, "AUDIO");
             setPendingDocId(id);
+
             if (isFree) setShowFreeVoice(true);
             else setShowVoice(true);
         } catch (e: any) {

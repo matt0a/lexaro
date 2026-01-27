@@ -97,10 +97,10 @@ public class EducationProperties {
         private boolean aiEnabled = true;
 
         /**
-         * which plans can use AI features (free can still index/search)
+         * which plans can use AI features
          *
          * Keep BUSINESS/BUSINESS_PLUS here as aliases for PREMIUM+.
          */
-        private List<String> aiAllowedPlans = List.of("PREMIUM", "BUSINESS", "BUSINESS_PLUS");
+        private List<String> aiAllowedPlans = List.of("FREE", "PREMIUM", "BUSINESS", "BUSINESS_PLUS");
     }
 }
