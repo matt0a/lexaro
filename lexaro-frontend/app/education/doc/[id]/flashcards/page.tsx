@@ -252,45 +252,35 @@ export default function EducationDocFlashcardsPage() {
                 </div>
 
                 {/* Flashcard with flip animation */}
-                <div
-                    className="perspective-1000 mb-6"
-                    style={{ perspective: '1000px' }}
-                >
+                <div className="mb-6 [perspective:1000px]">
                     <div
                         onClick={flipCard}
-                        className={`relative w-full min-h-[250px] cursor-pointer transition-transform duration-500 transform-style-preserve-3d ${
-                            isFlipped ? 'rotate-y-180' : ''
+                        className={`relative w-full min-h-[280px] cursor-pointer transition-all duration-700 ease-in-out [transform-style:preserve-3d] ${
+                            isFlipped ? '[transform:rotateY(180deg)]' : '[transform:rotateY(0deg)]'
                         }`}
-                        style={{
-                            transformStyle: 'preserve-3d',
-                            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-                        }}
                     >
                         {/* Front of card */}
-                        <div
-                            className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-blue-600/20 rounded-xl border border-white/20 p-6 flex flex-col items-center justify-center backface-hidden"
-                            style={{ backfaceVisibility: 'hidden' }}
-                        >
-                            <div className="text-white/50 text-xs mb-4 uppercase tracking-wide">Question</div>
-                            <div className="text-white text-xl text-center font-medium">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-blue-600/30 rounded-2xl border border-purple-500/30 p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg shadow-purple-500/10">
+                            <div className="text-purple-300/70 text-xs mb-4 uppercase tracking-widest font-medium">Question</div>
+                            <div className="text-white text-xl text-center font-medium leading-relaxed px-4">
                                 {currentCard.front}
                             </div>
-                            <div className="text-white/30 text-sm mt-6">Click to flip</div>
+                            <div className="text-white/40 text-sm mt-8 flex items-center gap-2">
+                                <span className="inline-block w-4 h-4 border border-white/40 rounded animate-pulse" />
+                                Click to reveal answer
+                            </div>
                         </div>
 
                         {/* Back of card */}
-                        <div
-                            className="absolute inset-0 bg-gradient-to-br from-green-600/20 to-teal-600/20 rounded-xl border border-white/20 p-6 flex flex-col items-center justify-center"
-                            style={{
-                                backfaceVisibility: 'hidden',
-                                transform: 'rotateY(180deg)'
-                            }}
-                        >
-                            <div className="text-white/50 text-xs mb-4 uppercase tracking-wide">Answer</div>
-                            <div className="text-white text-xl text-center font-medium">
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/30 to-teal-600/30 rounded-2xl border border-emerald-500/30 p-8 flex flex-col items-center justify-center [backface-visibility:hidden] [transform:rotateY(180deg)] shadow-lg shadow-emerald-500/10">
+                            <div className="text-emerald-300/70 text-xs mb-4 uppercase tracking-widest font-medium">Answer</div>
+                            <div className="text-white text-xl text-center font-medium leading-relaxed px-4">
                                 {currentCard.back}
                             </div>
-                            <div className="text-white/30 text-sm mt-6">Click to flip back</div>
+                            <div className="text-white/40 text-sm mt-8 flex items-center gap-2">
+                                <span className="inline-block w-4 h-4 border border-white/40 rounded animate-pulse" />
+                                Click to flip back
+                            </div>
                         </div>
                     </div>
                 </div>

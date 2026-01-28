@@ -30,6 +30,7 @@ type VoiceDto = {
     attitude: string | null;
     preview: string | null; // ✅ preview audio url
     avatar: string | null; // ✅ avatar image url
+    favorite: boolean;
 };
 
 // local type for free picker
@@ -358,7 +359,7 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                     preview: v.preview ?? undefined,
                     avatar: v.avatar ?? undefined,
                     flagEmoji: undefined,
-                    favorite: false,
+                    favorite: v.favorite ?? false,
                 }));
 
                 setCatalog(curateVoices(mapped));
@@ -609,6 +610,26 @@ export default function AddTextModal({ open, plan, onClose, onSaved }: Props) {
                     } finally {
                         setShowVoice(false);
                         setPendingDocId(null);
+                    }
+                }}
+                onToggleFavorite={async (voice: VoiceMeta) => {
+                    try {
+                        if (voice.favorite) {
+                            await api.delete(`/tts/voices/${encodeURIComponent(voice.id)}/favorite`, {
+                                params: { provider: voice.provider }
+                            });
+                        } else {
+                            await api.post(`/tts/voices/${encodeURIComponent(voice.id)}/favorite`, null, {
+                                params: { provider: voice.provider }
+                            });
+                        }
+                        setCatalog(prev => prev.map(v =>
+                            v.id === voice.id && v.provider === voice.provider
+                                ? { ...v, favorite: !v.favorite }
+                                : v
+                        ));
+                    } catch (err) {
+                        console.error('Failed to toggle favorite:', err);
                     }
                 }}
             />

@@ -91,4 +91,50 @@ public class MeController {
 
         users.save(u);
     }
+
+    // --- Onboarding ---
+
+    /**
+     * Response DTO for onboarding status.
+     */
+    @Data
+    public static class OnboardingStatusDto {
+        private final boolean completed;
+    }
+
+    /**
+     * Get user's onboarding completion status.
+     */
+    @GetMapping("/onboarding")
+    public OnboardingStatusDto getOnboardingStatus() {
+        var u = users.findById(userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return new OnboardingStatusDto(u.isOnboardingCompleted());
+    }
+
+    /**
+     * Mark onboarding as completed.
+     */
+    @PostMapping("/onboarding/complete")
+    @Transactional
+    public OnboardingStatusDto completeOnboarding() {
+        var u = users.findById(userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        u.setOnboardingCompleted(true);
+        users.save(u);
+        return new OnboardingStatusDto(true);
+    }
+
+    /**
+     * Reset onboarding status (for testing).
+     */
+    @PostMapping("/onboarding/reset")
+    @Transactional
+    public OnboardingStatusDto resetOnboarding() {
+        var u = users.findById(userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        u.setOnboardingCompleted(false);
+        users.save(u);
+        return new OnboardingStatusDto(false);
+    }
 }

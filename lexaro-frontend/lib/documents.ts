@@ -168,3 +168,25 @@ export async function startAudio(
 
     await api.post(`/documents/${docId}/audio/start`, payload);
 }
+
+/**
+ * Education document type for display purposes.
+ */
+export type EducationDocument = {
+    id: number;
+    filename: string;
+    mime: string;
+    pages?: number | null;
+    status: string;
+    uploadedAt: string;
+};
+
+/**
+ * Fetch education documents (purpose = EDUCATION or BOTH).
+ */
+export async function getEducationDocuments(): Promise<EducationDocument[]> {
+    const { data } = await api.get<{ content: EducationDocument[] }>('/documents', {
+        params: { page: 0, size: 50, sort: 'uploadedAt,DESC', purpose: 'EDUCATION' },
+    });
+    return data.content ?? [];
+}

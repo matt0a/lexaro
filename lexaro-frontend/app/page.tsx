@@ -10,6 +10,7 @@ import VoicesShowcase from "@/components/VoicesShowcase";
 
 import PremiumHero from "@/components/landing/PremiumHero";
 import DemoShowcase from "@/components/landing/DemoShowcase";
+import TestimonialsCarousel from "@/components/landing/TestimonialsCarousel";
 
 import FluidGlassSection from "@/components/reactbits/FluidGlassSection";
 import StarBorderCard from "@/components/reactbits/StarBorderCard";
@@ -539,6 +540,9 @@ export default function Page() {
                     </FadeInSection>
                 </div>
             </section>
+
+            {/* Testimonials */}
+            <TestimonialsCarousel />
 
             {/* CTA + FAQ */}
             <section className="relative overflow-hidden border-t border-white/10">

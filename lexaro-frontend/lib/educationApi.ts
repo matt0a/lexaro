@@ -1,5 +1,40 @@
 import api from '@/lib/api';
 
+/** =========================
+ *  Onboarding API
+ *  ========================= */
+
+/**
+ * Onboarding status response.
+ */
+export type OnboardingStatus = {
+    completed: boolean;
+};
+
+/**
+ * Get user's onboarding completion status.
+ */
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+    const { data } = await api.get<OnboardingStatus>('/me/onboarding');
+    return data;
+}
+
+/**
+ * Mark onboarding as completed.
+ */
+export async function completeOnboarding(): Promise<OnboardingStatus> {
+    const { data } = await api.post<OnboardingStatus>('/me/onboarding/complete');
+    return data;
+}
+
+/**
+ * Reset onboarding status (for testing).
+ */
+export async function resetOnboarding(): Promise<OnboardingStatus> {
+    const { data } = await api.post<OnboardingStatus>('/me/onboarding/reset');
+    return data;
+}
+
 export type IndexDocumentResponse = {
     docId: number;
     pageCount: number;
@@ -396,4 +431,142 @@ export async function getFlashcardDeck(deckId: number): Promise<FlashcardDeck> {
  */
 export async function deleteFlashcardDeck(deckId: number): Promise<void> {
     await api.delete(`/education/flashcards/${deckId}`);
+}
+
+/** =========================
+ *  Essay Grader API
+ *  ========================= */
+
+/**
+ * Request to grade an essay.
+ */
+export type EssayGradeRequest = {
+    essay: string;
+    topic?: string;
+};
+
+/**
+ * Rubric scores for essay grading.
+ */
+export type EssayScores = {
+    thesis: number;
+    organization: number;
+    evidence: number;
+    analysis: number;
+    clarity: number;
+    grammar: number;
+};
+
+/**
+ * Response from essay grading.
+ */
+export type EssayGradeResponse = {
+    overallScore: number;
+    scores: EssayScores;
+    strengths: string[];
+    improvements: string[];
+    detailedFeedback: string;
+    rewriteSuggestion: string;
+};
+
+/**
+ * Grade an essay using AI-powered rubric evaluation.
+ */
+export async function gradeEssay(request: EssayGradeRequest): Promise<EssayGradeResponse> {
+    const { data } = await api.post<EssayGradeResponse>('/education/essay/grade', request);
+    return data;
+}
+
+/** =========================
+ *  Study Plan API
+ *  ========================= */
+
+/**
+ * A study task within a plan.
+ */
+export type StudyTask = {
+    id: number;
+    docId?: number | null;
+    taskType: string;
+    title: string;
+    description?: string | null;
+    scheduledDate: string;
+    durationMins: number;
+    status: 'pending' | 'completed' | 'skipped';
+    completedAt?: string | null;
+};
+
+/**
+ * A study plan with scheduled tasks.
+ */
+export type StudyPlan = {
+    id: number;
+    title: string;
+    description?: string | null;
+    examDate: string;
+    weeklyHours: number;
+    status: string;
+    tasks: StudyTask[];
+    totalTasks: number;
+    completedTasks: number;
+    createdAt: string;
+};
+
+/**
+ * Request to create a study plan.
+ */
+export type CreateStudyPlanRequest = {
+    title: string;
+    description?: string;
+    examDate: string;
+    weeklyHours?: number;
+    docIds?: number[];
+    focusTopics?: string[];
+};
+
+/**
+ * Create a new study plan.
+ */
+export async function createStudyPlan(request: CreateStudyPlanRequest): Promise<StudyPlan> {
+    const { data } = await api.post<StudyPlan>('/education/plans', request);
+    return data;
+}
+
+/**
+ * Get all study plans for the current user.
+ */
+export async function getStudyPlans(): Promise<StudyPlan[]> {
+    const { data } = await api.get<StudyPlan[]>('/education/plans');
+    return data;
+}
+
+/**
+ * Get a specific study plan.
+ */
+export async function getStudyPlan(planId: number): Promise<StudyPlan> {
+    const { data } = await api.get<StudyPlan>(`/education/plans/${planId}`);
+    return data;
+}
+
+/**
+ * Delete a study plan.
+ */
+export async function deleteStudyPlan(planId: number): Promise<void> {
+    await api.delete(`/education/plans/${planId}`);
+}
+
+/**
+ * Mark a task as completed.
+ */
+export async function completeStudyTask(taskId: number): Promise<StudyTask> {
+    const { data } = await api.post<StudyTask>(`/education/tasks/${taskId}/complete`);
+    return data;
+}
+
+/**
+ * Skip a task.
+ */
+export async function skipStudyTask(taskId: number): Promise<StudyTask> {
+    const { data } = await api.post<StudyTask>(`/education/tasks/${taskId}/skip`);
+    return data;
 }

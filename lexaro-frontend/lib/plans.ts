@@ -35,12 +35,12 @@ export const DISPLAY_NAME: Record<string, string> = {
 };
 
 /**
- * Voice words/mo (keep as-is if already used elsewhere)
+ * Voice chars/mo (keep as-is if already used elsewhere)
  */
 export const PLAN_LIMITS: Record<string, number> = {
     FREE: 10_000,
-    PREMIUM: 150_000,
-    BUSINESS_PLUS: 350_000,
+    PREMIUM: 900_000,
+    BUSINESS_PLUS: 2_000_000,
 };
 
 /**

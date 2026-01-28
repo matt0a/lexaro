@@ -13,9 +13,10 @@ import {
     BarChart3,
     FolderOpen,
     MessageSquare,
+    FileEdit,
+    Calendar,
 } from 'lucide-react';
 import api from '@/lib/api';
-import AccountSheet from '@/components/settings/AccountSheet';
 
 type UsageResp = { plan: string };
 
@@ -71,7 +72,6 @@ export default function Sidebar() {
     const [plan, setPlan] = useState<string>('Free');
     const [planRaw, setPlanRaw] = useState<string>('FREE');
 
-    const [openSettings, setOpenSettings] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
     useEffect(() => {
@@ -132,6 +132,8 @@ export default function Sidebar() {
             { href: '/education/library', label: 'Education Library', Icon: FolderOpen },
             { href: '/education/progress', label: 'Progress', Icon: BarChart3 },
             { href: '/education/chat', label: 'AI Tutor', Icon: MessageSquare },
+            { href: '/education/essay', label: 'Essay Grader', Icon: FileEdit },
+            { href: '/education/calendar', label: 'Study Calendar', Icon: Calendar },
         ],
         []
     );
@@ -216,11 +218,11 @@ export default function Sidebar() {
                 </nav>
 
                 <div className="mt-auto border-t border-white/10 px-4 py-4">
-                    <button
-                        onClick={() => setOpenSettings(true)}
+                    <Link
+                        href="/settings"
+                        onClick={() => setMobileOpen(false)}
                         className="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04] transition"
                         title="Account & Settings"
-                        type="button"
                     >
                         <div className="h-9 w-9 shrink-0 rounded-full bg-white/10 grid place-items-center text-sm font-semibold">
                             {initial}
@@ -232,15 +234,9 @@ export default function Sidebar() {
                         </div>
 
                         <Settings className="h-4 w-4 text-white/70" />
-                    </button>
+                    </Link>
                 </div>
             </aside>
-
-            <AccountSheet
-                open={openSettings}
-                onClose={() => setOpenSettings(false)}
-                me={{ email: email || '—', plan, planRaw }}
-            />
         </>
     );
 }

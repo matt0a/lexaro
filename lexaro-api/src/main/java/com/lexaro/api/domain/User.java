@@ -55,4 +55,9 @@ public class User {
 
     @Column(name = "stripe_subscription_status")
     private String stripeSubscriptionStatus; // trialing, active, canceled, past_due, etc.
+
+    // Education onboarding
+    @Column(name = "onboarding_completed", nullable = false)
+    @Builder.Default
+    private boolean onboardingCompleted = false;
 }

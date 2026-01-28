@@ -163,11 +163,10 @@
         </dependency>
 
 
-        <!-- Tess4J (Tesseract JNI) -->
+        <!-- AWS Textract for OCR (replaces Tesseract) -->
         <dependency>
-            <groupId>net.sourceforge.tess4j</groupId>
-            <artifactId>tess4j</artifactId>
-            <version>5.13.0</version>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>textract</artifactId>
         </dependency>
 
         <!-- Better ImageIO format support (TIFF, etc.) -->

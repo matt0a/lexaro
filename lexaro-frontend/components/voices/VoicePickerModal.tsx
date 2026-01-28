@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Play, Pause, Heart, Search, ChevronDown } from "lucide-react";
+import { X, Play, Pause, Heart, Search, ChevronDown, Star } from "lucide-react";
 import Image from "next/image";
 import { prettyRegion } from "../upload/prettyRegion";
 
@@ -13,8 +13,8 @@ export type VoiceMeta = {
     region?: string;   // "US", "GB", ...
     attitude?: string;
     gender?: "Male" | "Female" | "Other";
-    preview?: string;  // ✅ preview audio url
-    avatar?: string;   // ✅ avatar image url
+    preview?: string;  // preview audio url
+    avatar?: string;   // avatar image url
     flagEmoji?: string;
     favorite?: boolean;
     provider: "speechify" | "polly";
@@ -34,6 +34,7 @@ type Props = {
     onExplore?: () => void;
     initialLang?: string;
     allowPolly?: boolean;
+    onToggleFavorite?: (voice: VoiceMeta) => void;
 };
 
 function cn(...classes: Array<string | undefined | false | null>) {
@@ -55,6 +56,7 @@ export default function VoicePickerModal({
                                              voices: voicesProp,
                                              initialLang,
                                              allowPolly = true,
+                                             onToggleFavorite,
                                          }: Props) {
     const normalized = useMemo(() => {
         const src = Array.isArray(voicesProp) ? voicesProp : [];
@@ -84,7 +86,7 @@ export default function VoicePickerModal({
 
     const [dropdown, setDropdown] = useState(false);
 
-    // ✅ Single audio player for the whole modal
+    // Single audio player for the whole modal
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [busyPreview, setBusyPreview] = useState(false);
@@ -166,6 +168,11 @@ export default function VoicePickerModal({
         return () => window.removeEventListener("keydown", onKey);
     }, [open, onClose]);
 
+    // Get favorites
+    const favorites = useMemo(() => {
+        return normalized.filter((v) => v.favorite);
+    }, [normalized]);
+
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         return normalized.filter(
@@ -189,6 +196,102 @@ export default function VoicePickerModal({
         );
         return Object.entries(by).sort(([a], [b]) => a.localeCompare(b));
     }, [filtered]);
+
+    // Voice card component
+    const VoiceCard = ({ v, isLast = false }: { v: VoiceMeta; isLast?: boolean }) => {
+        const title = v.title ?? v.id;
+        const canPreview = !!v.preview;
+        const isFavorite = v.favorite;
+
+        return (
+            <div
+                className={cn(
+                    "flex items-center justify-between gap-4 px-4 py-3 bg-white/[0.02] hover:bg-white/[0.05] transition",
+                    !isLast ? "border-b border-white/10" : ""
+                )}
+            >
+                {/* Left */}
+                <div className="flex items-center gap-3 min-w-0">
+                    {/* Avatar (preferred) or flag */}
+                    {v.avatar ? (
+                        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-white/10 bg-white/[0.04] shrink-0">
+                            <Image src={v.avatar} alt={title} fill className="object-cover" />
+                        </div>
+                    ) : (
+                        <div className="h-10 w-10 rounded-full bg-white/[0.05] grid place-items-center text-base border border-white/10 shrink-0">
+                            {v.flagEmoji ?? "🏳️"}
+                        </div>
+                    )}
+
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-white/90 font-medium truncate">{title}</span>
+                            {isFavorite && (
+                                <Heart className="h-3 w-3 text-pink-400 fill-pink-400 shrink-0" />
+                            )}
+                        </div>
+                        <div className="text-xs text-white/60 truncate">
+                            {v.language ?? "Unknown"}
+                            {v.region ? ` · ${prettyRegion(v.region)}` : ""}
+                            {v.gender && v.gender !== "Other" ? ` · ${v.gender}` : ""}
+                            {v.attitude ? ` · ${v.attitude}` : ""}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={() => togglePreview(v)}
+                        disabled={!canPreview || busyPreview}
+                        className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition",
+                            canPreview
+                                ? "border-white/15 bg-white/5 hover:bg-white/10"
+                                : "border-white/10 bg-white/[0.03] opacity-60 cursor-not-allowed"
+                        )}
+                        type="button"
+                        title={canPreview ? "Play preview" : "No preview available"}
+                    >
+                        {playingId === v.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        {canPreview ? (playingId === v.id ? "Pause" : "Play") : "No preview"}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            stopPreview();
+                            onPick({ voiceId: v.id, label: title, provider: v.provider });
+                        }}
+                        className="rounded-2xl border border-sky-400/30 bg-gradient-to-r from-sky-500/80 via-indigo-500/70 to-fuchsia-500/70 px-4 py-2 text-xs font-semibold text-white hover:brightness-110 transition"
+                        type="button"
+                    >
+                        Select
+                    </button>
+
+                    {onToggleFavorite && (
+                        <button
+                            onClick={() => onToggleFavorite(v)}
+                            className={cn(
+                                "h-10 w-10 rounded-2xl border transition grid place-items-center",
+                                isFavorite
+                                    ? "border-pink-400/30 bg-pink-500/20 hover:bg-pink-500/30"
+                                    : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
+                            )}
+                            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                            type="button"
+                        >
+                            <Heart
+                                className={cn(
+                                    "h-4 w-4 transition",
+                                    isFavorite ? "text-pink-400 fill-pink-400" : "opacity-70"
+                                )}
+                            />
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     if (!open) return null;
 
@@ -284,7 +387,23 @@ export default function VoicePickerModal({
 
                     {/* List */}
                     <div className="max-h-[65vh] overflow-y-auto px-2 py-3">
-                        {groups.length === 0 && (
+                        {/* Favorites Section */}
+                        {favorites.length > 0 && (
+                            <div className="px-4 py-3">
+                                <div className="flex items-center gap-2 text-sm font-medium text-pink-400 mb-2">
+                                    <Star className="h-4 w-4 fill-pink-400" />
+                                    Favorites
+                                </div>
+
+                                <div className="rounded-2xl overflow-hidden border border-pink-400/20 bg-pink-500/5">
+                                    {favorites.map((v, i) => (
+                                        <VoiceCard key={v.id} v={v} isLast={i === favorites.length - 1} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {groups.length === 0 && favorites.length === 0 && (
                             <div className="py-16 text-center text-white/60">
                                 {allowPolly ? "No matches." : "No voices available for this language yet."}
                             </div>
@@ -295,83 +414,9 @@ export default function VoicePickerModal({
                                 <div className="text-sm font-medium text-white/70 mb-2">{regionName}</div>
 
                                 <div className="rounded-2xl overflow-hidden border border-white/10">
-                                    {list.map((v, i) => {
-                                        const isLast = i === list.length - 1;
-                                        const title = v.title ?? v.id;
-                                        const canPreview = !!v.preview;
-
-                                        return (
-                                            <div
-                                                key={v.id}
-                                                className={cn(
-                                                    "flex items-center justify-between gap-4 px-4 py-3 bg-white/[0.02] hover:bg-white/[0.05] transition",
-                                                    !isLast ? "border-b border-white/10" : ""
-                                                )}
-                                            >
-                                                {/* Left */}
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    {/* Avatar (preferred) or flag */}
-                                                    {v.avatar ? (
-                                                        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-white/10 bg-white/[0.04] shrink-0">
-                                                            <Image src={v.avatar} alt={title} fill className="object-cover" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="h-10 w-10 rounded-full bg-white/[0.05] grid place-items-center text-base border border-white/10 shrink-0">
-                                                            {v.flagEmoji ?? "🏳️"}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="min-w-0">
-                                                        <div className="text-white/90 font-medium truncate">{title}</div>
-                                                        <div className="text-xs text-white/60 truncate">
-                                                            {v.language ?? "Unknown"}
-                                                            {v.region ? ` · ${prettyRegion(v.region)}` : ""}
-                                                            {v.gender && v.gender !== "Other" ? ` · ${v.gender}` : ""}
-                                                            {v.attitude ? ` · ${v.attitude}` : ""}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Right */}
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        onClick={() => togglePreview(v)}
-                                                        disabled={!canPreview || busyPreview}
-                                                        className={cn(
-                                                            "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition",
-                                                            canPreview
-                                                                ? "border-white/15 bg-white/5 hover:bg-white/10"
-                                                                : "border-white/10 bg-white/[0.03] opacity-60 cursor-not-allowed"
-                                                        )}
-                                                        type="button"
-                                                        title={canPreview ? "Play preview" : "No preview available"}
-                                                    >
-                                                        {playingId === v.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                                                        {canPreview ? (playingId === v.id ? "Pause" : "Play") : "No preview"}
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => {
-                                                            stopPreview();
-                                                            onPick({ voiceId: v.id, label: title, provider: v.provider });
-                                                        }}
-                                                        className="rounded-2xl border border-sky-400/30 bg-gradient-to-r from-sky-500/80 via-indigo-500/70 to-fuchsia-500/70 px-4 py-2 text-xs font-semibold text-white hover:brightness-110 transition"
-                                                        type="button"
-                                                    >
-                                                        Select
-                                                    </button>
-
-                                                    <button
-                                                        className="h-10 w-10 rounded-2xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition grid place-items-center"
-                                                        title="Favorite"
-                                                        type="button"
-                                                    >
-                                                        <Heart className="h-4 w-4 opacity-70" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    {list.map((v, i) => (
+                                        <VoiceCard key={v.id} v={v} isLast={i === list.length - 1} />
+                                    ))}
                                 </div>
                             </div>
                         ))}
@@ -379,7 +424,7 @@ export default function VoicePickerModal({
 
                     {/* Footer */}
                     <div className="px-6 py-4 border-t border-white/10 text-xs text-white/50">
-                        Tip: click Play to hear a preview before selecting.
+                        Tip: click Play to hear a preview, or click the heart to save favorites.
                     </div>
                 </div>
             </div>

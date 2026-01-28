@@ -2,8 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Upload, FileUp, Type, AlertTriangle, Sparkles } from "lucide-react";
+import {
+    Upload,
+    FileUp,
+    Type,
+    AlertTriangle,
+    Sparkles,
+    FileText,
+    Clock,
+    Headphones,
+    ArrowRight,
+    ChevronRight,
+    Mic2,
+    FileAudio2,
+    Zap,
+    Gauge,
+} from "lucide-react";
 import AudioStatus from "@/components/dashboard/AudioStatus";
 import AddTextModal from "@/components/upload/AddTextModal";
 import { uploadDocument, startAudio } from "@/lib/documents";
@@ -33,11 +49,67 @@ type VoiceDto = {
     gender: string | null;
     attitude: string | null;
     preview: string | null;
-    avatar: string | null; // ✅ added (so VoicePicker can show avatars)
+    avatar: string | null;
+    favorite: boolean;
 };
 
 type SimplePickedVoice = { voiceId: string; title: string };
 
+type PageResp<T> = {
+    content: T[];
+    totalElements: number;
+    totalPages: number;
+};
+
+type DocumentResponse = {
+    id: number;
+    filename: string;
+    mime: string;
+    sizeBytes: number;
+    uploadedAt: string;
+};
+
+type UsageDto = {
+    plan: string;
+    unlimited: boolean;
+    monthlyUsed: number;
+    monthlyRemaining: number;
+    dailyUsed: number;
+    dailyRemaining: number;
+};
+
+/**
+ * Format bytes to human readable string.
+ */
+function fmtBytes(b: number) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB';
+    return (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+}
+
+/**
+ * Format time ago from date.
+ */
+function timeAgo(date: Date) {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
+}
+
+/**
+ * UploadSection Component
+ *
+ * Main upload interface for Voice Library with:
+ * - Drag and drop file upload
+ * - Create text modal
+ * - Voice picker integration
+ * - Recent documents display
+ * - Usage stats
+ */
 export default function UploadSection({ plan, initialOpenUpload = false }: Props) {
     const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +131,13 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
 
     const [catalog, setCatalog] = useState<VoiceMeta[]>([]);
 
+    // Recent documents
+    const [recentDocs, setRecentDocs] = useState<DocumentResponse[]>([]);
+    const [loadingDocs, setLoadingDocs] = useState(true);
+
+    // Usage stats
+    const [usage, setUsage] = useState<UsageDto | null>(null);
+
     const upperPlan = plan?.toUpperCase?.() || "FREE";
     const isFree = upperPlan === "FREE";
     const isPaid = !isFree;
@@ -67,8 +146,29 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
         if (initialOpenUpload) setShowText(true);
     }, [initialOpenUpload]);
 
+    // Load recent documents and usage
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [docsRes, usageRes] = await Promise.all([
+                    api.get<PageResp<DocumentResponse>>('/documents', {
+                        params: { page: 0, size: 6, sort: 'uploadedAt,DESC', purpose: 'AUDIO' },
+                    }),
+                    api.get<UsageDto>('/me/usage'),
+                ]);
+                setRecentDocs(docsRes.data.content || []);
+                setUsage(usageRes.data);
+            } catch (err) {
+                console.error('Failed to load data:', err);
+            } finally {
+                setLoadingDocs(false);
+            }
+        };
+        loadData();
+    }, [docId]); // Reload when a new doc is created
+
     // ---------------------------
-    // ✅ Voice curation (same behavior as AddTextModal)
+    // Voice curation (same behavior as AddTextModal)
     // ---------------------------
 
     const KNOWN_LANGS = ["Spanish", "French", "German", "Portuguese"] as const;
@@ -76,28 +176,10 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
     const MUST_HAVE_ENGLISH = ["kristy", "june", "mason"] as const;
 
     const POPULAR_ENGLISH_ORDER = [
-        "kristy",
-        "june",
-        "mason",
-        "gwyneth",
-        "snoop",
-        "mrbeast",
-        "cliff",
-        "cliff weitzman",
-        "nate",
-        "ali",
-        "ali abdaal",
-        "henry",
-        "emma",
-        "oliver",
-        "jamie",
-        "mary",
-        "lisa",
-        "george",
-        "jessica",
-        "simon",
-        "sally",
-        "aria",
+        "kristy", "june", "mason", "gwyneth", "snoop", "mrbeast", "cliff",
+        "cliff weitzman", "nate", "ali", "ali abdaal", "henry", "emma",
+        "oliver", "jamie", "mary", "lisa", "george", "jessica", "simon",
+        "sally", "aria",
     ] as const;
 
     function normalizeLang(raw?: string | null) {
@@ -105,14 +187,12 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
         if (!s) return "Other";
         const lower = s.toLowerCase();
 
-        // ISO-ish
         if (lower.startsWith("en")) return "English";
         if (lower.startsWith("es")) return "Spanish";
         if (lower.startsWith("fr")) return "French";
         if (lower.startsWith("pt")) return "Portuguese";
         if (lower.startsWith("de")) return "German";
 
-        // Human labels
         if (lower.includes("english")) return "English";
         if (lower.includes("spanish")) return "Spanish";
         if (lower.includes("french")) return "French";
@@ -134,12 +214,10 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
     }
 
     function stableVoiceSort(a: VoiceMeta, b: VoiceMeta) {
-        // preview first
         const ap = a.preview ? 1 : 0;
         const bp = b.preview ? 1 : 0;
         if (ap !== bp) return bp - ap;
 
-        // prefer speechify first
         const aProv = a.provider === "speechify" ? 0 : 1;
         const bProv = b.provider === "speechify" ? 0 : 1;
         if (aProv !== bProv) return aProv - bProv;
@@ -291,16 +369,13 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
 
         const result: VoiceMeta[] = [];
 
-        // English first
         result.push(...pickEnglish30(all));
 
-        // Known langs: 10 each
         for (const lang of KNOWN_LANGS) {
             const list = (byLang.get(lang) ?? []).sort(stableVoiceSort);
             result.push(...pickByGender(list, 10));
         }
 
-        // Everything else (except English + known): 6 each
         const skip = new Set<string>(["English", ...KNOWN_LANGS]);
         const othersLangs = Array.from(byLang.keys())
             .filter((l) => !skip.has(l))
@@ -311,7 +386,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
             result.push(...pickByGender(list, 6));
         }
 
-        // final dedupe (keep grouped ordering)
         const seen = new Set<string>();
         const deduped: VoiceMeta[] = [];
         for (const v of result) {
@@ -323,7 +397,7 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
         return deduped;
     }
 
-    // ✅ Load catalog ONLY when paid picker opens (so it matches AddText behavior)
+    // Load catalog ONLY when paid picker opens
     useEffect(() => {
         if (!showVoice) return;
         if (!isPaid) return;
@@ -341,10 +415,10 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                     attitude: v.attitude ?? "",
                     gender: normalizeGender(v.gender),
                     provider: v.provider,
-                    preview: v.preview ?? undefined, // ✅ keep previews
-                    avatar: v.avatar ?? undefined,   // ✅ keep avatars
+                    preview: v.preview ?? undefined,
+                    avatar: v.avatar ?? undefined,
                     flagEmoji: undefined,
-                    favorite: false,
+                    favorite: v.favorite ?? false,
                 }));
 
                 setCatalog(curateVoices(mapped));
@@ -381,7 +455,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
 
             setBusy(true);
             try {
-                // Voice Library always uploads as AUDIO (education uses EducationDocumentCreateModal)
                 const { id } = await uploadDocument(file, (p) => setProgress(p), 'AUDIO');
 
                 setLastDocName(file.name);
@@ -390,7 +463,7 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 if (isFree) {
                     setShowFreeVoice(true);
                 } else {
-                    setShowVoice(true); // ✅ triggers voice fetch with previews/avatars + curated langs
+                    setShowVoice(true);
                 }
             } catch (e: any) {
                 setError(e?.message || "Upload failed. Please try again.");
@@ -404,38 +477,108 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
 
     return (
         <section className="relative">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-                <div className="flex items-start justify-between gap-4">
+            {/* Header */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 grid place-items-center shadow-lg shadow-amber-500/20">
+                        <Mic2 className="h-7 w-7 text-white" />
+                    </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-2xl border border-white/10 bg-white/5 grid place-items-center">
-                                <Sparkles className="h-4 w-4 text-white/80" />
-                            </div>
-                            <h2 className="text-2xl font-semibold">Library</h2>
+                            <h1 className="text-2xl font-bold">Voice Library</h1>
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
+                                {upperPlan === 'FREE' ? 'Free' : upperPlan.includes('PLUS') ? 'Premium+' : 'Premium'}
+                            </span>
                         </div>
-                        <p className="text-white/65 mt-2">Upload documents or create text, then generate audio with your voice.</p>
-                        <div className="section-rule" />
+                        <p className="text-white/60 text-sm mt-1">
+                            Convert documents to natural-sounding audio
+                        </p>
                     </div>
+                </div>
 
+                <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowText(true)}
-                        className="btn-ghost border border-white/10 bg-white/5 hover:bg-white/10 rounded-2xl px-4 py-2"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10
+                                   hover:bg-white/10 transition-colors"
                         type="button"
                     >
                         <Type className="h-4 w-4" />
-                        Create text
+                        Create Text
                     </button>
+                    <Link
+                        href="/saved-audio"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10
+                                   hover:bg-white/10 transition-colors"
+                    >
+                        <Headphones className="h-4 w-4" />
+                        Saved Audio
+                    </Link>
                 </div>
             </motion.div>
+
+            {/* Stats Row */}
+            {usage && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.05 }}
+                    className="grid grid-cols-3 gap-4 mb-6"
+                >
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <Zap className="h-5 w-5 text-amber-400" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold">
+                                    {usage.unlimited ? '∞' : usage.monthlyRemaining.toLocaleString()}
+                                </div>
+                                <div className="text-xs text-white/50">Chars Left</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <FileAudio2 className="h-5 w-5 text-blue-400" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold">{recentDocs.length}</div>
+                                <div className="text-xs text-white/50">Recent Files</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <Gauge className="h-5 w-5 text-green-400" />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold">
+                                    {usage.unlimited ? '∞' : (usage.monthlyUsed + usage.monthlyRemaining).toLocaleString()}
+                                </div>
+                                <div className="text-xs text-white/50">Monthly Cap</div>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
             {/* Upload Panel */}
             <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: 0.05 }}
+                transition={{ duration: 0.35, delay: 0.1 }}
                 className={[
-                    "mt-6 panel-auth panel-auth-hover relative overflow-hidden p-7 md:p-8",
-                    dragOver ? "ring-2 ring-[rgba(34,140,219,.35)]" : "",
+                    "rounded-2xl bg-white/5 border border-white/10 p-6 md:p-8",
+                    dragOver ? "ring-2 ring-amber-500/50 border-amber-500/50" : "hover:border-white/20",
+                    "transition-all",
                 ].join(" ")}
                 onDragOver={(e) => {
                     e.preventDefault();
@@ -448,49 +591,50 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                     onFiles(e.dataTransfer.files);
                 }}
             >
-                <div className="panel-sheen" />
-
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 grid place-items-center">
-                                <Upload className="h-4 w-4 text-white/85" />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                                <Upload className="h-6 w-6 text-amber-400" />
                             </div>
-                            <div className="min-w-0">
-                                <h3 className="text-lg font-semibold">Upload</h3>
-                                <p className="text-sm text-white/60 mt-1">Drop a file here or browse to upload.</p>
+                            <div>
+                                <h3 className="text-lg font-semibold">Upload Document</h3>
+                                <p className="text-sm text-white/60">Drop a file or click to browse</p>
                             </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <span className="chip">PDF</span>
-                            <span className="chip">DOCX</span>
-                            <span className="chip">TXT</span>
-                            <span className="chip">EPUB</span>
-                            <span className="chip">RTF</span>
-                            <span className="chip">HTML</span>
-                            <span className="chip-accent">Max {MAX_SIZE_MB}MB</span>
+                        <div className="flex flex-wrap gap-2 mt-4">
+                            {['PDF', 'DOCX', 'TXT', 'EPUB', 'RTF', 'HTML'].map((fmt) => (
+                                <span key={fmt} className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60">
+                                    {fmt}
+                                </span>
+                            ))}
+                            <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-medium">
+                                Max {MAX_SIZE_MB}MB
+                            </span>
                         </div>
                     </div>
 
                     <button
                         onClick={() => inputRef.current?.click()}
                         disabled={busy}
-                        className="btn-primary-pop rounded-2xl px-5 py-2.5"
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500
+                                   text-white font-semibold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40
+                                   disabled:opacity-50 transition-all"
                         type="button"
                     >
-                        <FileUp className="h-4 w-4" />
+                        <FileUp className="h-5 w-5" />
                         {busy ? "Uploading…" : "Browse Files"}
                     </button>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-10 text-center">
-                    <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/5 border border-white/10 grid place-items-center">
-                        <Upload className="h-5 w-5 text-white/75" />
-                    </div>
-                    <p className="text-white/85">Drop files here to upload</p>
-                    <p className="text-xs text-white/55 mt-1">
-                        Accepted: {ACCEPTED_EXTS.join(", ")} • Max {MAX_SIZE_MB}MB
+                {/* Drop Zone */}
+                <div className={`mt-6 rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+                    dragOver ? 'border-amber-500 bg-amber-500/10' : 'border-white/10 bg-white/[0.02]'
+                }`}>
+                    <Upload className={`h-8 w-8 mx-auto mb-3 ${dragOver ? 'text-amber-400' : 'text-white/40'}`} />
+                    <p className={dragOver ? 'text-amber-400' : 'text-white/60'}>
+                        {dragOver ? 'Drop to upload' : 'Drag and drop files here'}
                     </p>
                 </div>
 
@@ -502,63 +646,138 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                     onChange={(e) => onFiles(e.target.files)}
                 />
 
+                {/* Progress Bar */}
                 {busy && progress > 0 && (
-                    <div className="mt-5 w-full max-w-lg">
+                    <div className="mt-6">
                         <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                             <div
-                                className="h-2 rounded-full bg-[var(--accent)] transition-[width] duration-150"
+                                className="h-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-[width] duration-150"
                                 style={{ width: `${Math.min(progress, 100)}%` }}
                             />
                         </div>
-                        <div className="mt-1 text-xs text-white/60 text-center">{Math.floor(progress)}%</div>
+                        <div className="mt-2 text-xs text-white/60 text-center">{Math.floor(progress)}%</div>
                     </div>
                 )}
 
+                {/* Error */}
                 {!!error && (
-                    <div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                    <div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                         <AlertTriangle className="h-4 w-4" />
                         <span>{error}</span>
                     </div>
                 )}
             </motion.div>
 
-            {/* Create Text Panel */}
+            {/* Create Text Card */}
             <motion.button
                 type="button"
                 onClick={() => setShowText(true)}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.99 }}
-                className="mt-5 w-full panel-auth panel-auth-hover relative overflow-hidden p-7 md:p-8 text-left"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.15 }}
+                className="mt-4 w-full rounded-2xl bg-white/5 border border-white/10 p-5
+                           hover:bg-white/[0.08] hover:border-amber-500/30 transition-all text-left group"
             >
-                <div className="panel-sheen" />
-
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 grid place-items-center rounded-2xl border border-white/10 bg-white/5">
-                            <Type className="h-5 w-5 text-white/85" />
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                            <Type className="h-6 w-6 text-purple-400" />
                         </div>
                         <div>
-                            <div className="font-semibold text-white/90 text-lg">Create Text</div>
-                            <p className="text-sm text-white/60 mt-1">Write or paste text directly and generate audio.</p>
+                            <div className="font-semibold text-white group-hover:text-amber-400 transition-colors">
+                                Create from Text
+                            </div>
+                            <p className="text-sm text-white/60">
+                                Write or paste text directly and generate audio
+                            </p>
                         </div>
                     </div>
-
-                    <span className="chip-accent">Open editor</span>
+                    <ChevronRight className="h-5 w-5 text-white/30 group-hover:text-amber-400 transition-colors" />
                 </div>
             </motion.button>
 
+            {/* Audio Processing Status - Above Recent Documents */}
             {docId !== null && (
-                <div className="mt-8">
+                <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.18 }}
+                    className="mt-6"
+                >
                     <AudioStatus
                         docId={docId}
+                        docName={lastDocName ?? undefined}
                         onReady={(readyDocId) => {
                             const name = lastDocName ?? `Audio ${readyDocId}`;
                             router.push(`/dashboard/saved-audio/${readyDocId}?name=${encodeURIComponent(name)}`);
                         }}
                     />
+                </motion.div>
+            )}
+
+            {/* Recent Documents */}
+            {recentDocs.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.2 }}
+                    className="mt-8"
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-white/40" />
+                            Recent Uploads
+                        </h2>
+                        <Link
+                            href="/saved-audio"
+                            className="text-sm text-amber-400 hover:underline flex items-center gap-1"
+                        >
+                            View all <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {recentDocs.map((doc) => {
+                            const uploadDate = new Date(doc.uploadedAt);
+                            return (
+                                <Link
+                                    key={doc.id}
+                                    href={`/dashboard/saved-audio/${doc.id}?name=${encodeURIComponent(doc.filename)}`}
+                                    className="group flex items-center gap-3 rounded-xl bg-white/5 border border-white/10 p-4
+                                               hover:bg-white/[0.08] hover:border-amber-500/30 transition-all"
+                                >
+                                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                        <FileAudio2 className="h-5 w-5 text-cyan-400" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-medium text-sm truncate group-hover:text-amber-400 transition-colors">
+                                            {doc.filename.replace(/\.[^.]+$/, '.mp3')}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
+                                            <span>{fmtBytes(doc.sizeBytes)}</span>
+                                            <span>•</span>
+                                            <span>{timeAgo(uploadDate)}</span>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-amber-400 transition-colors" />
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Loading Recent */}
+            {loadingDocs && (
+                <div className="mt-8 flex items-center justify-center py-8">
+                    <div className="flex items-center gap-3 text-white/60">
+                        <div className="h-5 w-5 border-2 border-white/20 border-t-amber-500 rounded-full animate-spin" />
+                        Loading recent uploads...
+                    </div>
                 </div>
             )}
 
+            {/* Modals */}
             <AddTextModal
                 open={showText}
                 plan={plan}
@@ -569,7 +788,6 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                 }}
             />
 
-            {/* ✅ Paid voice picker (now uses same catalog logic as AddTextModal, with previews/avatars + curated languages) */}
             <VoicePickerModal
                 open={showVoice}
                 voices={catalog}
@@ -587,6 +805,29 @@ export default function UploadSection({ plan, initialOpenUpload = false }: Props
                     } finally {
                         setShowVoice(false);
                         setPendingDocId(null);
+                    }
+                }}
+                onToggleFavorite={async (voice: VoiceMeta) => {
+                    try {
+                        if (voice.favorite) {
+                            // Remove from favorites
+                            await api.delete(`/tts/voices/${encodeURIComponent(voice.id)}/favorite`, {
+                                params: { provider: voice.provider }
+                            });
+                        } else {
+                            // Add to favorites
+                            await api.post(`/tts/voices/${encodeURIComponent(voice.id)}/favorite`, null, {
+                                params: { provider: voice.provider }
+                            });
+                        }
+                        // Update local catalog state
+                        setCatalog(prev => prev.map(v =>
+                            v.id === voice.id && v.provider === voice.provider
+                                ? { ...v, favorite: !v.favorite }
+                                : v
+                        ));
+                    } catch (err) {
+                        console.error('Failed to toggle favorite:', err);
                     }
                 }}
             />
