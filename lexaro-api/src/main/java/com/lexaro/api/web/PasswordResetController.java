@@ -2,12 +2,14 @@ package com.lexaro.api.web;
 
 import com.lexaro.api.domain.User;
 import com.lexaro.api.mail.MailService;
+import com.lexaro.api.mail.templates.PasswordResetEmailTemplate;
 import com.lexaro.api.repo.PasswordResetTokenRepository;
 import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.security.PasswordResetToken;
 import jakarta.transaction.Transactional;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -17,15 +19,29 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/auth")
-@RequiredArgsConstructor
 public class PasswordResetController {
 
     private final UserRepository users;
     private final PasswordResetTokenRepository tokens;
     private final MailService mail;
     private final PasswordEncoder encoder;
+    private final String brandName;
+
+    public PasswordResetController(
+            UserRepository users,
+            PasswordResetTokenRepository tokens,
+            MailService mail,
+            PasswordEncoder encoder,
+            @Value("${app.mail.brand-name:Lexaro}") String brandName) {
+        this.users = users;
+        this.tokens = tokens;
+        this.mail = mail;
+        this.encoder = encoder;
+        this.brandName = brandName;
+    }
 
     @PostMapping("/forgot")
     @Transactional
@@ -40,11 +56,20 @@ public class PasswordResetController {
 
             String link = (req.baseUrl == null || req.baseUrl.isBlank()
                     ? "http://localhost:3000" : req.baseUrl) + "/reset?token=" + t.getToken();
-            String subject = "Reset your password";
-            String text = "Click to reset your password: " + link;
-            String html = "<p>Click to reset your password:</p><p><a href=\"" + link + "\">Reset password</a></p>";
 
-            mail.send(u.getEmail(), subject, text, html);
+            // Compute expiry minutes (clamp to minimum 1 in case of clock drift)
+            long expiresMinutes = Math.max(1, ChronoUnit.MINUTES.between(Instant.now(), t.getExpiresAt()));
+
+            String subject = PasswordResetEmailTemplate.subject(brandName);
+            String text = PasswordResetEmailTemplate.textBody(brandName, link, expiresMinutes);
+            String html = PasswordResetEmailTemplate.htmlBody(brandName, link, expiresMinutes);
+
+            try {
+                mail.send(u.getEmail(), subject, text, html);
+                log.info("Password reset email sent for userId={}", u.getId());
+            } catch (Exception ex) {
+                log.error("Failed to send password reset email for userId={}: {}", u.getId(), ex.getMessage());
+            }
         }
         // Always 200 to avoid email enumeration
         return ResponseEntity.ok(Map.of("ok", true));

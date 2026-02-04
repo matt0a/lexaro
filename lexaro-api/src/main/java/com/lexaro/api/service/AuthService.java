@@ -3,6 +3,7 @@ package com.lexaro.api.service;
 import com.lexaro.api.domain.Plan;
 import com.lexaro.api.domain.User;
 import com.lexaro.api.mail.MailService;
+import com.lexaro.api.mail.templates.EmailVerificationTemplate;
 import com.lexaro.api.repo.UserRepository;
 import com.lexaro.api.security.JwtService;
 import com.lexaro.api.web.dto.AuthResponse;
@@ -49,6 +50,9 @@ public class AuthService {
     @Value("${app.dev.adminEmails:}")
     private String adminEmailsCsv;
 
+    @Value("${app.mail.brand-name:Lexaro}")
+    private String brandName;
+
     // --- helpers to get current user id from JWT ---
     private Long currentUserId() {
         return (Long) SecurityContextHolder.getContext()
@@ -73,34 +77,17 @@ public class AuthService {
     }
 
     private void sendVerificationEmail(User u, String link) {
-        String subject = "Verify your email for Lexaro";
-        String text = """
-                Hi,
-                
-                Please verify your email by clicking the link below:
-                %s
-                
-                This link expires in %d hours.
-                
-                If you didn't request this, you can ignore it.
-                """.formatted(link, verificationTtlHours);
-
-        String html = """
-                <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
-                  <h2>Verify your email</h2>
-                  <p>Click the button below to verify your Lexaro account.</p>
-                  <p><a href="%s" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#111;color:#fff;text-decoration:none">Verify email</a></p>
-                  <p style="color:#666;font-size:12px">This link expires in %d hours.</p>
-                </div>
-                """.formatted(link, verificationTtlHours);
+        String subject = EmailVerificationTemplate.subject(brandName);
+        String text = EmailVerificationTemplate.textBody(brandName, link, verificationTtlHours);
+        String html = EmailVerificationTemplate.htmlBody(brandName, link, verificationTtlHours);
 
         try {
             mail.send(u.getEmail(), subject, text, html);
+            log.info("Verification email sent for userId={}", u.getId());
         } catch (Exception ex) {
             // Don't block signup on mail flakiness — just log
-            log.error("Failed to send verification email to {}: {}", u.getEmail(), ex.toString(), ex);
+            log.error("Failed to send verification email for userId={}: {}", u.getId(), ex.getMessage());
         }
-        log.info("📧 Verification link (debug) for {}: {}", u.getEmail(), link);
     }
 
     private void generateAndSendVerification(User u) {

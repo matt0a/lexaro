@@ -84,7 +84,14 @@ export default function LoginPage() {
             await login(email, password);
             router.push('/dashboard');
         } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Login failed');
+            const status = err?.response?.status;
+            const message = err?.response?.data?.message ?? 'Login failed';
+            // Handle unverified email - redirect to check-email page
+            if (status === 403 && message.toLowerCase().includes('not verified')) {
+                router.push(`/check-email?email=${encodeURIComponent(email)}`);
+                return;
+            }
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -137,9 +144,17 @@ export default function LoginPage() {
                     </button>
                 </div>
 
-                <p className="text-xs text-white/55">
-                    Password must be at least <span className="text-white/80 font-medium">8 characters</span>.
-                </p>
+                <div className="flex items-center justify-between">
+                    <p className="text-xs text-white/55">
+                        Password must be at least <span className="text-white/80 font-medium">8 characters</span>.
+                    </p>
+                    <Link
+                        href="/forgot"
+                        className="text-xs text-white/60 hover:text-white/90 underline decoration-white/30"
+                    >
+                        Forgot password?
+                    </Link>
+                </div>
 
                 {error && <p className="form-error">{error}</p>}
 

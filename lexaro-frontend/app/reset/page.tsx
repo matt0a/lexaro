@@ -1,11 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signup } from '@/lib/auth';
 import AuthShell from '@/components/auth/AuthShell';
+import { resetPassword } from '@/lib/auth';
 
+/**
+ * Eye icon component for password visibility toggle.
+ */
 function EyeIcon({ open }: { open: boolean }) {
     return open ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="opacity-90">
@@ -41,39 +44,37 @@ function EyeIcon({ open }: { open: boolean }) {
     );
 }
 
-type Strength = { score: number; label: string };
-
-function getPasswordStrength(pw: string): Strength {
-    const p = pw ?? '';
-    if (!p) return { score: 0, label: 'Enter a password' };
-
-    let score = 0;
-    if (p.length >= 8) score++;
-    if (/[A-Z]/.test(p)) score++;
-    if (/[0-9]/.test(p)) score++;
-    if (/[^A-Za-z0-9]/.test(p)) score++;
-
-    const label = score <= 1 ? 'Weak' : score === 2 ? 'Okay' : score === 3 ? 'Good' : 'Strong';
-    if (p.length < 8) return { score: 1, label: 'Too short' };
-    return { score, label };
+/**
+ * Checkmark icon for success state.
+ */
+function CheckIcon() {
+    return (
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-green-400">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+            <path
+                d="M8 12l2.5 2.5L16 9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
 }
 
-export default function SignupPage() {
+export default function ResetPasswordPage() {
+    const searchParams = useSearchParams();
     const router = useRouter();
+    const token = searchParams.get('token');
 
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    const [agree, setAgree] = useState(false);
-
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-
-    const strength = useMemo(() => getPasswordStrength(password), [password]);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
 
     const passwordsMatch = useMemo(() => {
         if (!confirmPassword) return true;
@@ -81,20 +82,18 @@ export default function SignupPage() {
     }, [password, confirmPassword]);
 
     const canSubmit = useMemo(() => {
-        if (!email.trim()) return false;
         if (password.length < 8) return false;
         if (!confirmPassword) return false;
         if (password !== confirmPassword) return false;
-        if (!agree) return false;
         return true;
-    }, [email, password, confirmPassword, agree]);
+    }, [password, confirmPassword]);
 
     const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
 
-        if (!agree) {
-            setError('You must agree to the Terms of Service and Privacy Policy.');
+        if (!token) {
+            setError('Invalid reset link. Please request a new one.');
             return;
         }
 
@@ -102,6 +101,7 @@ export default function SignupPage() {
             setError('Password must be at least 8 characters.');
             return;
         }
+
         if (password !== confirmPassword) {
             setError('Passwords do not match.');
             return;
@@ -109,57 +109,82 @@ export default function SignupPage() {
 
         setLoading(true);
         try {
-            const response = await signup(email, password);
-            // If no token returned, email verification is required
-            if (!response.token) {
-                router.push(`/check-email?email=${encodeURIComponent(email)}`);
-            } else {
-                router.push('/dashboard');
-            }
+            await resetPassword(token, password);
+            setSuccess(true);
+            // Redirect to login after showing success
+            setTimeout(() => {
+                router.push('/login');
+            }, 2000);
         } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Signup failed');
+            const message = err?.response?.data?.error ?? err?.response?.data?.message;
+            setError(message ?? 'Failed to reset password. The link may be expired.');
         } finally {
             setLoading(false);
         }
     };
 
-    const fillPct = useMemo(() => {
-        const score = strength.score;
-        if (score <= 0) return 0;
-        return Math.min(100, (score / 4) * 100);
-    }, [strength.score]);
+    // No token provided
+    if (!token) {
+        return (
+            <AuthShell
+                title="Invalid link"
+                subtitle="This password reset link is invalid or missing."
+                footer={
+                    <>
+                        <Link
+                            href="/forgot"
+                            className="underline decoration-white/40 hover:decoration-white/80"
+                        >
+                            Request a new reset link
+                        </Link>
+                    </>
+                }
+            >
+                <div className="py-4 text-center">
+                    <p className="text-sm text-white/70">
+                        Please use the link from your password reset email.
+                    </p>
+                </div>
+            </AuthShell>
+        );
+    }
 
+    // Success state
+    if (success) {
+        return (
+            <AuthShell title="Password reset!" subtitle="Your password has been changed.">
+                <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <CheckIcon />
+                    <p className="text-sm text-white/70">Redirecting to login...</p>
+                </div>
+            </AuthShell>
+        );
+    }
+
+    // Form state
     return (
         <AuthShell
-            title="Create your account"
-            subtitle="Start studying smarter in minutes. Free to get started."
+            title="Reset your password"
+            subtitle="Enter a new password for your account."
             footer={
                 <>
-                    Already have an account?{' '}
-                    <Link href="/login" className="underline decoration-white/40 hover:decoration-white/80">
+                    Remember your password?{' '}
+                    <Link
+                        href="/login"
+                        className="underline decoration-white/40 hover:decoration-white/80"
+                    >
                         Log in
                     </Link>
                 </>
             }
         >
-            <form onSubmit={onSubmit} className="space-y-3" autoComplete="on">
-                <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    className="input"
-                    required
-                />
-
-                {/* Password */}
+            <form onSubmit={onSubmit} className="space-y-3">
+                {/* New password */}
                 <div className="relative">
                     <input
                         type={showPassword ? 'text' : 'password'}
                         name="new-password"
-                        placeholder="Password"
+                        placeholder="New password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         autoComplete="new-password"
@@ -177,28 +202,16 @@ export default function SignupPage() {
                     </button>
                 </div>
 
-                {/* Strength bar */}
-                <div className="space-y-1.5">
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                        <div
-                            className="h-full rounded-full bg-[var(--accent)] transition-all duration-300"
-                            style={{ width: `${fillPct}%` }}
-                        />
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-            <span className="text-white/60">
-              Minimum <span className="text-white/80 font-medium">8 characters</span>
-            </span>
-                        <span className="text-white/75">{strength.label}</span>
-                    </div>
-                </div>
+                <p className="text-xs text-white/55">
+                    Password must be at least <span className="text-white/80 font-medium">8 characters</span>.
+                </p>
 
                 {/* Confirm password */}
                 <div className="relative">
                     <input
                         type={showConfirm ? 'text' : 'password'}
                         name="confirm-password"
-                        placeholder="Confirm password"
+                        placeholder="Confirm new password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         autoComplete="new-password"
@@ -216,33 +229,12 @@ export default function SignupPage() {
                     </button>
                 </div>
 
-                {!passwordsMatch && <p className="text-xs text-red-300">Passwords don’t match.</p>}
-
-                {/* Terms gate */}
-                <label className="flex items-start gap-2 text-xs text-white/70 select-none">
-                    <input
-                        type="checkbox"
-                        checked={agree}
-                        onChange={(e) => setAgree(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/10"
-                    />
-                    <span>
-            I agree to the{' '}
-                        <Link href="/terms" className="underline decoration-white/40 hover:decoration-white/80">
-              Terms of Service
-            </Link>{' '}
-                        and{' '}
-                        <Link href="/privacy" className="underline decoration-white/40 hover:decoration-white/80">
-              Privacy Policy
-            </Link>
-            .
-          </span>
-                </label>
+                {!passwordsMatch && <p className="text-xs text-red-300">Passwords don&apos;t match.</p>}
 
                 {error && <p className="form-error">{error}</p>}
 
                 <button type="submit" disabled={loading || !canSubmit} className="btn-primary w-full">
-                    {loading ? 'Creating…' : 'Create account'}
+                    {loading ? 'Resetting...' : 'Reset password'}
                 </button>
             </form>
         </AuthShell>
