@@ -28,7 +28,7 @@ const Row = ({
 
 /* Crisp, centered icons */
 const Check = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" className="text-emerald-400" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" className="text-white/60" aria-hidden>
         <path
             fill="none"
             stroke="currentColor"
@@ -41,7 +41,7 @@ const Check = () => (
 );
 
 const Cross = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" className="text-red-400" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" className="text-white/20" aria-hidden>
         <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M6 6l12 12" />
             <path d="M18 6L6 18" />
@@ -65,8 +65,8 @@ export default function PlanComparison() {
         <section className="relative mt-24 overflow-hidden px-4">
             {/* subtle background bloom */}
             <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-1/2 top-10 h-[460px] w-[920px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-3xl" />
-                <div className="absolute left-1/3 top-44 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
+                <div className="absolute left-1/2 top-10 h-[460px] w-[920px] -translate-x-1/2 rounded-full bg-white/[0.03] blur-3xl" />
+                <div className="absolute left-1/3 top-44 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-white/[0.03] blur-3xl" />
             </div>
 
             <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_30px_120px_rgba(0,0,0,.7)]">
@@ -80,6 +80,10 @@ export default function PlanComparison() {
                     </div>
                 </div>
 
+                {/* Horizontally scrollable on mobile */}
+                <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="min-w-[600px]">
+
                 {/* column headers */}
                 <div className="grid grid-cols-4 items-center px-4 pb-4 text-sm font-semibold">
                     <div />
@@ -89,12 +93,12 @@ export default function PlanComparison() {
             </span>
                     </div>
                     <div className="text-center">
-            <span className="inline-flex rounded-full bg-sky-500/15 border border-sky-400/25 px-3 py-1 text-xs text-sky-200">
+            <span className="inline-flex rounded-full bg-blue-500/10 border border-blue-400/20 px-3 py-1 text-xs text-blue-300/80">
               Premium
             </span>
                     </div>
                     <div className="text-center">
-            <span className="inline-flex rounded-full bg-fuchsia-500/15 border border-fuchsia-400/25 px-3 py-1 text-xs text-fuchsia-200">
+            <span className="inline-flex rounded-full bg-purple-500/10 border border-purple-400/20 px-3 py-1 text-xs text-purple-300/80">
               Premium+
             </span>
                     </div>
@@ -170,6 +174,9 @@ export default function PlanComparison() {
                     <Row label="Priority support" hint="Faster help on paid tiers." free="Email" premium="Priority" plus="VIP" />
                 </div>
 
+                </div>{/* close min-w */}
+                </div>{/* close overflow-x-auto */}
+
                 {/* CTA */}
                 <div className="px-4 md:px-6 py-7 border-t border-white/10">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -181,13 +188,13 @@ export default function PlanComparison() {
                         </a>
                         <a
                             href="#plans"
-                            className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-center font-semibold text-white hover:bg-blue-500 transition"
+                            className="w-full rounded-2xl bg-white px-4 py-3 text-center font-semibold text-black hover:opacity-90 transition shadow-lg shadow-blue-500/15"
                         >
                             Start Premium
                         </a>
                         <a
                             href="#plans"
-                            className="w-full rounded-2xl border border-white/10 bg-white px-4 py-3 text-center font-semibold text-gray-900 hover:bg-white/90 transition"
+                            className="w-full rounded-2xl border border-purple-400/20 bg-purple-500/10 px-4 py-3 text-center font-semibold text-white hover:bg-purple-500/15 transition"
                         >
                             Go Premium+
                         </a>

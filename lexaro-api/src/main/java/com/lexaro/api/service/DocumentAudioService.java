@@ -3,6 +3,7 @@ package com.lexaro.api.service;
 import com.lexaro.api.domain.AudioStatus;
 import com.lexaro.api.domain.DocStatus;
 import com.lexaro.api.domain.DocumentPurpose;
+import com.lexaro.api.domain.JobPayload;
 import com.lexaro.api.extract.TextExtractor;
 import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
@@ -29,6 +30,7 @@ public class DocumentAudioService {
     private final StorageService storage;
     private final TextExtractor extractor;
     private final TtsVoiceCatalogService voices; // Polly catalog only
+    private final JobService jobService;
 
     @Value("${app.translate.conservativeMultiplier:1.3}")
     private double translateMultiplier;
@@ -58,7 +60,12 @@ public class DocumentAudioService {
         if (doc.getObjectKey() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No stored file for this document");
         }
-        if (doc.getAudioStatus() == AudioStatus.PROCESSING || doc.getAudioStatus() == AudioStatus.READY) {
+        // Atomically transition audio_status NONE/FAILED → PROCESSING.
+        // Returns 0 if another request already claimed the slot (PROCESSING) or audio is READY,
+        // preventing duplicate job dispatch under concurrent requests.
+        // This replaces the previous non-atomic read-then-check which was susceptible to a
+        // TOCTOU race where two concurrent callers both observed NONE and both dispatched a job.
+        if (docs.claimAudioProcessing(docId) == 0) {
             return;
         }
 
@@ -145,6 +152,11 @@ public class DocumentAudioService {
             doc.setPurpose(DocumentPurpose.AUDIO);
         }
 
+        // The atomic claimAudioProcessing UPDATE already set audio_status = PROCESSING in the DB,
+        // but the in-memory 'doc' entity still holds the old value (NONE or FAILED) from the
+        // initial findByIdAndUserId call. We must sync the entity's audioStatus field to PROCESSING
+        // before saving so that Hibernate's dirty-check does not overwrite the DB value with NONE.
+        // We also clear any stale audio output fields from a previous run so the worker starts clean.
         doc.setAudioStatus(AudioStatus.PROCESSING);
         doc.setAudioObjectKey(null);
         doc.setAudioFormat(null);
@@ -152,7 +164,13 @@ public class DocumentAudioService {
         doc.setAudioError(null);
         docs.save(doc);
 
+        // Enqueue a durable job instead of dispatching directly to the @Async worker.
+        // The JobRunner polls the job table and dispatches to DocumentAudioWorker,
+        // providing restart-safety: if the API dies mid-job, the runner picks it up
+        // again on restart. The payload stores voice/engine/format so the runner
+        // can reconstruct the call without an extra document lookup.
         String fmt = (format == null || format.isBlank()) ? "mp3" : format.toLowerCase();
-        worker.process(userId, docId, reqVoice, gatedEngine, fmt, unlimited, targetLang);
+        jobService.enqueue(userId, docId, "TTS",
+                new JobPayload(reqVoice, gatedEngine, fmt, unlimited, targetLang));
     }
 }

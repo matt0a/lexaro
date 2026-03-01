@@ -3,6 +3,7 @@ package com.lexaro.api.service;
 import com.lexaro.api.domain.Plan;
 import com.lexaro.api.domain.User;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -106,6 +107,22 @@ public class PlanService {
                 || isAdminEmail(user.getEmail());
     }
 
+    /**
+     * Resolves the effective plan for a user, accounting for admin/unlimited overrides.
+     *
+     * <p>Cached under {@code effective-plan} keyed by user ID. TTL is 1 hour (configurable
+     * via {@code app.cache.effective-plan.ttl-seconds}). The cache must be evicted externally
+     * if admin allowlists change at runtime (rare — they are loaded from application.properties).
+     *
+     * @param user the authenticated user entity (must not be null for caching to be meaningful)
+     * @return the plan that governs this user's quotas and features
+     *
+     * <p><strong>AOP proxy note:</strong> Internal calls to {@code effectivePlan()} via
+     * {@code this} (e.g. from {@code retentionDaysFor}, {@code maxPagesFor}) bypass the
+     * Spring proxy and will NOT hit the cache. Only external callers (controllers, other
+     * services) benefit from caching. This is an expected AOP limitation, not a bug.
+     */
+    @Cacheable(cacheNames = "effective-plan", key = "#user.id", condition = "#user != null")
     public Plan effectivePlan(User user) {
         if (isUnlimited(user)) return Plan.BUSINESS_PLUS; // treat unlimited as top tier
         return user != null && user.getPlan() != null ? user.getPlan() : Plan.FREE;
@@ -148,7 +165,17 @@ public class PlanService {
         return effectivePlan(user) == Plan.FREE ? freeMaxChars : premiumMaxChars;
     }
 
-    // --- per-document cap ---
+    /**
+     * Returns the per-document TTS character cap for a given plan.
+     *
+     * <p>Cached under {@code plan-caps} keyed by {@code "perDoc:" + plan.name()} (e.g.
+     * {@code "perDoc:FREE"}). Since these values come from {@code @Value}-bound properties
+     * that only change on re-deploy, the 24-hour default TTL is appropriate.
+     *
+     * @param plan the plan enum; {@code null} defaults to FREE
+     * @return maximum characters allowed per document for this plan
+     */
+    @Cacheable(cacheNames = "plan-caps", key = "'perDoc:' + (#plan != null ? #plan.name() : 'FREE')")
     public int ttsMaxCharsForPlan(Plan plan) {
         if (plan == null) return freePerDocChars;
         return switch (plan) {
@@ -159,7 +186,18 @@ public class PlanService {
         };
     }
 
-    // --- monthly cap ---
+    /**
+     * Returns the monthly TTS character cap for a given plan.
+     *
+     * <p>Cached under {@code plan-caps} keyed by {@code "monthly:" + plan.name()} (e.g.
+     * {@code "monthly:PREMIUM"}). These values come from {@code @Value}-bound properties
+     * and are constant for the lifetime of the JVM process. The 24-hour TTL matches the
+     * expectation that plan limits do not change at runtime.
+     *
+     * @param plan the plan enum; {@code null} defaults to FREE
+     * @return monthly character allowance for this plan
+     */
+    @Cacheable(cacheNames = "plan-caps", key = "'monthly:' + (#plan != null ? #plan.name() : 'FREE')")
     public long monthlyCapForPlan(Plan plan) {
         if (plan == null) return monthFree;
         return switch (plan) {

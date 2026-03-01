@@ -98,7 +98,7 @@ export default function VoiceExplorerModal({ open, onClose, onPick, voices, lang
                                         <div key={v.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 hover:bg-white/[0.05] transition">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-12 w-12 rounded-full overflow-hidden border border-white/10 bg-white/[0.05] grid place-items-center">
-                                                    {v.avatar ? <Image src={v.avatar} alt={v.title} width={48} height={48} /> : <span>{v.flagEmoji ?? '🎙️'}</span>}
+                                                    {v.avatar ? <Image src={v.avatar} alt={v.title ?? "Voice"} width={48} height={48} /> : <span>{v.flagEmoji ?? '🎙️'}</span>}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="font-medium text-white/90 truncate">{v.title}</div>

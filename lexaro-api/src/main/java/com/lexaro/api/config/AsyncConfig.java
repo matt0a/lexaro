@@ -15,8 +15,8 @@ public class AsyncConfig {
     public Executor ttsExecutor() {
         var ex = new ThreadPoolTaskExecutor();
         ex.setThreadNamePrefix("tts-");
-        ex.setCorePoolSize(2);      // tune as needed
-        ex.setMaxPoolSize(4);
+        ex.setCorePoolSize(4);      // tune as needed
+        ex.setMaxPoolSize(8);
         ex.setQueueCapacity(50);
         ex.initialize();
         return ex;

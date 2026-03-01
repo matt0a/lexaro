@@ -1,20 +1,19 @@
 "use client";
 
 import React from "react";
-
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-
-import FadeInSection from "@/components/reactbits/FadeInSection";
-import FloatingLinesBackground from "@/components/reactbits/FloatingLinesBackground";
-import FluidGlassSection from "@/components/reactbits/FluidGlassSection";
-import StarBorderCard from "@/components/reactbits/StarBorderCard";
-import ShimmerButton from "@/components/reactbits/ShimmerButton";
-
-import PlanComparison from "@/components/marketing/PlanComparison";
-
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { IconSparkles, IconShieldCheck, IconBolt } from "@tabler/icons-react";
+
+import MarketingShell from "@/components/marketing/MarketingShell";
+import GlassNavbar from "@/components/marketing/GlassNavbar";
+import MarketingFooter from "@/components/marketing/MarketingFooter";
+import SectionPill from "@/components/marketing/SectionPill";
+import AccentHeading from "@/components/marketing/AccentHeading";
+import CTASection from "@/components/marketing/CTASection";
+import PlanComparison from "@/components/marketing/PlanComparison";
+import FadeInSection from "@/components/reactbits/FadeInSection";
+
+/* ─── Helpers ─── */
 
 type BillingCycle = "monthly" | "yearly";
 
@@ -26,23 +25,18 @@ function fmtUSD(n: number) {
     return `$${n.toFixed(2)}`;
 }
 
+/* ─── Page ─── */
+
 export default function PlansPage() {
     const [cycle, setCycle] = React.useState<BillingCycle>("monthly");
 
     const DISCOUNT_LABEL = "Save 19%";
 
-    // Base prices
-    const monthly = {
-        premium: 14.99,
-        plus: 29.99,
-    };
+    /* Base prices */
+    const monthly = { premium: 14.99, plus: 29.99 };
+    const yearly = { premium: 119.99, plus: 239.99 };
 
-    const yearly = {
-        premium: 119.99,
-        plus: 239.99,
-    };
-
-    // For yearly cycle: show monthly price as the "big sell", but billed annually.
+    /* Display prices: yearly shows monthly equivalent + annual total */
     const price = {
         premium:
             cycle === "monthly"
@@ -57,47 +51,42 @@ export default function PlansPage() {
     const cycleHint = cycle === "monthly" ? "Billed monthly. Cancel anytime." : "Billed yearly. Save vs monthly.";
 
     return (
-        <main className="bg-black text-white">
-            <Navbar />
+        <MarketingShell>
+            <GlassNavbar />
 
-            {/* HERO */}
-            <section className="relative overflow-hidden">
-                <FloatingLinesBackground />
-
-                {/* glow */}
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-sky-900/10 to-black/35" />
-                    <div className="absolute left-1/2 top-10 h-[540px] w-[980px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
-                    <div className="absolute left-1/3 top-52 h-[420px] w-[840px] -translate-x-1/2 rounded-full bg-fuchsia-500/10 blur-3xl" />
-                </div>
-
-                <div className="relative z-10 mx-auto max-w-6xl px-4 md:px-6 pt-24 pb-10">
+            {/* ─── Hero ─── */}
+            <section className="pt-28 pb-12">
+                <div className="mx-auto max-w-6xl px-4 md:px-6">
                     <FadeInSection>
-                        <p className="text-xs tracking-[0.25em] text-white/60 uppercase">Pricing</p>
-                        <h1 className="mt-3 text-4xl md:text-5xl font-semibold">Pick your plan</h1>
-                        <p className="mt-4 text-white/70 max-w-2xl">
-                            Study with citations, generate practice instantly, and listen with premium voice. Free is intentionally limited;
-                            paid tiers are built for daily use.
-                        </p>
-                    </FadeInSection>
-
-                    {/* value chips */}
-                    <FadeInSection delay={0.06}>
-                        <div className="mt-6 grid gap-3 md:grid-cols-3">
-                            <ValueChip icon={<IconSparkles size={18} />} title="Built for daily studying" desc="Limits tuned for real usage." />
-                            <ValueChip icon={<IconBolt size={18} />} title="Faster + higher concurrency" desc="Feels snappy under load." />
-                            <ValueChip icon={<IconShieldCheck size={18} />} title="More reliable outputs" desc="Better safeguards and formatting." />
+                        <div className="text-center">
+                            <SectionPill>Pricing</SectionPill>
+                            <AccentHeading as="h1" className="mt-5 text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight">
+                                {"Pick the Right *Plan*"}
+                            </AccentHeading>
+                            <p className="mt-5 text-white/60 max-w-2xl mx-auto text-lg">
+                                Study with citations, generate practice instantly, and listen with premium voice. Free is intentionally limited;
+                                paid tiers are built for daily use.
+                            </p>
                         </div>
                     </FadeInSection>
 
-                    {/* billing toggle */}
+                    {/* Value chips */}
+                    <FadeInSection delay={0.06}>
+                        <div className="mt-8 grid gap-3 md:grid-cols-3">
+                            <ValueChip title="Built for daily studying" desc="Limits tuned for real usage." />
+                            <ValueChip title="Faster + higher concurrency" desc="Feels snappy under load." />
+                            <ValueChip title="More reliable outputs" desc="Better safeguards and formatting." />
+                        </div>
+                    </FadeInSection>
+
+                    {/* ─── Billing toggle ─── */}
                     <FadeInSection delay={0.09}>
                         <div className="mt-10 flex items-center justify-center">
-                            <div className="relative inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/55 backdrop-blur-md p-1">
+                            <div className="relative inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
                                 <button
                                     onClick={() => setCycle("monthly")}
                                     className={cn(
-                                        "rounded-full px-4 py-2 text-sm font-semibold transition",
+                                        "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                                         cycle === "monthly" ? "bg-white text-black" : "text-white/70 hover:text-white"
                                     )}
                                 >
@@ -108,25 +97,24 @@ export default function PlansPage() {
                                     <button
                                         onClick={() => setCycle("yearly")}
                                         className={cn(
-                                            "rounded-full px-4 py-2 text-sm font-semibold transition",
+                                            "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                                             cycle === "yearly" ? "bg-white text-black" : "text-white/70 hover:text-white"
                                         )}
                                     >
                                         Yearly
                                     </button>
-
-                                    <span className="absolute -right-5 -top-3 rounded-full bg-emerald-500/20 border border-emerald-400/25 px-2 py-1 text-[10px] font-semibold text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,.22)]">
-                    {DISCOUNT_LABEL}
-                  </span>
+                                    <span className="absolute -right-2 -top-2 sm:-right-5 sm:-top-3 rounded-full border border-white/[0.12] bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/70">
+                                        {DISCOUNT_LABEL}
+                                    </span>
                                 </div>
                             </div>
                         </div>
-
                         <div className="mt-2 text-center text-xs text-white/45">{cycleHint}</div>
                     </FadeInSection>
 
-                    {/* cards */}
+                    {/* ─── Plan cards ─── */}
                     <div id="plans" className="mt-10 grid gap-6 lg:grid-cols-3">
+                        {/* Free */}
                         <FadeInSection delay={0.08}>
                             <PlanCard
                                 name="Free"
@@ -154,40 +142,39 @@ export default function PlansPage() {
                             />
                         </FadeInSection>
 
+                        {/* Premium (featured) */}
                         <FadeInSection delay={0.11}>
-                            <StarBorderCard alwaysAnimate speed={16}>
-                                <PlanCard
-                                    name="Premium"
-                                    subtitle="Daily studying with higher limits and speed."
-                                    priceLabel={price.premium.big}
-                                    subPriceLabel={price.premium.sub}
-                                    yearlyBadge={price.premium.badge}
-                                    badgeTop="Most popular"
-                                    badgeTone="blue"
-                                    badgeRight="Priority"
-                                    featured
-                                    metrics={[
-                                        { label: "Study chat", value: "Unlimited" },
-                                        { label: "Generate", value: "Unlimited" },
-                                        { label: "Docs processed", value: "Unlimited" },
-                                        { label: "Text-to-speech", value: "900,000", sub: "chars/mo" },
-                                    ]}
-                                    bullets={[
-                                        "Unlimited Study chat + generators",
-                                        "Generate notes, flashcards, quizzes",
-                                        "Faster streaming + higher concurrency",
-                                        "Stronger reliability safeguards",
-                                    ]}
-                                    footnote="Paid plans remove monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse."
-                                    ctaLabel="Upgrade"
-                                    ctaHref="/billing"
-                                    ctaVariant="primary"
-                                    note="Cancel anytime"
-                                    noOuterShell
-                                />
-                            </StarBorderCard>
+                            <PlanCard
+                                name="Premium"
+                                subtitle="Daily studying with higher limits and speed."
+                                priceLabel={price.premium.big}
+                                subPriceLabel={price.premium.sub}
+                                yearlyBadge={price.premium.badge}
+                                badgeTop="Most popular"
+                                badgeRight="Priority"
+                                featured
+                                glow="blue-aqua"
+                                metrics={[
+                                    { label: "Study chat", value: "Unlimited" },
+                                    { label: "Generate", value: "Unlimited" },
+                                    { label: "Docs processed", value: "Unlimited" },
+                                    { label: "Text-to-speech", value: "900,000", sub: "chars/mo" },
+                                ]}
+                                bullets={[
+                                    "Unlimited Study chat + generators",
+                                    "Generate notes, flashcards, quizzes",
+                                    "Faster streaming + higher concurrency",
+                                    "Stronger reliability safeguards",
+                                ]}
+                                footnote="Paid plans remove monthly caps for normal use — protective rate & concurrency limits still apply to prevent abuse."
+                                ctaLabel="Upgrade"
+                                ctaHref="/billing"
+                                ctaVariant="primary"
+                                note="Cancel anytime"
+                            />
                         </FadeInSection>
 
+                        {/* Premium+ */}
                         <FadeInSection delay={0.14}>
                             <PlanCard
                                 name="Premium+"
@@ -196,9 +183,9 @@ export default function PlansPage() {
                                 subPriceLabel={price.plus.sub}
                                 yearlyBadge={price.plus.badge}
                                 badgeTop="Best value"
-                                badgeTone="pink"
                                 badgeRight="Priority"
                                 featured={false}
+                                glow="purple-blue"
                                 metrics={[
                                     { label: "Study chat", value: "Unlimited" },
                                     { label: "Generate", value: "Unlimited" },
@@ -222,89 +209,58 @@ export default function PlansPage() {
                 </div>
             </section>
 
-            {/* Comparison */}
+            {/* ─── Comparison table ─── */}
             <PlanComparison />
 
-            {/* Bottom CTA */}
-            <FluidGlassSection tone="violet">
-                <div className="mx-auto max-w-6xl px-4 md:px-6 py-20">
-                    <FadeInSection>
-                        <div className="rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md p-8 text-center">
-                            <h3 className="text-2xl md:text-3xl font-semibold">Ready when you are.</h3>
-                            <p className="mt-3 text-white/70 max-w-2xl mx-auto">
-                                Upload a PDF, ask questions with page links, generate practice, and listen with voice.
-                            </p>
-                            <div className="mt-6 flex flex-wrap justify-center gap-3">
-                                <ShimmerButton href="/get-started" variant="primary">
-                                    Get started
-                                </ShimmerButton>
-                                <ShimmerButton href="/get-started" variant="ghost">
-                                    Upload a PDF <ArrowRight className="h-4 w-4" />
-                                </ShimmerButton>
-                            </div>
-                            <p className="mt-3 text-xs text-white/45">Free is limited.</p>
-                        </div>
-                    </FadeInSection>
-                </div>
-            </FluidGlassSection>
-
-            <Footer />
-        </main>
+            {/* ─── CTA + Footer ─── */}
+            <CTASection />
+            <MarketingFooter />
+        </MarketingShell>
     );
 }
 
-/* -----------------------------
-   Small UI bits
------------------------------- */
+/* ─── Value chip ─── */
 
-function ValueChip({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function ValueChip({ title, desc }: { title: string; desc: string }) {
     return (
-        <div className="rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md p-4">
-            <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10">
-                    {icon}
-                </div>
-                <div className="font-semibold">{title}</div>
-            </div>
-            <div className="mt-2 text-sm text-white/65">{desc}</div>
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+            <div className="font-semibold text-white/90">{title}</div>
+            <div className="mt-1 text-sm text-white/50">{desc}</div>
         </div>
     );
 }
 
-/* -----------------------------
-   Local plan card component
------------------------------- */
+/* ─── Plan card ─── */
 
 type Metric = { label: string; value: string; sub?: string };
 
 function PlanCard({
-                      name,
-                      subtitle,
-                      priceLabel,
-                      subPriceLabel,
-                      yearlyBadge,
-                      badgeTop,
-                      badgeTone = "gray",
-                      badgeRight,
-                      featured,
-                      metrics,
-                      bullets,
-                      footnote,
-                      ctaLabel,
-                      ctaHref,
-                      ctaVariant,
-                      note,
-                      noOuterShell,
-                  }: {
+    name,
+    subtitle,
+    priceLabel,
+    subPriceLabel,
+    yearlyBadge,
+    badgeTop,
+    badgeRight,
+    featured,
+    glow = "none",
+    metrics,
+    bullets,
+    footnote,
+    ctaLabel,
+    ctaHref,
+    ctaVariant,
+    note,
+}: {
     name: string;
     subtitle: string;
     priceLabel: string;
     subPriceLabel?: string;
     yearlyBadge?: string;
     badgeTop?: string;
-    badgeTone?: "blue" | "pink" | "gray";
     badgeRight?: string;
     featured: boolean;
+    glow?: "none" | "blue-aqua" | "purple-blue";
     metrics: Metric[];
     bullets: string[];
     footnote?: string;
@@ -312,95 +268,105 @@ function PlanCard({
     ctaHref: string;
     ctaVariant: "primary" | "ghost";
     note?: string;
-    noOuterShell?: boolean;
 }) {
     return (
         <div
             className={cn(
-                "h-full",
-                noOuterShell ? "" : "rounded-3xl border border-white/10 bg-black/55 backdrop-blur-md shadow-[0_26px_90px_rgba(0,0,0,.7)]"
+                "relative h-full rounded-2xl border p-7 overflow-hidden",
+                featured
+                    ? "border-white/[0.14] bg-white/[0.04]"
+                    : "border-white/[0.08] bg-transparent"
             )}
         >
-            <div className="p-7">
-                {/* top row */}
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <div className="text-xl font-semibold">{name}</div>
-                        <p className="mt-2 text-sm text-white/70">{subtitle}</p>
-                    </div>
-
-                    <div className="flex flex-wrap justify-end gap-2">
-                        {badgeTop ? (
-                            <span
-                                className={cn(
-                                    "rounded-full px-3 py-1 text-xs font-semibold border",
-                                    badgeTone === "blue" && "bg-sky-500/15 text-sky-200 border-sky-400/25",
-                                    badgeTone === "pink" && "bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-400/25",
-                                    badgeTone === "gray" && "bg-white/5 text-white/70 border-white/10"
-                                )}
-                            >
-                {badgeTop}
-              </span>
-                        ) : null}
-
-                        {badgeRight ? (
-                            <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-white/70">
-                {badgeRight}
-              </span>
-                        ) : null}
-                    </div>
+            {/* Glow overlay (non-blocking, behind content) */}
+            {glow !== "none" && (
+                <div className={cn("card-glow-overlay", glow === "blue-aqua" ? "glow-blue-aqua" : "glow-purple-blue")} />
+            )}
+            {/* Card content — above glow overlay */}
+            <div className="relative z-10">
+            {/* Top row: name + badges */}
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <div className="text-xl font-semibold">{name}</div>
+                    <p className="mt-2 text-sm text-white/60">{subtitle}</p>
                 </div>
-
-                {/* price */}
-                <div className="mt-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="text-2xl font-semibold">{priceLabel}</div>
-                        {yearlyBadge ? (
-                            <span className="rounded-full bg-emerald-500/15 border border-emerald-400/25 px-3 py-1 text-xs font-semibold text-emerald-200">
-                {yearlyBadge}
-              </span>
-                        ) : null}
-                    </div>
-
-                    {subPriceLabel ? <div className="mt-2 text-sm text-white/60">{subPriceLabel}</div> : null}
-                </div>
-
-                {/* metrics */}
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                    {metrics.map((m) => (
-                        <div key={m.label} className="rounded-2xl border border-white/10 bg-black/55 p-4">
-                            <div className="text-[11px] uppercase tracking-wider text-white/55">{m.label}</div>
-                            <div className="mt-1 text-lg font-semibold">{m.value}</div>
-                            {m.sub ? <div className="text-xs text-white/55">{m.sub}</div> : null}
-                        </div>
-                    ))}
-                </div>
-
-                {/* bullets */}
-                <ul className="mt-6 space-y-2 text-sm text-white/75">
-                    {bullets.map((b) => (
-                        <li key={b} className="flex gap-2">
-                            <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-white/40" />
-                            <span>{b}</span>
-                        </li>
-                    ))}
-                </ul>
-
-                {/* footnote */}
-                {footnote ? (
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/55 p-4 text-xs text-white/65">
-                        <span className="font-semibold text-white/80">Unlimited:</span> {footnote}
-                    </div>
-                ) : null}
-
-                {/* CTA */}
-                <div className="mt-6">
-                    <ShimmerButton href={ctaHref} variant={ctaVariant} className="w-full justify-center">
-                        {ctaLabel}
-                    </ShimmerButton>
-                    <div className="mt-3 text-center text-xs text-white/55">{note ?? (featured ? "Cancel anytime" : "")}</div>
+                <div className="flex flex-wrap justify-end gap-2">
+                    {badgeTop && (
+                        <span className={cn(
+                            "rounded-full px-3 py-1 text-xs font-semibold",
+                            glow === "blue-aqua" ? "border border-blue-400/25 bg-blue-500/10 text-blue-300/80"
+                                : glow === "purple-blue" ? "border border-purple-400/25 bg-purple-500/10 text-purple-300/80"
+                                : "border border-white/[0.12] bg-white/[0.06] text-white/70"
+                        )}>
+                            {badgeTop}
+                        </span>
+                    )}
+                    {badgeRight && (
+                        <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs text-white/50">
+                            {badgeRight}
+                        </span>
+                    )}
                 </div>
             </div>
+
+            {/* Price */}
+            <div className="mt-5">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="text-2xl font-semibold">{priceLabel}</div>
+                    {yearlyBadge && (
+                        <span className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/70">
+                            {yearlyBadge}
+                        </span>
+                    )}
+                </div>
+                {subPriceLabel && <div className="mt-2 text-sm text-white/50">{subPriceLabel}</div>}
+            </div>
+
+            {/* Metrics grid */}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+                {metrics.map((m) => (
+                    <div key={m.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <div className="text-[11px] uppercase tracking-wider text-white/40">{m.label}</div>
+                        <div className="mt-1 text-lg font-semibold">{m.value}</div>
+                        {m.sub && <div className="text-xs text-white/40">{m.sub}</div>}
+                    </div>
+                ))}
+            </div>
+
+            {/* Bullet features */}
+            <ul className="mt-6 space-y-2 text-sm text-white/60">
+                {bullets.map((b) => (
+                    <li key={b} className="flex gap-2">
+                        <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-white/30" />
+                        <span>{b}</span>
+                    </li>
+                ))}
+            </ul>
+
+            {/* Footnote */}
+            {footnote && (
+                <div className="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/50">
+                    <span className="font-semibold text-white/70">Unlimited:</span> {footnote}
+                </div>
+            )}
+
+            {/* CTA button */}
+            <div className="mt-6">
+                <Link
+                    href={ctaHref}
+                    className={cn(
+                        "flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-opacity",
+                        ctaVariant === "primary"
+                            ? "bg-white text-black hover:opacity-90"
+                            : "border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.08]"
+                    )}
+                >
+                    {ctaLabel}
+                    <ArrowRight className="h-4 w-4" />
+                </Link>
+                <div className="mt-3 text-center text-xs text-white/40">{note ?? ""}</div>
+            </div>
+            </div>{/* close relative z-10 content wrapper */}
         </div>
     );
 }

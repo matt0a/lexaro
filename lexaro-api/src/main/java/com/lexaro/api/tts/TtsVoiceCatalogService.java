@@ -1,10 +1,10 @@
 package com.lexaro.api.tts;
 
 import com.lexaro.api.web.dto.VoiceDto;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -14,9 +14,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.polly.model.*;
 
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,22 +27,30 @@ public class TtsVoiceCatalogService {
     @Value("${app.tts.polly.region:us-east-1}") private String region;
     @Value("${app.tts.polly.accessKey:}")       private String accessKey;
     @Value("${app.tts.polly.secretKey:}")       private String secretKey;
-    @Value("${app.tts.voices.cacheTtlMinutes:1440}") private long cacheTtlMinutes;
+    // cacheTtlMinutes is retained for backward config compatibility but TTL is now
+    // managed by Spring Cache (app.cache.voices-catalog.ttl-seconds in CacheConfig).
+    @Value("${app.tts.voices.cacheTtlMinutes:1440}") private long cacheTtlMinutesLegacy;
 
-    private final AtomicReference<Cache> cacheRef = new AtomicReference<>(null);
     private final SpeechifyCatalogService speechifyCatalogService;
 
-    @Getter
-    private static class Cache {
-        final Instant fetchedAt;
-        final Map<String, VoiceInfo> byNameUpper;
-        Cache(Instant fetchedAt, Map<String, VoiceInfo> byNameUpper) {
-            this.fetchedAt = fetchedAt;
-            this.byNameUpper = byNameUpper;
-        }
-    }
-
-    /** FREE: exactly [Joanna (F), Matthew (M)] from Polly. PAID: Speechify catalog. */
+    /**
+     * Returns the unified voice catalog for the given plan tier.
+     *
+     * <p>FREE plan users receive exactly two Polly voices (Joanna + Matthew).
+     * PREMIUM, BUSINESS, and BUSINESS_PLUS users receive the full Speechify catalog.
+     *
+     * <p>Cached under {@code voices-catalog} keyed by the normalised plan string
+     * (e.g. {@code "FREE"}, {@code "PREMIUM"}). TTL is configured via
+     * {@code app.cache.voices-catalog.ttl-seconds} (default 24 hours).
+     * The key {@code "FREE"} covers the null/blank case as well.
+     *
+     * @param plan raw plan string from the HTTP query param; null/blank treated as FREE
+     * @return sorted list of VoiceDto instances appropriate for the plan
+     */
+    @Cacheable(
+            cacheNames = "voices-catalog",
+            key = "(#plan == null || #plan.trim().isEmpty()) ? 'FREE' : #plan.trim().toUpperCase()"
+    )
     public List<VoiceDto> listUnifiedCatalog(String plan) {
         final String p = plan == null ? "FREE" : plan.trim().toUpperCase(Locale.ROOT);
         final boolean isPaid = switch (p) {
@@ -108,34 +114,47 @@ public class TtsVoiceCatalogService {
         return out;
     }
 
-    /* ---------------- Polly cache logic ---------------- */
+    /* ---------------- Polly catalog (Spring Cache manages TTL) ---------------- */
 
+    /**
+     * Returns a sorted list of all Polly voice descriptors.
+     *
+     * <p>Cached under {@code voices-catalog} with the fixed key {@code 'polly-raw'}.
+     * The cache TTL is controlled by {@code app.cache.voices-catalog.ttl-seconds}
+     * (default 24 hours via {@link com.lexaro.api.config.CacheConfig}).
+     * The previous {@link java.util.concurrent.atomic.AtomicReference}-based manual cache
+     * has been removed in favour of this Spring-managed cache so there is a single
+     * source of truth for all caching TTL configuration.
+     *
+     * @return all Polly VoiceInfo entries sorted by name
+     */
+    @Cacheable(cacheNames = "voices-catalog", key = "'polly-raw'")
     public List<VoiceInfo> listVoices() {
-        ensureFresh();
-        return new ArrayList<>(cacheRef.get().byNameUpper.values())
+        Map<String, VoiceInfo> byNameUpper = fetchFromPolly();
+        return new ArrayList<>(byNameUpper.values())
                 .stream()
                 .sorted(Comparator.comparing(VoiceInfo::name))
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Looks up a Polly voice by name (case-insensitive).
+     *
+     * <p>Delegates to {@link #listVoices()} which is Spring-cached, so this lookup
+     * is effectively O(n) over the cached list rather than hitting Polly on each call.
+     *
+     * @param name the voice name to look up (e.g. "Joanna")
+     * @return an Optional containing the VoiceInfo, or empty if not found
+     */
     public Optional<VoiceInfo> findByName(String name) {
         if (name == null || name.isBlank()) return Optional.empty();
-        ensureFresh();
-        return Optional.ofNullable(cacheRef.get().byNameUpper.get(name.trim().toUpperCase(Locale.ROOT)));
+        String upper = name.trim().toUpperCase(Locale.ROOT);
+        return listVoices().stream()
+                .filter(v -> v.name().toUpperCase(Locale.ROOT).equals(upper))
+                .findFirst();
     }
 
     public boolean isKnownPollyVoice(String name) { return findByName(name).isPresent(); }
-
-    private void ensureFresh() {
-        Cache c = cacheRef.get();
-        if (c != null && c.fetchedAt.plusSeconds(cacheTtlMinutes * 60).isAfter(Instant.now())) return;
-
-        synchronized (this) {
-            c = cacheRef.get();
-            if (c != null && c.fetchedAt.plusSeconds(cacheTtlMinutes * 60).isAfter(Instant.now())) return;
-            cacheRef.set(new Cache(Instant.now(), fetchFromPolly()));
-        }
-    }
 
     private Map<String, VoiceInfo> fetchFromPolly() {
         AwsCredentialsProvider creds = (accessKey != null && !accessKey.isBlank() &&
@@ -175,9 +194,11 @@ public class TtsVoiceCatalogService {
             return byNameUpper;
 
         } catch (PollyException ex) {
+            // On Polly failure, return an empty map. Spring Cache will NOT store this result
+            // because CaffeineCache is configured with allowNullValues=false and an empty map
+            // is a valid (non-null) value — it will be cached. If Polly is intermittently
+            // unavailable, the next cache miss will retry. Log at ERROR so operators are alerted.
             log.error("Failed to load voices from Polly: {}", ex.toString(), ex);
-            Cache prev = cacheRef.get();
-            if (prev != null) return prev.byNameUpper;
             return Map.of();
         }
     }

@@ -169,6 +169,44 @@ export async function startAudio(
     await api.post(`/documents/${docId}/audio/start`, payload);
 }
 
+// ---------------------------------------------------------------------------
+// Audio status
+// ---------------------------------------------------------------------------
+
+/**
+ * Shape returned by GET /documents/{id}/audio.
+ * Matches backend AudioStatus enum: NONE, PROCESSING, READY, FAILED.
+ * NOT_FOUND is a synthetic frontend-only value returned when the backend 404s
+ * (document has no audio job yet). This is a terminal state — polling stops.
+ */
+export type AudioStatusResponse = {
+    status: 'NONE' | 'PROCESSING' | 'READY' | 'FAILED' | 'NOT_FOUND';
+    voice?: string | null;
+    format?: string | null;
+    url?: string | null;
+    error?: string | null;
+};
+
+/**
+ * Fetches the current audio generation status for a document.
+ * Returns a synthetic NOT_FOUND status if the backend returns 404
+ * (no audio job exists for this document yet — terminal, no retry).
+ *
+ * @param docId - Numeric document ID
+ * @returns The audio status payload, or { status: 'NOT_FOUND' } on 404
+ */
+export async function fetchAudioStatus(docId: number): Promise<AudioStatusResponse> {
+    const res = await api.get<AudioStatusResponse>(`/documents/${docId}/audio`, {
+        validateStatus: () => true,
+    });
+    if (res.status === 404) {
+        return { status: 'NOT_FOUND' };
+    }
+    return res.data;
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Education document type for display purposes.
  */

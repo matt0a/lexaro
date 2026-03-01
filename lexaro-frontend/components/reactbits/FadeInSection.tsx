@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 
 type Props = {
     children: React.ReactNode;
@@ -18,6 +18,12 @@ export default function FadeInSection({
                                       }: Props) {
     const ref = React.useRef<HTMLDivElement>(null);
     const inView = useInView(ref, { once, margin: "-15% 0px -10% 0px" });
+    const prefersReducedMotion = useReducedMotion();
+
+    /* Skip animation entirely when user prefers reduced motion */
+    if (prefersReducedMotion) {
+        return <div className={className}>{children}</div>;
+    }
 
     return (
         <motion.div

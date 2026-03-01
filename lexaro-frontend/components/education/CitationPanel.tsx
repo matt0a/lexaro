@@ -106,13 +106,6 @@ export default function CitationPanel({ source, onClose }: CitationPanelProps) {
                     </div>
                 </div>
 
-                {/* Character position info */}
-                {source.startChar !== null && source.startChar !== undefined && (
-                    <div className="text-xs text-white/30">
-                        Character range: {source.startChar?.toLocaleString()} -{' '}
-                        {source.endChar?.toLocaleString()}
-                    </div>
-                )}
             </div>
 
             {/* Footer hint */}

@@ -1,5 +1,21 @@
 import type { Metadata } from "next";
+import { Inter, Instrument_Serif } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
+
+const inter = Inter({
+    subsets: ["latin"],
+    variable: "--font-sans",
+    display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+    weight: "400",
+    style: "italic",
+    subsets: ["latin"],
+    variable: "--font-serif",
+    display: "swap",
+});
 
 export const metadata: Metadata = {
     title: "Lexaro — Your Documents. Your Voice.",
@@ -8,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en">
+        <html lang="en" className={`${inter.variable} ${instrumentSerif.variable}`}>
         <body
             className="min-h-screen bg-white text-black dark:bg-black dark:text-white"
             style={
@@ -19,7 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 } as React.CSSProperties
             }
         >
-        {children}
+        <Providers>
+            {children}
+        </Providers>
         </body>
         </html>
     );

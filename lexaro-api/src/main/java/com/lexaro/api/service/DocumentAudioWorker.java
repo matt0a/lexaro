@@ -7,6 +7,7 @@ import com.lexaro.api.repo.DocumentRepository;
 import com.lexaro.api.storage.StorageService;
 import com.lexaro.api.translate.TranslateService;
 import com.lexaro.api.tts.TextChunker;
+import com.lexaro.api.tts.TtsMetrics;
 import com.lexaro.api.tts.TtsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,8 @@ public class DocumentAudioWorker {
     private final PlanService plans;
     private final TextExtractor extractor;
     private final TtsQuotaService quota;
+    /** Micrometer counters/timers for TTS job observability. */
+    private final TtsMetrics ttsMetrics;
 
     private final @Autowired(required = false) TranslateService translate;
 
@@ -145,10 +148,17 @@ public class DocumentAudioWorker {
             doc.setAudioError(null);
             docs.save(doc);
 
+            // Increment the global succeeded counter so Prometheus can track completion rate.
+            ttsMetrics.incSucceeded();
+
             log.info("TTS success docId={}, bytesOut={}, key={}",
                     docId, merged.length, key);
 
         } catch (Exception ex) {
+            // Increment the global failed counter before persisting status so the metric
+            // reflects every terminal failure even if the subsequent save throws.
+            ttsMetrics.incFailed();
+
             log.error("TTS failed docId={}, userId={}, reason={}", docId, userId, ex.toString(), ex);
 
             doc.setAudioStatus(AudioStatus.FAILED);

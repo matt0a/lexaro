@@ -1,21 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/dashboard/Sidebar';
 import api from '@/lib/api';
 import FloatingLinesBackground from '@/components/reactbits/FloatingLinesBackground';
 import StarBorderCard from '@/components/reactbits/StarBorderCard';
 import { Check } from 'lucide-react';
+import { useMeUsage } from '@/hooks/useMeUsage';
+import { queryKeys } from '@/lib/queryKeys';
 
 type BillingCycle = 'monthly' | 'yearly';
-
-type MeUsage = {
-    plan: string;
-    monthlyUsed: number;
-    dailyUsed: number;
-    email?: string;
-};
 
 function cn(...classes: Array<string | undefined | false | null>) {
     return classes.filter(Boolean).join(' ');
@@ -47,9 +44,10 @@ type Metric = { label: string; value: string; sub?: string };
 export default function BillingPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
 
-    const [me, setMe] = useState<MeUsage | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Replace manual useEffect+state fetch with the shared hook
+    const { data: me, isLoading } = useMeUsage();
 
     const [cycle, setCycle] = useState<BillingCycle>('monthly');
     const [busyPlanKey, setBusyPlanKey] = useState<string | null>(null);
@@ -67,35 +65,23 @@ export default function BillingPage() {
 
     const DISCOUNT_LABEL = 'Save 19%';
 
-    const loadMe = async () => {
-        try {
-            const res = await api.get<MeUsage>('/me/usage');
-            setMe(res.data);
-            return res.data;
-        } catch {
-            router.replace('/login');
-            return null;
-        }
-    };
-
+    /**
+     * Auth guard — redirect to /login when no token is present.
+     */
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         if (!token) {
             router.replace('/login');
-            return;
         }
-
-        (async () => {
-            try {
-                await loadMe();
-            } finally {
-                setLoading(false);
-            }
-        })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router]);
 
-    // Stripe return handler
+    /**
+     * Stripe return handler.
+     * On checkout=success, POST /billing/sync then invalidate the meUsage cache
+     * so the plan badge in the Sidebar + this page both reflect the new plan
+     * without a manual reload.
+     */
     useEffect(() => {
         const checkout = searchParams.get('checkout');
         const sessionId = searchParams.get('session_id');
@@ -115,8 +101,8 @@ export default function BillingPage() {
 
                 try {
                     await api.post('/billing/sync', { sessionId });
-                    window.dispatchEvent(new Event('lexaro:billing-updated'));
-                    await loadMe();
+                    // Invalidate usage cache so the plan badge and this page refresh
+                    await queryClient.invalidateQueries({ queryKey: queryKeys.meUsage() });
                     setNotice('Payment confirmed — your plan is now active.');
                 } catch {
                     setErr('Payment confirmed, but plan sync failed. Try refreshing in a moment.');
@@ -254,7 +240,7 @@ export default function BillingPage() {
         ];
     }, [cycle, currentFamily]);
 
-    if (loading) {
+    if (isLoading) {
         return <div className="min-h-screen grid place-items-center text-white bg-black">Loading…</div>;
     }
     if (!me) return null;

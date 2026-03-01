@@ -16,10 +16,12 @@ import {
     FileEdit,
     Calendar,
 } from 'lucide-react';
-import api from '@/lib/api';
+import { useMeUsage } from '@/hooks/useMeUsage';
 
-type UsageResp = { plan: string };
-
+/**
+ * Decode a JWT payload without a library.
+ * Returns the parsed payload or null on any error.
+ */
 function b64urlDecode(str: string) {
     try {
         const pad = str.length % 4 === 2 ? '==' : str.length % 4 === 3 ? '=' : '';
@@ -58,19 +60,33 @@ function formatPlan(p?: string) {
     return p;
 }
 
-async function loadPlan(): Promise<{ planRaw: string; plan: string } | null> {
-    try {
-        const { data } = await api.get<UsageResp>('/me/usage');
-        return { planRaw: data.plan, plan: formatPlan(data.plan) };
-    } catch {
-        return null;
-    }
-}
-
 export default function Sidebar() {
+    /**
+     * Replace the manual useEffect+loadPlan+lexaro:billing-updated pattern with
+     * useMeUsage(). React Query handles:
+     *   - Initial fetch on mount
+     *   - Cache sharing with dashboard/billing (same queryKey)
+     *   - Automatic re-render when billing page invalidates the cache after sync
+     *
+     * The lexaro:billing-updated custom event listener is removed — invalidation
+     * from the billing Stripe return useEffect achieves the same result via the
+     * shared cache, without a custom event bus.
+     */
+    const { data: meUsage } = useMeUsage();
+
+    const planRaw = meUsage?.plan ?? 'FREE';
+    const plan = formatPlan(planRaw);
+
+    // Email is still derived from the JWT payload stored in localStorage
+    // (it is not returned by /me/usage in the current API contract).
     const [email, setEmail] = useState<string>('—');
-    const [plan, setPlan] = useState<string>('Free');
-    const [planRaw, setPlanRaw] = useState<string>('FREE');
+
+    useEffect(() => {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const claims = parseJwtPayload(token);
+        const e = emailFromClaims(claims);
+        if (e) setEmail(e);
+    }, []);
 
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -90,30 +106,6 @@ export default function Sidebar() {
             document.body.style.overflow = '';
         };
     }, [mobileOpen]);
-
-    useEffect(() => {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        const claims = parseJwtPayload(token);
-        const e = emailFromClaims(claims);
-        if (e) setEmail(e);
-
-        const refreshPlan = async () => {
-            const p = await loadPlan();
-            if (p) {
-                setPlan(p.plan);
-                setPlanRaw(p.planRaw);
-            }
-        };
-
-        refreshPlan();
-
-        const onBillingUpdated = () => refreshPlan();
-        window.addEventListener('lexaro:billing-updated', onBillingUpdated);
-
-        return () => {
-            window.removeEventListener('lexaro:billing-updated', onBillingUpdated);
-        };
-    }, []);
 
     const VOICE_NAV = useMemo(
         () => [

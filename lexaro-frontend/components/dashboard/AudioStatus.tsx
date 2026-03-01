@@ -4,14 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
+import { useAudioStatus } from '@/hooks/useAudioStatus';
 
-export type AudioStatusResponse = {
-    status: 'PENDING' | 'PROCESSING' | 'READY' | 'ERROR';
-    voice?: string | null;
-    format?: string | null;
-    url?: string | null;
-    error?: string | null;
-};
+// Re-export AudioStatusResponse from lib/documents so existing consumers that import
+// this type from AudioStatus.tsx are not broken.
+export type { AudioStatusResponse } from '@/lib/documents';
 
 export type PresignDownloadResponse = {
     url: string;
@@ -25,91 +22,46 @@ type Props = {
 };
 
 export default function AudioStatus({ docId, docName, onReady }: Props) {
-    const [data, setData] = useState<AudioStatusResponse | null>(null);
+    // React Query drives all polling — no manual setTimeout needed.
+    const { data } = useAudioStatus(docId);
+
     const [downUrl, setDownUrl] = useState<string>('');
     const [elapsedSec, setElapsedSec] = useState(0);
 
+    // Guard so onReady fires at most once per docId mount.
     const navigatedRef = useRef(false);
-    const timerRef = useRef<number | null>(null);
-    const startTimeRef = useRef<number>(Date.now());
 
-    // Elapsed time counter
+    // Reset elapsed timer and navigation guard whenever the docId changes.
+    const startTimeRef = useRef<number>(Date.now());
     useEffect(() => {
         startTimeRef.current = Date.now();
+        setElapsedSec(0);
+        setDownUrl('');
+        navigatedRef.current = false;
+    }, [docId]);
+
+    // Elapsed time counter — ticks every second while the component is mounted.
+    useEffect(() => {
         const interval = setInterval(() => {
             setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000));
         }, 1000);
         return () => clearInterval(interval);
     }, [docId]);
 
+    // Fire onReady exactly once when the status transitions to READY.
     useEffect(() => {
-        let active = true;
-
-        function clearTimer() {
-            if (timerRef.current != null) {
-                window.clearTimeout(timerRef.current);
-                timerRef.current = null;
-            }
+        if (data?.status === 'READY' && !navigatedRef.current) {
+            navigatedRef.current = true;
+            onReady?.(docId);
         }
-
-        async function poll() {
-            try {
-                const res = await api.get<AudioStatusResponse>(`/documents/${docId}/audio`, {
-                    validateStatus: () => true,
-                });
-
-                if (!active) return;
-
-                setData(res.data);
-
-                const status = res.data?.status;
-
-                if (status === 'READY') {
-                    clearTimer();
-                    if (!navigatedRef.current) {
-                        navigatedRef.current = true;
-                        onReady?.(docId);
-                    }
-                    return;
-                }
-
-                if (status === 'ERROR') {
-                    clearTimer();
-                    return;
-                }
-
-                const retryAfterHeader = (res.headers as Record<string, string | number | undefined>)['retry-after'];
-                const retryAfter = Number(retryAfterHeader ?? 3);
-                const delayMs = Number.isFinite(retryAfter) ? Math.max(1, retryAfter) * 1000 : 3000;
-
-                clearTimer();
-                timerRef.current = window.setTimeout(poll, delayMs);
-            } catch {
-                if (!active) return;
-                clearTimer();
-                timerRef.current = window.setTimeout(poll, 3000);
-            }
-        }
-
-        navigatedRef.current = false;
-        setData(null);
-        setDownUrl('');
-        setElapsedSec(0);
-        clearTimer();
-
-        poll();
-
-        return () => {
-            active = false;
-            clearTimer();
-        };
-    }, [docId, onReady]);
+    }, [data?.status, docId, onReady]);
 
     async function refreshDownload() {
-        const { data } = await api.get<PresignDownloadResponse>(`/documents/${docId}/audio/download`, {
-            params: { ttlSeconds: 300 },
-        });
-        setDownUrl(data.url);
+        const { data: presign } = await api.get<PresignDownloadResponse>(
+            `/documents/${docId}/audio/download`,
+            { params: { ttlSeconds: 300 } },
+        );
+        setDownUrl(presign.url);
     }
 
     const formatTime = (sec: number) => {
@@ -119,9 +71,11 @@ export default function AudioStatus({ docId, docName, onReady }: Props) {
     };
 
     const status = data?.status;
-    const isProcessing = !status || status === 'PENDING' || status === 'PROCESSING';
+    // NONE = no audio job started yet; PROCESSING = job running; undefined = initial load
+    const isProcessing = !status || status === 'NONE' || status === 'PROCESSING';
     const isReady = status === 'READY';
-    const isError = status === 'ERROR';
+    // FAILED = backend failure; NOT_FOUND = synthetic 404 sentinel
+    const isError = status === 'FAILED' || status === 'NOT_FOUND';
 
     return (
         <motion.div
@@ -181,7 +135,7 @@ export default function AudioStatus({ docId, docName, onReady }: Props) {
                             </div>
                             <div className="flex items-center justify-between mt-2">
                                 <span className="text-xs text-white/50">
-                                    {!status || status === 'PENDING' ? 'Starting...' : 'Processing audio...'}
+                                    {!status || status === 'NONE' ? 'Starting...' : 'Processing audio...'}
                                 </span>
                                 <span className="text-xs text-white/50">
                                     {formatTime(elapsedSec)}

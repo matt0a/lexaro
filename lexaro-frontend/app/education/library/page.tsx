@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 
 import Sidebar from '@/components/dashboard/Sidebar';
-import api from '@/lib/api';
 import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
 import EducationDocumentCreateModal from '@/components/education/EducationDocumentCreateModal';
+import { useDocumentsList } from '@/hooks/useDocumentsList';
+import { queryKeys } from '@/lib/queryKeys';
 import {
     FolderOpen,
     Plus,
@@ -21,25 +23,7 @@ import {
     ChevronRight,
     Sparkles,
     Upload,
-    Filter,
 } from 'lucide-react';
-
-type PageResp<T> = {
-    content: T[];
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    size: number;
-};
-
-type DocumentResponse = {
-    id: number;
-    filename: string;
-    mime: string;
-    sizeBytes: number;
-    pages?: number | null;
-    uploadedAt: string;
-};
 
 /**
  * Format bytes to human readable string.
@@ -87,38 +71,38 @@ function getFileType(mime: string) {
 export default function EducationLibraryPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
 
-    const [docs, setDocs] = useState<DocumentResponse[]>([]);
-    const [loading, setLoading] = useState(true);
     const [openCreate, setOpenCreate] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     /**
-     * Load education documents from API.
+     * Fetch education documents via React Query.
+     * The hook caches the result (staleTime 15s) and deduplicated concurrent
+     * requests. `size: 100` matches the previous direct call.
      */
-    async function loadDocs() {
-        setLoading(true);
-        try {
-            const { data } = await api.get<PageResp<DocumentResponse>>('/documents', {
-                params: { page: 0, size: 100, sort: 'uploadedAt,DESC', purpose: 'EDUCATION' },
-            });
-            setDocs(data.content || []);
-        } finally {
-            setLoading(false);
-        }
-    }
+    const { data: docsPage, isLoading: loading } = useDocumentsList({
+        purpose: 'EDUCATION',
+        page: 0,
+        size: 100,
+    });
 
+    const docs = docsPage?.content ?? [];
+
+    /**
+     * Auth guard.
+     */
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         if (!token) {
             router.replace('/login');
-            return;
         }
-        loadDocs();
     }, [router]);
 
+    /**
+     * Handle ?create=1 URL param — open the create modal and clean the URL.
+     */
     useEffect(() => {
-        // /education/library?create=1 opens the modal
         if (searchParams.get('create') === '1') {
             setOpenCreate(true);
             router.replace('/education/library');
@@ -414,7 +398,13 @@ export default function EducationLibraryPage() {
                         open={openCreate}
                         onClose={() => setOpenCreate(false)}
                         onCreated={(id) => {
-                            loadDocs();
+                            /**
+                             * Invalidate the education documents list so the new document
+                             * appears immediately without a manual page refresh.
+                             * Also invalidate meUsage in case the upload consumed quota.
+                             */
+                            queryClient.invalidateQueries({ queryKey: queryKeys.documentsListAll() });
+                            queryClient.invalidateQueries({ queryKey: queryKeys.meUsage() });
                             router.push(`/education/doc/${id}`);
                         }}
                     />

@@ -1,33 +1,34 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/dashboard/Sidebar';
 import UploadSection from '@/components/upload/UploadSection';
 import api from '@/lib/api';
+import { useMeUsage } from '@/hooks/useMeUsage';
+import { queryKeys } from '@/lib/queryKeys';
 
 // Landing background
 import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
 
-type MeUsage = {
-    plan: 'FREE' | 'PREMIUM' | 'PREMIUM_PLUS' | 'BUSINESS' | 'BUSINESS_PLUS' | string;
-    monthlyUsed: number;
-    dailyUsed: number;
-    email?: string;
-};
-
 export default function DashboardPage() {
     const router = useRouter();
     const params = useSearchParams();
+    const queryClient = useQueryClient();
 
-    const [me, setMe] = useState<MeUsage | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { data: me, isLoading } = useMeUsage();
 
     // Prevent double-running sync in React 18 Strict Mode dev
     const hasHandledStripeReturn = useRef(false);
 
     const shouldOpenUpload = params.get('open') === 'upload';
 
+    /**
+     * Auth guard — redirect to login if no token is present.
+     * Also handles the Stripe return flow (checkout=success|cancel + session_id).
+     * The /me/usage data fetch is now handled by useMeUsage() above.
+     */
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         if (!token) {
@@ -38,43 +39,29 @@ export default function DashboardPage() {
         const checkout = params.get('checkout');
         const sessionId = params.get('session_id');
 
-        const fetchUsage = async () => {
-            const res = await api.get<MeUsage>('/me/usage');
-            setMe(res.data);
-        };
+        if (!hasHandledStripeReturn.current && checkout && (checkout === 'success' || checkout === 'cancel')) {
+            hasHandledStripeReturn.current = true;
 
-        (async () => {
-            try {
-                // ✅ If Stripe redirected back with a session_id, finalize on backend
-                if (!hasHandledStripeReturn.current && checkout && (checkout === 'success' || checkout === 'cancel')) {
-                    hasHandledStripeReturn.current = true;
-
-                    if (checkout === 'success' && sessionId) {
-                        try {
-                            await api.post('/billing/sync', { sessionId });
-                            // tell Sidebar (and anything else) to refresh billing/plan info
-                            window.dispatchEvent(new Event('lexaro:billing-updated'));
-                        } finally {
-                            // ✅ clean URL so refresh doesn't re-trigger sync
-                            router.replace('/dashboard');
-                        }
-                    } else {
-                        // cancel case
+            (async () => {
+                if (checkout === 'success' && sessionId) {
+                    try {
+                        await api.post('/billing/sync', { sessionId });
+                        // Invalidate usage cache so Sidebar + any usage display refreshes
+                        await queryClient.invalidateQueries({ queryKey: queryKeys.meUsage() });
+                    } finally {
+                        // Clean URL so a refresh does not re-trigger sync
                         router.replace('/dashboard');
                     }
+                } else {
+                    // cancel case
+                    router.replace('/dashboard');
                 }
-
-                await fetchUsage();
-            } catch {
-                router.replace('/login');
-            } finally {
-                setLoading(false);
-            }
-        })();
+            })();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router, params]);
 
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="min-h-screen grid place-items-center text-white bg-black">
                 Loading…
@@ -93,7 +80,7 @@ export default function DashboardPage() {
                 <div className="relative overflow-hidden min-h-screen">
                     <div className="pointer-events-none absolute inset-0 -z-10">
                         <LightPillarsBackground />
-                        {/* soft overlays so pillars don’t overpower UI */}
+                        {/* soft overlays so pillars don't overpower UI */}
                         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/45" />
                         <div className="absolute inset-0 bg-vignette-strong opacity-100" />
                     </div>

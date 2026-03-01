@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import AudioPlayer from '@/components/audio/AudioPlayer';
 import LightPillarsBackground from '@/components/reactbits/LightPillarsBackground';
+import { useMeUsage } from '@/hooks/useMeUsage';
 
 type PageResp<T> = {
     content: T[];
@@ -47,18 +48,6 @@ type SavedAudioItem = {
     doc: DocumentResponse;
     url: string;
     validUntil: number;
-};
-
-type UsageDto = {
-    plan: string;
-    unlimited: boolean;
-    verified: boolean;
-    monthlyCap: number;
-    monthlyUsed: number;
-    monthlyRemaining: number;
-    dailyCap: number;
-    dailyUsed: number;
-    dailyRemaining: number;
 };
 
 /**
@@ -116,97 +105,78 @@ export default function SavedAudioPage() {
     const [error, setError] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const [maxSpeed, setMaxSpeed] = useState<number>(1);
     const [deleting, setDeleting] = useState<number | null>(null);
 
     const pageSize = 12;
     const backendChunkSize = 50;
 
-    // Load user plan for max speed
-    useEffect(() => {
-        let alive = true;
-        (async () => {
-            try {
-                const { data } = await api.get<UsageDto>('/me/usage');
-                if (!alive) return;
-                setMaxSpeed(planToMaxSpeed(data?.plan));
-            } catch {
-                // keep default
-            }
-        })();
-        return () => {
-            alive = false;
-        };
-    }, []);
+    /**
+     * Replace the dedicated /me/usage useEffect with the shared useMeUsage hook.
+     * This eliminates a duplicate request when the dashboard/sidebar has already
+     * fetched the same data (the cache is shared via QueryClientProvider).
+     */
+    const { data: meUsage } = useMeUsage();
+    const maxSpeed = planToMaxSpeed(meUsage?.plan);
 
     /**
      * Load audio items for a logical page.
+     *
+     * Fetches backend document pages sequentially and presigns audio download URLs
+     * one-by-one, stopping as soon as `needed` READY items have been collected.
+     * `needed = endIndex + 1` — enough to fill the current page plus one extra to
+     * determine whether a Next page exists.
+     *
+     * This bounded early-exit approach replaces the previous Promise.all approach
+     * that presigned every doc in a 50-item backend chunk regardless of need,
+     * causing 50–136 wasted API calls on page load.
      */
     const loadLogicalPage = useCallback(
         async (lp: number) => {
             setLoading(true);
             setError('');
             try {
-                const targetCount = (lp + 1) * pageSize;
-                let ready: SavedAudioItem[] = [];
+                // How many READY items we need: enough to show this page + detect hasNext
+                const startIndex = lp * pageSize;
+                const endIndex = startIndex + pageSize;
+                const needed = endIndex + 1;
 
+                const ready: SavedAudioItem[] = [];
                 let backendPage = 0;
                 let totalDocPages = 1;
                 let totalElements = 0;
 
-                const fetchDocs = async (p: number) => {
+                // Iterate backend pages; presign one doc at a time and break the moment
+                // `needed` READY items are accumulated — avoids presigning beyond what
+                // the current UI page requires.
+                outer: while (backendPage < totalDocPages) {
                     const { data } = await api.get<PageResp<DocumentResponse>>('/documents', {
-                        params: { page: p, size: backendChunkSize, sort: 'uploadedAt,DESC', purpose: 'AUDIO' },
+                        params: { page: backendPage, size: backendChunkSize, sort: 'uploadedAt,DESC', purpose: 'AUDIO' },
                     });
 
                     totalDocPages = data.totalPages || 1;
                     totalElements = data.totalElements || 0;
-
-                    const candidates = await Promise.all(
-                        data.content.map(async (doc) => {
-                            try {
-                                const { data: presign } = await api.get<PresignDownloadResponse>(
-                                    `/documents/${doc.id}/audio/download`,
-                                    { params: { ttlSeconds: 300 } }
-                                );
-
-                                return {
-                                    ok: true,
-                                    item: {
-                                        doc,
-                                        url: presign.url,
-                                        validUntil: Date.now() + (presign.ttlSeconds ?? 300) * 1000,
-                                    } as SavedAudioItem,
-                                };
-                            } catch {
-                                return { ok: false, item: null as any };
-                            }
-                        })
-                    );
-
-                    ready = ready.concat(candidates.filter((c) => c.ok).map((c) => c.item));
-                };
-
-                while (ready.length < targetCount && backendPage < totalDocPages) {
-                    await fetchDocs(backendPage);
                     backendPage++;
-                }
 
-                let _hasNext = false;
-                if (ready.length > targetCount) {
-                    _hasNext = true;
-                } else {
-                    while (!_hasNext && backendPage < totalDocPages) {
-                        await fetchDocs(backendPage);
-                        backendPage++;
-                        if (ready.length > targetCount) _hasNext = true;
+                    for (const doc of data.content) {
+                        if (ready.length >= needed) break outer;
+                        try {
+                            const { data: presign } = await api.get<PresignDownloadResponse>(
+                                `/documents/${doc.id}/audio/download`,
+                                { params: { ttlSeconds: 300 } }
+                            );
+                            ready.push({
+                                doc,
+                                url: presign.url,
+                                validUntil: Date.now() + (presign.ttlSeconds ?? 300) * 1000,
+                            });
+                        } catch {
+                            // doc has no READY audio yet — skip silently
+                        }
                     }
                 }
 
-                const start = lp * pageSize;
-                const end = start + pageSize;
-                setItems(ready.slice(start, end));
-                setHasNext(_hasNext);
+                setItems(ready.slice(startIndex, endIndex));
+                setHasNext(ready.length > endIndex);
                 setLogicalPage(lp);
                 setTotalCount(totalElements);
             } catch (e: any) {

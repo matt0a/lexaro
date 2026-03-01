@@ -31,7 +31,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/actuator/prometheus",
                                 "/actuator/health",
-                                "/actuator/info"
+                                "/actuator/info",
+                                "/error"   // allow /error so Spring MVC exception forwarding isn't blocked by security
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback configuration for Lexaro API.
+
+    Includes both Spring Boot's default appender definitions and a custom CONSOLE_LOG_PATTERN
+    that embeds the MDC fields populated by:
+      - RequestCorrelationFilter  → requestId, path
+      - UserMdcInterceptor        → userId
+
+    Pattern fields:
+      %d{...}           – timestamp
+      %5p               – log level, right-padded to 5 chars
+      [%X{requestId:-}] – requestId from MDC; "-" when absent (unauthenticated or non-HTTP)
+      [uid:%X{userId:-}] – userId from MDC; "-" when absent (anonymous request)
+      %40.40logger{39}  – logger name, truncated/padded to 40 chars
+      %m%n              – message and newline
+
+    The spring-boot defaults.xml and console-appender.xml are included so that Spring Boot's
+    own log level properties (logging.level.*) and the CONSOLE appender ref continue to work.
+    The CONSOLE_LOG_PATTERN property defined here overrides the default in console-appender.xml.
+-->
+<configuration>
+    <!-- Spring Boot defaults: color, exception converter, etc. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Custom pattern; must be defined BEFORE console-appender.xml reads CONSOLE_LOG_PATTERN -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%X{requestId:--}] [uid:%X{userId:--}] --- %40.40logger{39} : %m%n"/>
+
+    <!-- Spring Boot CONSOLE appender (uses CONSOLE_LOG_PATTERN defined above) -->
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
